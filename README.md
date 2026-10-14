@@ -2,8 +2,13 @@
 
 *A Diablo 2-style isometric action RPG, written in Python.*
 
-_[Steam](https://store.steampowered.com/app/4840980/Bound_to_Rot/)_  
-_[Discord](https://discord.com/invite/s2rgHuctdc)_  
+[![CI](https://img.shields.io/github/actions/workflow/status/MangasMango/bound-to-rot/ci.yml?branch=main&label=CI)](https://github.com/MangasMango/bound-to-rot/actions)
+[![License: GPL v3](https://img.shields.io/github/license/MangasMango/bound-to-rot)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Steam](https://img.shields.io/badge/Steam-Store-1B2838?logo=steam&logoColor=white)](https://store.steampowered.com/app/4840980/Bound_to_Rot/)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/s2rgHuctdc)
+[![itch.io Assets](https://img.shields.io/badge/itch.io-Assets-FA5C5C?logo=itch.io&logoColor=white)](https://itch.io/c/8322662/boundtorot)
+
 _[Contributing](CONTRIBUTING.md)_  
 _[Third-Party Assets](THIRD_PARTY_ASSETS.md)_  
 
