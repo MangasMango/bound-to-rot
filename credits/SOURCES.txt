@@ -1,0 +1,8 @@
+Other Art
+=========
+
+Tarot / Major Arcana pixel art (used for cards & drops):
+  https://jcanabal.itch.io/major-arcana-pixel-art-free
+
+Icon pack (assets/ui-icons) and interface widgets: see respective
+authors in ui/icons.py where available.
