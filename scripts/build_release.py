@@ -2,12 +2,16 @@
 Build the one-file executable with PyInstaller and zip it for distribution.
 
 Run per target OS (PyInstaller cannot cross-compile):
-    python scripts/build_release.py
+    python scripts/build_release.py                 # includes everything on disk
+    python scripts/build_release.py --no-private-packs
+        # temporarily removes the 8 non-redistributable packs from the build;
+        # use this for zips you intend to UPLOAD (itch.io, GitHub, ...)
 
 Output: dist/BoundToRot-<version>-<os>-<arch>.zip
 The zip holds the renamed executable plus LICENSE / README / THIRD_PARTY_ASSETS.
 """
 
+import argparse
 import os
 import platform
 import shutil
@@ -47,24 +51,69 @@ def has_private_packs() -> list:
     return found
 
 
+def hide_packs(packs) -> list:
+    """Move pack folders outside assets/ so PyInstaller can't see them;
+    returns [(hidden, original)] pairs."""
+    stash = ROOT / '.private_packs_tmp'
+    stash.mkdir(exist_ok=True)
+    moved = []
+    for name in packs:
+        src = ROOT / 'assets' / name
+        tmp = stash / name
+        if tmp.exists():
+            shutil.rmtree(tmp)
+        src.rename(tmp)
+        moved.append((tmp, src))
+    return moved
+
+
+def restore_packs(moved) -> None:
+    stash = ROOT / '.private_packs_tmp'
+    for tmp, src in moved:
+        if tmp.exists():
+            if src.exists():                  # paranoia: never clobber
+                print(f'[build] ERROR: {src} reappeared while {tmp} hidden')
+                continue
+            tmp.rename(src)
+    if moved and stash.exists() and not any(stash.iterdir()):
+        stash.rmdir()
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description='Build and zip Bound To Rot.')
+    ap.add_argument('--no-private-packs', action='store_true',
+                    help='exclude the 8 non-redistributable asset packs '
+                         '(use for zips you will upload)')
+    args = ap.parse_args()
+
     version = project_version()
     tag = f'{os_tag()}-{platform.machine().lower()}'
     exe_src = ROOT / 'dist' / ('main.exe' if os.name == 'nt' else 'main')
 
-    print(f'[build] PyInstaller main.spec (BoundToRot {version}, {tag})')
-    subprocess.run(
-        [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
-         str(ROOT / 'main.spec')],
-        cwd=ROOT, check=True)
+    packs = has_private_packs()
+    moved = []
+    if args.no_private_packs and packs:
+        print(f'[build] excluding non-redistributable packs: {", ".join(packs)}')
+        moved = hide_packs(packs)
+    try:
+        print(f'[build] PyInstaller main.spec (BoundToRot {version}, {tag})')
+        subprocess.run(
+            [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
+             str(ROOT / 'main.spec')],
+            cwd=ROOT, check=True)
+    finally:
+        restore_packs(moved)
+
     if not exe_src.exists():
         sys.exit(f'[build] expected executable missing: {exe_src}')
 
-    packs = has_private_packs()
-    if packs:
+    if args.no_private_packs:
+        print('[build] private packs excluded: this zip is safe to publish.')
+    elif packs:
         print('[build] WARNING: this build bundles NON-REDISTRIBUTABLE packs:')
         print('[build] WARNING:  ' + ', '.join(packs))
-        print('[build] WARNING: do not publish this zip; use CI-built releases instead.')
+        print('[build] WARNING: do not publish this zip; '
+              'rebuild with --no-private-packs for releases.')
 
     exe_name = 'BoundToRot.exe' if os.name == 'nt' else 'BoundToRot'
     stage = ROOT / 'dist' / f'BoundToRot-{version}-{tag}'

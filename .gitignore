@@ -24,6 +24,9 @@ shot*.png
 snap_*.png
 skin_*.png
 
+# Stash dir used by scripts/build_release.py --no-private-packs
+.private_packs_tmp/
+
 # Leftover metadata from the non-redistributable pack
 /assets/Licence.txt
 /assets/Asset Index.txt
