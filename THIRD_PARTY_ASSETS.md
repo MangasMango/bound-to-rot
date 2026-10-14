@@ -14,7 +14,11 @@ Tarot:
 [https://sasvel.itch.io/pixel-tarot](https://sasvel.itch.io/pixel-tarot)
 
 ### `assets/fonts/`
-Font files under the SIL Open Font License; see `assets/fonts/OFL.txt`.
+OSerif (Regular and Italic) is CC0 and ships with the repository. You can also
+drop any font you like into this folder, for example
+[Knights Quest](https://www.1001fonts.com/knights-quest-font.html#license) or
+[Exocet](https://fonts.adobe.com/fonts/exocet); the font picker in the settings
+menu lists every `.ttf` in the folder.
 
 ## Bundled assets supplied by the project author
 
@@ -27,11 +31,10 @@ redistribution with this repository:
 
 ## Assets with unknown licence
 
-`assets/ost/` (the soundtrack) and `assets/ability-icons/` are bundled because
-the game uses them, but their original licence is not documented. If you are
-the rights holder, or know where they came from, please get in touch (see the
-contact links at the bottom of this file) so they can be credited properly or
-removed.
+`assets/ost/` (the soundtrack) is bundled because the game uses it, but its
+original licence is not documented. If you are the rights holder, or know where
+it came from, please get in touch (see the contact links at the bottom of this
+file) so it can be credited properly or removed.
 
 ## Assets NOT distributed with this repository
 
