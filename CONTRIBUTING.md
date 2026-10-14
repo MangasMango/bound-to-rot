@@ -81,7 +81,7 @@ If the answer is no, it doesn't belong in this world.
 - The codebase is built on plain `dict`s and module-level functions. Don't
   introduce classes with getters/setters when a dict or a function does the job.
 - Avoid new dependencies. The game runs on a deliberately small stack
-  (`raylib`, `numpy`, `numba`, `pillow`); discuss before adding to it.
+  (`raylib`, `numpy`, `pillow`); discuss before adding to it.
 
 ### Mind the frame budget.
 The simulation is fixed-timestep and the renderer runs every frame. Avoid
