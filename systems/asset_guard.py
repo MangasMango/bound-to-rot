@@ -37,7 +37,6 @@ EXCLUDED_ASSET_DIRS = (
     'playable character',
     'prop',
     'user interface',
-    'vfx',
 )
 
 
