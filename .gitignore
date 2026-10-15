@@ -48,8 +48,6 @@ skin_*.png
 !/assets/none-playable character/README.md
 /assets/playable character/*
 !/assets/playable character/README.md
-/assets/vfx/*
-!/assets/vfx/README.md
 /assets/gui/*
 !/assets/gui/README.md
 !/assets/vfx/README.md
