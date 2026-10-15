@@ -1,0 +1,21 @@
+Other Art
+=========
+
+Tarot / Major Arcana pixel art (used for cards & drops) — SasVel, CC BY 4.0:
+  https://sasvel.itch.io/pixel-tarot
+
+Fonts — OSerif by GGBotNet, CC0 1.0:
+  https://github.com/ggbotnet/fonts-cc0
+
+UI icons — 1-bit Pixel Icons by Nikoichu, CC0 1.0:
+  https://nikoichu.itch.io/pixel-icons
+
+UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
+  https://kenney.nl
+  Music ("Dark Loop" (CC BY 3.0) and "Devilish Design" (GPL 3.0)):
+  https://opengameart.org/content/crypt          (Machine)
+  https://opengameart.org/content/devilish-design (Johan Brodd)
+
+GUI kit — Bloodlines — Dark UI by xGaida and Shieldomirs (shipped inside
+the game only; raw files excluded from this repository):
+  see assets/gui/LICENSE.txt
