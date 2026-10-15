@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+build/
+dist/
+release/
+
+# IDE / agent tooling
+.idea/
+.claude/
+
+# Personal AI-agent notes — every contributor keeps their own, never committed
+/.ai/
+
+# Local scratch files (personal notes, debug dumps, screenshots)
+bugs.txt
+gem-ideas.txt
+loot_debug.txt
+issues.md
+screenshot_*.png
+shot*.png
+snap_*.png
+skin_*.png
+
+# Stash dir used by scripts/build_release.py --no-private-packs
+.private_packs_tmp/
+
+# Leftover metadata from the non-redistributable pack
+/assets/Licence.txt
+/assets/Asset Index.txt
+/assets/Animation Index.txt
+/assets/+ Update.txt
+
+# Non-redistributable asset packs — contents ignored, README placeholder stays
+/assets/boss/*
+!/assets/boss/README.md
+/assets/environment/*
+!/assets/environment/README.md
+/assets/user interface/*
+!/assets/user interface/README.md
+/assets/prop/*
+!/assets/prop/README.md
+/assets/enemy/*
+!/assets/enemy/README.md
+/assets/none-playable character/*
+!/assets/none-playable character/README.md
+/assets/playable character/*
+!/assets/playable character/README.md
+/assets/vfx/*
+!/assets/vfx/README.md
+/assets/gui/*
+!/assets/gui/README.md
+!/assets/vfx/README.md
