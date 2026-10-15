@@ -1,0 +1,94 @@
+# Third-party assets
+
+The **code** in this repository is licensed under the GNU General Public
+License v3.0 (see [`LICENSE`](LICENSE)).
+
+**Game assets are not covered by the GPLv3 grant.** Assets remain under their
+original licences, listed below. Some asset folders are not distributed with
+this repository at all (see the last section).
+
+## Bundled assets with documented sources
+
+### `assets/cards/`
+Tarot by SasVel — **CC BY 4.0** (attribution required):
+[https://sasvel.itch.io/pixel-tarot](https://sasvel.itch.io/pixel-tarot)
+
+### `assets/fonts/`
+OSerif (Regular and Italic) by GGBotNet — **CC0 1.0**. You can also drop any
+font you like into this folder, for example
+[Knights Quest](https://www.1001fonts.com/knights-quest-font.html#license) or
+[Exocet](https://fonts.adobe.com/fonts/exocet); the font picker in the settings
+menu lists every `.ttf` in the folder.
+
+### `assets/ost/`
+Two tracks cover every music cue in the game:
+
+- **Dark Loop** by Machine — **CC BY 3.0**:
+  <https://opengameart.org/content/crypt>
+- **Devilish Design** by Johan Brodd (jobromedia) — **GPL 3.0**:
+  <https://opengameart.org/content/devilish-design>
+
+Attribution: "Dark Loop" — Machine (CC BY 3.0); "Devilish Design" —
+Johan Brodd (GPL 3.0).
+
+### `assets/ui-icons/`
+1-bit Pixel Icons by Nikoichu — **CC0 1.0**:
+<https://nikoichu.itch.io/pixel-icons>
+
+### `assets/ui-sfx/` and `assets/ingame-sfx/`
+Sound effects by **Kenney** — **CC0 1.0** (UI Audio, Interface Sounds, RPG
+Audio, Impact Sounds, Footsteps packs). Credit appreciated, not required:
+<https://kenney.nl>
+
+### `assets/gui/`
+GUI textures (**Bloodlines — Dark UI**) by xGaida and Shieldomirs are shipped
+inside the built game per their licence, but their **raw files are not part
+of this repository**. Use inside an integrated project is licensed; a copy
+of the pack's own `LICENSE.txt` is kept at `assets/gui/` for reference.
+
+## Assets NOT distributed with this repository
+
+The following folders are **excluded on purpose**. Be aware that **the core
+game relies heavily on this pack**: most characters (playable and NPC),
+enemies, bosses, props, UI elements and VFX come from the **Lords of Pain**
+pack by trevor-pupkin: <https://trevor-pupkin.itch.io/lords-of-pain>.
+Its licence states:
+
+> LICENCE: This asset pack can be used in both free and commercial projects.
+> You can modify it to suit your own needs. **You may not redistribute or
+> resell it.**
+> <https://trevor-pupkin.itch.io/lords-of-pain>
+
+Excluded folders (each contains a README placeholder; contents are
+gitignored):
+
+- `assets/boss/`
+- `assets/environment/`
+- `assets/enemy/`
+- `assets/none-playable character/`
+- `assets/playable character/`
+- `assets/prop/`
+- `assets/user interface/`
+- `assets/vfx/`
+
+The `assets/gui/` pack is handled separately (see above): the files stay on
+your disk if you have them, but they are not tracked in this repository —
+clone the repo, obtain the pack, and drop its contents in.
+
+## Getting the assets
+
+To run the game you must obtain the excluded files yourself and copy them into
+the matching folders. Everything the game uses is collected here:
+
+[https://itch.io/c/8322662/boundtorot](https://itch.io/c/8322662/boundtorot)
+
+If anything is missing, or you have questions about a licence, contact me on
+[Discord](https://discord.com/invite/s2rgHuctdc) or by email at
+[mangasmangostudios@gmail.com](mailto:mangasmangostudios@gmail.com).
+
+## Contributing new assets
+
+AI-generated assets are prohibited. Do not submit them; make new art yourself.
+For isometric sprites, use my
+[3d-to-isometric](https://github.com/MangasMango/3d-to-isometric) tool to make
+the process much faster.

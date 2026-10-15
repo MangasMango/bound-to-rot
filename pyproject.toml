@@ -1,0 +1,19 @@
+[project]
+name = "bound-to-rot"
+version = "0.1.0"
+license = "GPL-3.0-or-later"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.4.6",
+    "pillow>=12.2.0",
+    "raylib>=5.5.0",
+]
+
+[project.scripts]
+bound-to-rot = "main:main"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.20.0",
+]
