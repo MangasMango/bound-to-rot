@@ -4,7 +4,7 @@ Build the one-file executable with PyInstaller and zip it for distribution.
 Run per target OS (PyInstaller cannot cross-compile):
     python scripts/build_release.py                 # includes everything on disk
     python scripts/build_release.py --no-private-packs
-        # temporarily removes the 8 non-redistributable packs from the build;
+        # temporarily removes the 7 non-redistributable packs from the build;
         # use this for zips you intend to UPLOAD (itch.io, GitHub, ...)
 
 Output: dist/BoundToRot-<version>-<os>-<arch>.zip
@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 PRIVATE_PACKS = (
     'boss', 'environment', 'enemy', 'none-playable character',
-    'playable character', 'prop', 'user interface', 'vfx',
+    'playable character', 'prop', 'user interface',
 )
 
 
@@ -82,7 +82,7 @@ def restore_packs(moved) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description='Build and zip Bound To Rot.')
     ap.add_argument('--no-private-packs', action='store_true',
-                    help='exclude the 8 non-redistributable asset packs '
+                    help='exclude the 7 non-redistributable asset packs '
                          '(use for zips you will upload)')
     args = ap.parse_args()
 

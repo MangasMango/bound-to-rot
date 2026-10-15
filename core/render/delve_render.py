@@ -557,95 +557,82 @@ class DelveRenderMixin:
             pulse_r = 6 + int(4 * (1 - s['timer'] / 2.0))
             rl.draw_circle(sparkle_cx, sparkle_cy, pulse_r, rl.Color(255, 255, 200, alpha))
             rl.draw_circle(sparkle_cx, sparkle_cy, pulse_r // 2, rl.Color(255, 255, 255, alpha))
-    def _draw_swoosh_effects(self, cw, ch):
-        if not self._swoosh_frames:
+    def _vfx_quad(self, shader_name, center_x, center_y, size, angle, color,
+                  progress=None, seed=None):
+        """Draw one procedural VFX quad: a vfx_* fragment shader over the
+        shared 1x1 white texture. Silently no-ops when the shader (or the
+        GL context behind it) is unavailable, matching the old behaviour
+        of drawing with a missing sprite strip."""
+        shaders = getattr(self, 'shaders', None)
+        shader  = shaders.get(shader_name) if shaders is not None else None
+        white   = getattr(self, '_vfx_white', None)
+        if shader is None or white is None or white.id == 0:
             return
-        _SWOOSH_FPS = 22.0
+        if progress is not None:
+            shaders.set_float(shader_name, 'u_progress', float(progress))
+        if seed is not None:
+            shaders.set_float(shader_name, 'u_seed', float(seed))
+        dst    = rl.Rectangle(float(center_x), float(center_y),
+                              float(size), float(size))
+        origin = rl.Vector2(size / 2.0, size / 2.0)
+        src    = rl.Rectangle(0.0, 0.0, 1.0, 1.0)
+        rl.begin_shader_mode(shader)
+        rl.draw_texture_pro(white, src, dst, origin, angle, color)
+        rl.end_shader_mode()
+
+    def _draw_swoosh_effects(self, cw, ch):
         tile_size = int(ISO_W * self.iso.scale)
         draw_size = int(tile_size * 1.4)
         for e in self._swoosh_effects:
-            frame_idx = min(7, int(e['timer'] * _SWOOSH_FPS))
-            tex = self._swoosh_frames[frame_idx]
-            if not tex or tex.id == 0:
-                continue
+            progress = min(1.0, e['timer'] * 22.0 / 8.0)   # 8 frames @ 22 FPS
             sx, sy   = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
-            center_x = sx + tile_size // 2
-            center_y = sy + tile_size // 2
-            src      = rl.Rectangle(0, 0, 256.0, 256.0)
-            dst      = rl.Rectangle(float(center_x), float(center_y), float(draw_size), float(draw_size))
-            origin   = rl.Vector2(draw_size / 2.0, draw_size / 2.0)
-            rl.draw_texture_pro(tex, src, dst, origin, e['angle'], e.get('color', rl.WHITE))
+            self._vfx_quad('vfx_swoosh',
+                           sx + tile_size // 2, sy + tile_size // 2,
+                           draw_size, e['angle'],
+                           e.get('color', rl.WHITE), progress=progress)
     def _draw_glint_effects(self, cw, ch):
-        if not self._glint_frames:
-            return
-        _GLINT_FPS = 18.0
         tile_size = int(ISO_W * self.iso.scale)
         for e in self._glint_effects:
-            frame_idx = min(len(self._glint_frames) - 1, int(e['timer'] * _GLINT_FPS))
-            tex = self._glint_frames[frame_idx]
-            if not tex or tex.id == 0:
-                continue
-            sx, sy = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
-            draw_size = int(tile_size * e.get('scale', 1.0))
-            center_x  = sx + tile_size // 2
-            center_y  = sy + tile_size // 2
-            src       = rl.Rectangle(0, 0, 256.0, 256.0)
-            dst       = rl.Rectangle(float(center_x), float(center_y), float(draw_size), float(draw_size))
-            origin    = rl.Vector2(draw_size / 2.0, draw_size / 2.0)
-            rl.draw_texture_pro(tex, src, dst, origin, 0.0, e.get('color', rl.WHITE))
+            progress = min(1.0, e['timer'] * 18.0 / 8.0)   # 8 frames @ 18 FPS
+            sx, sy   = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
+            self._vfx_quad('vfx_glint',
+                           sx + tile_size // 2, sy + tile_size // 2,
+                           int(tile_size * e.get('scale', 1.0)), 0.0,
+                           e.get('color', rl.WHITE), progress=progress)
     def _draw_flame_effects(self, cw, ch):
-        if not self._flame_frames:
-            return
-        _FLAME_FPS = 12.0
         tile_size = int(ISO_W * self.iso.scale)
         draw_size = int(tile_size * 1.1)
         for e in self._flame_effects:
-            frame_idx = min(len(self._flame_frames) - 1, int(e['timer'] * _FLAME_FPS))
-            tex = self._flame_frames[frame_idx]
-            if not tex or tex.id == 0:
-                continue
+            progress = min(1.0, e['timer'] * 12.0 / 8.0)   # 8 frames @ 12 FPS
             sx, sy   = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
-            center_x = sx + tile_size // 2
-            center_y = sy + tile_size // 2
-            src      = rl.Rectangle(0, 0, 256.0, 256.0)
-            dst      = rl.Rectangle(float(center_x), float(center_y), float(draw_size), float(draw_size))
-            origin   = rl.Vector2(draw_size / 2.0, draw_size / 2.0)
-            rl.draw_texture_pro(tex, src, dst, origin, 0.0, e.get('color', rl.WHITE))
+            seed     = (e['x'] * 13.7 + e['y'] * 7.3) % 100.0
+            self._vfx_quad('vfx_flame',
+                           sx + tile_size // 2, sy + tile_size // 2,
+                           draw_size, 0.0,
+                           e.get('color', rl.WHITE),
+                           progress=progress, seed=seed)
     def _draw_glow_effects(self, cw, ch):
-        if not self._glow_tex or self._glow_tex.id == 0:
-            return
         _GLOW_DUR = 0.35
         tile_size = int(ISO_W * self.iso.scale)
-        tex_w = float(self._glow_tex.width)
-        tex_h = float(self._glow_tex.height)
         for e in self._glow_effects:
             progress  = e['timer'] / _GLOW_DUR
             alpha     = int(220 * (1.0 - progress))
             base_col  = e.get('color', rl.WHITE)
             tint      = rl.Color(base_col.r, base_col.g, base_col.b, alpha)
-            draw_size = int(tile_size * 2.2 * e.get('scale', 1.0))
             sx, sy    = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
-            center_x  = sx + tile_size // 2
-            center_y  = sy + tile_size // 2
-            src       = rl.Rectangle(0.0, 0.0, tex_w, tex_h)
-            dst       = rl.Rectangle(float(center_x), float(center_y), float(draw_size), float(draw_size))
-            origin    = rl.Vector2(draw_size / 2.0, draw_size / 2.0)
-            rl.draw_texture_pro(self._glow_tex, src, dst, origin, 0.0, tint)
+            self._vfx_quad('vfx_glow',
+                           sx + tile_size // 2, sy + tile_size // 2,
+                           int(tile_size * 2.2 * e.get('scale', 1.0)), 0.0, tint)
 
         # Angel form — persistent pulsing halo on the player
         if self._angel_timer > 0:
             pulse     = 0.5 + 0.5 * math.sin(rl.get_time() * 8.0)
             alpha     = int(120 + 90 * pulse)
-            tile_size = int(ISO_W * self.iso.scale)
             draw_size = int(tile_size * 2.4)
             sx, sy    = self.iso.world_to_screen(self.px, self.py, cw, ch)
-            center_x  = sx + tile_size // 2
-            center_y  = sy + tile_size // 2
-            src       = rl.Rectangle(0.0, 0.0, float(self._glow_tex.width), float(self._glow_tex.height))
-            dst       = rl.Rectangle(float(center_x), float(center_y), float(draw_size), float(draw_size))
-            origin    = rl.Vector2(draw_size / 2.0, draw_size / 2.0)
-            rl.draw_texture_pro(self._glow_tex, src, dst, origin, 0.0,
-                                rl.Color(255, 235, 150, alpha))
+            self._vfx_quad('vfx_glow',
+                           sx + tile_size // 2, sy + tile_size // 2,
+                           draw_size, 0.0, rl.Color(255, 235, 150, alpha))
     def _draw_ground_tooltip(self, gi, cw, ch):
         slot = gi.get('items', [None])[0]
         if not slot:

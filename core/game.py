@@ -474,7 +474,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._loot_indicators   = {}  # rarity -> Texture2D
         self._gold_drop_spr   = None
         self._ability_icons   = {}  # ability_id -> Texture2D
-        self._swoosh_frames   = []  # 8 x Texture2D
         self._swoosh_effects  = []  # active: {'x','y','angle','timer','color'}
         self._dmg_numbers     = []  # active: {'x','y','timer','value','color'}
         self._vessel_unlock_timer = 0.0
@@ -482,12 +481,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._save_timer      = 0.0
         self._save_notice_timer = 0.0
         self._inv_full_timer  = 0.0
-        self._glint_frames    = []  # 8 x Texture2D
         self._glint_effects   = []  # active: {'x','y','timer','color','scale','vel_x','vel_y'}
-        self._flame_frames    = []  # 8 x Texture2D
         self._flame_effects   = []  # active: {'x','y','timer','color'}
-        self._glow_tex        = None
         self._glow_effects    = []  # active: {'x','y','timer','color','scale'}
+        # Procedural VFX: 1x1 white quad drawn through the vfx_* shaders
+        # (assets/shaders/vfx_*.fs) — no sprite strips to load.
+        self._vfx_white       = None
 
         # Click-to-interact target (portal / crate)
         self.interact_target = None
@@ -562,7 +561,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         cursor_path = os.path.join(_ASSETS, 'user interface', 'cursor', 'cursor_gauntlet_blue.png')
         self._cursor_tex = rl.load_texture(cursor_path) if os.path.exists(cursor_path) else None
-        green_path = os.path.join(_ASSETS, 'user interface', 'cursor', 'cursor_gauntlet_green.png')
+        green_path = os.path.join(_ASSETS, 'user interface', 'cursor', 'cursor_gauntlet_red.png')
         self._cursor_tex_green = rl.load_texture(green_path) if os.path.exists(green_path) else None
 
         anima_path = os.path.join(_ASSETS, 'ui', 'anima_panel.jpg')
@@ -606,6 +605,21 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     print(f"[shader] '{_sn}' failed to load")
                 else:
                     print(f"[shader] '{_sn}' loaded OK")
+
+            # Procedural combat VFX (replaces the old vfx sprite strips)
+            _vfx_shaders = (
+                ('vfx_swoosh', 'vfx_swoosh.fs'),
+                ('vfx_glint',  'vfx_glint.fs'),
+                ('vfx_flame',  'vfx_flame.fs'),
+                ('vfx_glow',   'vfx_glow.fs'),
+            )
+            for _sn, _fn in _vfx_shaders:
+                if self.shaders.load_fragment(_sn, _fn) is None:
+                    print(f"[shader] '{_sn}' failed to load — effect disabled")
+                else:
+                    print(f"[shader] '{_sn}' loaded OK")
+            self._vfx_white = rl.load_texture_from_image(
+                rl.gen_image_color(1, 1, rl.WHITE))
         rl.hide_cursor()
 
     def _load_lighting_textures(self):
@@ -815,29 +829,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     for ability_id in ability_ids:
                         self._ability_icons[ability_id] = tex
         add(_ability_icons)
-
-        def _vfx_a():
-            # Swoosh + Glint VFX frames
-            for i in range(8):
-                p = os.path.join(_ASSETS, 'vfx', 'swoosh', f'swoosh_{i}.png')
-                if os.path.exists(p):
-                    self._swoosh_frames.append(rl.load_texture(p))
-            for i in range(8):
-                p = os.path.join(_ASSETS, 'vfx', 'glint', f'glint_{i}.png')
-                if os.path.exists(p):
-                    self._glint_frames.append(rl.load_texture(p))
-        add(_vfx_a)
-
-        def _vfx_b():
-            # Flame VFX frames + Glow texture
-            for i in range(8):
-                p = os.path.join(_ASSETS, 'vfx', 'flame', f'flame_{i}.png')
-                if os.path.exists(p):
-                    self._flame_frames.append(rl.load_texture(p))
-            p = os.path.join(_ASSETS, 'vfx', 'glow.png')
-            if os.path.exists(p):
-                self._glow_tex = rl.load_texture(p)
-        add(_vfx_b)
 
         def _filters():
             vignette_path = os.path.join(_ASSETS, 'user interface', 'filter', 'filter_vignette.png')
@@ -2890,14 +2881,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             if tex and tex.id > 0 and tex.id not in _unloaded_ids:
                 rl.unload_texture(tex)
                 _unloaded_ids.add(tex.id)
-        for tex in self._swoosh_frames:
-            if tex and tex.id > 0: rl.unload_texture(tex)
-        for tex in self._glint_frames:
-            if tex and tex.id > 0: rl.unload_texture(tex)
-        for tex in self._flame_frames:
-            if tex and tex.id > 0: rl.unload_texture(tex)
-        if self._glow_tex and self._glow_tex.id > 0:
-            rl.unload_texture(self._glow_tex)
+        if self._vfx_white and self._vfx_white.id > 0:
+            rl.unload_texture(self._vfx_white)
+            self._vfx_white = None
         if self._cursor_tex and self._cursor_tex.id > 0:
             rl.unload_texture(self._cursor_tex)
         if self._cursor_tex_green and self._cursor_tex_green.id > 0:

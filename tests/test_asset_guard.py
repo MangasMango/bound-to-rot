@@ -27,10 +27,10 @@ from systems import asset_guard
 
 
 class TestExcludedDirs(unittest.TestCase):
-    def test_expected_eight_folders(self):
-        self.assertEqual(len(asset_guard.EXCLUDED_ASSET_DIRS), 8)
+    def test_expected_seven_folders(self):
+        self.assertEqual(len(asset_guard.EXCLUDED_ASSET_DIRS), 7)
         for name in ('boss', 'environment', 'enemy', 'none-playable character',
-                     'playable character', 'prop', 'user interface', 'vfx'):
+                     'playable character', 'prop', 'user interface'):
             self.assertIn(name, asset_guard.EXCLUDED_ASSET_DIRS)
 
 
@@ -78,19 +78,18 @@ class TestMissingDetection(unittest.TestCase):
                            'none-playable character': ['README.md'],
                            'playable character': ['knight.png'],
                            'prop': ['README.md'],
-                           'user interface': ['README.md'],
-                           'vfx': ['README.md']})
+                           'user interface': ['README.md']})
         self.assertEqual(
             sorted(asset_guard.missing_asset_folders(root)),
             ['enemy', 'none-playable character', 'prop',
-             'user interface', 'vfx'])
+             'user interface'])
 
 
 class TestNotice(unittest.TestCase):
     def test_notice_lists_folders_and_docs(self):
-        text = asset_guard.missing_notice(['boss', 'vfx'])
+        text = asset_guard.missing_notice(['boss', 'prop'])
         self.assertIn('boss', text)
-        self.assertIn('vfx', text)
+        self.assertIn('prop', text)
         self.assertIn('THIRD_PARTY_ASSETS.md', text)
         self.assertIn('placeholder', text)
 
