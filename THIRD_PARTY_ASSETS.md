@@ -41,10 +41,18 @@ Audio, Impact Sounds, Footsteps packs). Credit appreciated, not required:
 <https://kenney.nl>
 
 ### `assets/gui/`
-GUI textures (**Bloodlines — Dark UI**) by xGaida and Shieldomirs are shipped
-inside the built game per their licence, but their **raw files are not part
-of this repository**. Use inside an integrated project is licensed; a copy
-of the pack's own `LICENSE.txt` is kept at `assets/gui/` for reference.
+The menu is drawn as an open spellbook with wooden widgets:
+
+- **Fantasy Book** (spellbook background) by yd — **CC0 1.0**:
+  <https://opengameart.org/content/fantasy-book>
+- **RPG GUI Construction Kit v1.0** (wood buttons, gold frame edges,
+  checkboxes, paper/wood tiles) by Lamoot — **CC BY 3.0** (attribution
+  required):
+  <https://opengameart.org/content/rpg-gui-construction-kit-v10>
+
+The GIMP `.xcf` source files are not tracked; the rendered PNGs ship with
+the repository. Buttons/panels without the kit textures fall back to
+plain raylib-drawn widgets (`ui/gui_kit.py`).
 
 ### Combat VFX
 
@@ -75,10 +83,6 @@ gitignored):
 - `assets/playable character/`
 - `assets/prop/`
 - `assets/user interface/`
-
-The `assets/gui/` pack is handled separately (see above): the files stay on
-your disk if you have them, but they are not tracked in this repository —
-clone the repo, obtain the pack, and drop its contents in.
 
 ## Getting the assets
 
