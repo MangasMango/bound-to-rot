@@ -52,3 +52,6 @@ skin_*.png
 
 # Kit source files (GIMP projects) stay local — rendered PNGs are tracked
 /assets/gui/*.xcf
+
+# Source WAVs stay local — OGG conversions are tracked (see assets/ost/credits.txt)
+/assets/ost/*.wav
