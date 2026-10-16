@@ -2267,7 +2267,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     LOAD_BRAZIER_OFF_X = -310    # px from right screen edge to sprite box
     LOAD_BRAZIER_OFF_Y = -280   # px from bottom screen edge to sprite box
     LOAD_TEXT_SIZE     = 22    # "loading..." font size
-    LOAD_TEXT_SIZE     = 22    # "loading..." font size
     LOAD_TEXT_OFF_X    = 24    # px from right screen edge to end of text
     LOAD_TEXT_OFF_Y    = 60    # px from bottom screen edge to bottom of text
     LOAD_BRAZIER_DEBUG = False # True = draw sprite-box outline while tuning

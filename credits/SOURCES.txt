@@ -12,7 +12,10 @@ UI icons — 1-bit Pixel Icons by Nikoichu, CC0 1.0:
 
 UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
   https://kenney.nl
-  Music ("Dark Loop" (CC BY 3.0) and "Devilish Design" (GPL 3.0)):
+  Music — "Demon's Realm | Dark Fantasy Music" by maxstack, CC-BY-SA 4.0
+  (OGG conversions of the source WAVs; the music stays CC-BY-SA):
+  https://maxstack.itch.io/demons-realm
+  Spare tracks: "Dark Loop" (CC BY 3.0) and "Devilish Design" (GPL 3.0):
   https://opengameart.org/content/crypt          (Machine)
   https://opengameart.org/content/devilish-design (Johan Brodd)
 

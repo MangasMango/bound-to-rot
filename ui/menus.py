@@ -830,6 +830,7 @@ class MenuSystem:
     # ── PLAY ──────────────────────────────────────────────────────────
 
     def _u_play(self, _dt):
+        self._prev = 'main'
         self.state = 'characters'
 
     def _d_play(self, cw: int, ch: int):
@@ -891,6 +892,11 @@ class MenuSystem:
             fonts.draw(msg, int(left.x + (left.width
                                 - fonts.measure(msg, 18)) / 2),
                        int(left.y + 40), 18, gui_kit.INK_DIM)
+
+        # Back button -- always visible so the screen is never a dead end
+        back_r = rl.Rectangle(left.x + 4, left.y + left.height - 52, 130, 40)
+        if _btn(back_r, '< Back', 18, wood=True):
+            self._hub_back()
 
         for i, c in enumerate(chars):
             cy = py_ + i * (card_h + gap)

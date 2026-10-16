@@ -21,17 +21,17 @@ Music: every scene state maps to one track, and every transition is a
 CROSSFADE (old stream fades out while the new one fades in — never an
 instant stop). States (BLUEPRINT §25):
 
-    menu        Dark Loop                    main menu
+    menu        End of the Road              main menu
     (loading)   off — silence while the loading screen runs
-    hub         Devilish Design              the Hub
-    death       Dark Loop                    permadeath screen
-    wilds_N     Dark Loop                    Anima combat, depth-rotated
-    pulse_wait  Dark Loop                    wave cleared, node not chosen yet
+    hub         Unyielding, Undying          the Hub
+    death       End of the Road B            permadeath screen
+    wilds_N     Hexed Wilds A/B/C            Anima combat, depth-rotated
+    pulse_wait  Dark Alleys                  wave cleared, node not chosen yet
 
-Two tracks cover every state (Devilish Design: Johan Brodd, GPL 3.0;
-Dark Loop: Machine, CC BY 3.0 — see THIRD_PARTY_ASSETS.md). States that
-share a file share one loaded stream, so hopping between them (Hub →
-wilds → Pulse wait) never restarts the music.
+Music from "Demon's Realm | Dark Fantasy Music" by maxstack
+(CC-BY-SA 4.0 — see THIRD_PARTY_ASSETS.md). States that share a file
+share one loaded stream, so hopping between them never restarts the
+music.
 """
 
 import os
@@ -46,13 +46,13 @@ def _a(rel):  return os.path.join(_ASSETS, rel)
 
 # Track registry: logical music state -> asset path (relative to assets/).
 _MUSIC_FILES = {
-    'menu':       'ost/Dark Loop.mp3',
-    'hub':        'ost/Devilish design.mp3',
-    'death':      'ost/Dark Loop.mp3',
-    'pulse_wait': 'ost/Dark Loop.mp3',
-    'wilds_1':    'ost/Dark Loop.mp3',
-    'wilds_2':    'ost/Dark Loop.mp3',
-    'wilds_3':    'ost/Dark Loop.mp3',
+    'menu':       'ost/End of the Road.ogg',
+    'hub':        'ost/Unyielding Undying.ogg',
+    'death':      'ost/End of the Road B.ogg',
+    'pulse_wait': 'ost/Dark Alleys.ogg',
+    'wilds_1':    'ost/Hexed Wilds A.ogg',
+    'wilds_2':    'ost/Hexed Wilds B.ogg',
+    'wilds_3':    'ost/Hexed Wilds C.ogg',
 }
 
 FADE_SECONDS = 2.5    # crossfade length for every music transition
@@ -93,7 +93,7 @@ class AudioSystem:
     def init_music(self):
         # One stream PER FILE, shared by the states that use it — loading
         # the same file once per state would run six independent copies
-        # of Dark Loop against each other during crossfades.
+        # of the same track against each other during crossfades.
         for name, rel in _MUSIC_FILES.items():
             stream = self._file_streams.get(rel)
             if stream is None:
@@ -214,11 +214,11 @@ class AudioSystem:
         self._music_state = state
 
     def set_delve_depth_music(self, depth: int):
-        """Anima combat music — Dark Loop, rotated by depth."""
+        """Anima combat music — Hexed Wilds A/B/C rotated by depth."""
         self.set_music_state(wilds_key_for_depth(depth))
 
     def set_pulse_wait_music(self):
-        """Wave cleared and no node selected yet — Dark Loop."""
+        """Wave cleared and no node selected yet — Dark Alleys."""
         self.set_music_state('pulse_wait')
 
     def _crossfade_to(self, state: str):
