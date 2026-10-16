@@ -39,6 +39,7 @@ import pyray as rl
 
 from config import ASSETS
 from ui import fonts
+import ui.gui_kit as gui_kit
 import core.delve_gen as delve_gen
 from systems import input as inp
 
@@ -59,8 +60,6 @@ _HEADER_BG = rl.Color(58, 46, 18, 240)
 # Reward-item icon cache (loaded once, kept for the session — a handful of
 # small 32x32 textures; organs are the only node drop ids today)
 _ICON_CACHE = {}
-_BTN1_TEX = None
-_BTN1_DOWN_TEX = None
 
 
 def _reward_icon(item_id):
@@ -80,25 +79,6 @@ def _reward_icon(item_id):
         tex = None
     _ICON_CACHE[item_id] = tex
     return tex
-
-
-def _enter_button_tex(pressed=False):
-    """Kit Button#1 grunge art (Status=Pressed / Red_Hover), loaded once.
-    Falls back to the legacy ui/button_1 art when the kit is missing."""
-    global _BTN1_TEX, _BTN1_DOWN_TEX
-    import os
-    if pressed:
-        if _BTN1_DOWN_TEX is None:
-            path = os.path.join(ASSETS, *'gui\\Button\\Button#1\\Status=Pressed.png'.split('\\'))
-            _BTN1_DOWN_TEX = (rl.load_texture(path)
-                              if os.path.exists(path)
-                              else rl.load_texture(os.path.join(ASSETS, 'ui', 'button_1_pressed.png')))
-        return _BTN1_DOWN_TEX
-    if _BTN1_TEX is None:
-        path = os.path.join(ASSETS, *'gui\\Button\\Button#1\\Status=Red_Hover.png'.split('\\'))
-        _BTN1_TEX = (rl.load_texture(path) if os.path.exists(path)
-                     else rl.load_texture(os.path.join(ASSETS, 'ui', 'button_1.png')))
-    return _BTN1_TEX
 
 
 def node_world_pos(node):
@@ -511,7 +491,7 @@ class DelveChartScreen:
     def _draw_tooltip(self, vw, vh, graph):
         """PoE-style node tooltip: gold header (node title + zone), body
         with DEPTH / MONSTER LEVEL / CONTAINS + reward icon, and a single
-        button_1 'ENTER' button for selectable nodes. Completed nodes show
+        drawn 'ENTER' button for selectable nodes. Completed nodes show
         a placeholder in place of the reward icon."""
         self._tooltip_btn = None
         nid = self._hover_id
@@ -551,7 +531,7 @@ class DelveChartScreen:
 
         fs, lh = 13, 20
         icon_px = 24
-        btn_w, btn_h = 48, 54        # button_1 art (32x36) scaled 1.5x
+        btn_w, btn_h = 48, 54        # 32x36 design grid scaled 1.5x
         has_btn = selectable and known
         rlabel_txt = None
         if reward is not None:
@@ -601,7 +581,7 @@ class DelveChartScreen:
             fonts.draw(rlabel_txt, px + tw - icon_px - 12 - lw - 8, ry,
                        fs, rl.Color(190, 120, 255, 255))
 
-        # ENTER button — drawn with button_1 art, rect stored in canvas
+        # ENTER button — raylib-drawn, rect stored in canvas
         # coords (update() consumes it; rendering adds the popup origin)
         if has_btn:
             bx = tx + tw - btn_w - 10
@@ -612,18 +592,10 @@ class DelveChartScreen:
                            rl.Vector2(float(mx_c), float(my_c)),
                            rl.Rectangle(float(bx), float(bty),
                                         float(btn_w), float(btn_h))))
-            tex = _enter_button_tex(pressed=pressed)
-            if tex and tex.id > 0:
-                src = rl.Rectangle(0, 0, float(tex.width), float(tex.height))
-                dst = rl.Rectangle(float(self._ox + bx), float(self._oy + bty),
-                                   float(btn_w), float(btn_h))
-                rl.draw_texture_pro(tex, src, dst, rl.Vector2(0, 0), 0.0,
-                                    rl.WHITE)
-            else:
-                rl.draw_rectangle(self._ox + int(bx), self._oy + int(bty),
-                                  btn_w, btn_h, rl.Color(20, 16, 8, 220))
-                rl.draw_rectangle_lines(self._ox + int(bx), self._oy + int(bty),
-                                        btn_w, btn_h, _TOOLTIP_BORDER)
+            gui_kit.button(
+                rl.Rectangle(float(self._ox + bx), float(self._oy + bty),
+                             float(btn_w), float(btn_h)),
+                'red', 'pressed' if pressed else 'hover')
             fonts.draw('ENTER', self._ox + int(bx) + 24
                        - fonts.measure('ENTER', 11) // 2,
                        self._oy + int(bty) + 20, 11, rl.Color(255, 235, 180, 255))
