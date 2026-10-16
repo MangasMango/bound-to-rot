@@ -15,9 +15,10 @@ UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
   Music — "Demon's Realm | Dark Fantasy Music" by maxstack, CC-BY-SA 4.0
   (OGG conversions of the source WAVs; the music stays CC-BY-SA):
   https://maxstack.itch.io/demons-realm
-  Spare tracks: "Dark Loop" (CC BY 3.0) and "Devilish Design" (GPL 3.0):
-  https://opengameart.org/content/crypt          (Machine)
-  https://opengameart.org/content/devilish-design (Johan Brodd)
+  Hub music: "Devilish Design" (GPL 3.0) by Johan Brodd:
+  https://opengameart.org/content/devilish-design
+  Spare track: "Dark Loop" (CC BY 3.0) by Machine:
+  https://opengameart.org/content/crypt
 
 Spellbook menu background — "Fantasy Book" by yd, CC0 1.0:
   https://opengameart.org/content/fantasy-book

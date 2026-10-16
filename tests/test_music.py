@@ -42,7 +42,7 @@ class TestMusicRegistry(unittest.TestCase):
 
     def test_expected_tracks(self):
         self.assertIn('End of the Road.ogg', _MUSIC_FILES['menu'])
-        self.assertIn('Unyielding Undying.ogg', _MUSIC_FILES['hub'])
+        self.assertIn('Devilish design.mp3', _MUSIC_FILES['hub'])
         self.assertIn('End of the Road B.ogg', _MUSIC_FILES['death'])
         self.assertIn('Dark Alleys.ogg', _MUSIC_FILES['pulse_wait'])
         self.assertIn('Hexed Wilds A.ogg', _MUSIC_FILES['wilds_1'])

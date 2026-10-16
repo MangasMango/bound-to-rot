@@ -5,8 +5,10 @@ Soundtrack — "Demon's Realm | Dark Fantasy Music" by maxstack
   The .ogg files here are conversions of the pack's source WAVs;
   the WAVs stay outside the repository.
 
-Spare tracks (not wired into the music registry yet):
-  Dark Loop.mp3 — "Dark Loop" by Machine, CC BY 3.0
-    https://opengameart.org/content/crypt
+Hub music:
   Devilish design.mp3 — "Devilish Design" by Johan Brodd (jobromedia),
     GPL 3.0 — https://opengameart.org/content/devilish-design
+
+Spare track (not wired into the music registry yet):
+  Dark Loop.mp3 — "Dark Loop" by Machine, CC BY 3.0
+    https://opengameart.org/content/crypt
