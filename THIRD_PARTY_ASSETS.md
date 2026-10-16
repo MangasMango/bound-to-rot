@@ -21,15 +21,18 @@ font you like into this folder, for example
 menu lists every `.ttf` in the folder.
 
 ### `assets/ost/`
-Two tracks cover every music cue in the game:
+The soundtrack comes from **"Demon's Realm | Dark Fantasy Music"** by
+maxstack — **CC BY-SA 4.0** (attribution + share-alike; the music itself
+stays under that licence):
+<https://maxstack.itch.io/demons-realm>
 
-- **Dark Loop** by Machine — **CC BY 3.0**:
-  <https://opengameart.org/content/crypt>
-- **Devilish Design** by Johan Brodd (jobromedia) — **GPL 3.0**:
-  <https://opengameart.org/content/devilish-design>
+The repository ships OGG conversions of the 12 source WAVs (the WAVs stay
+local only). Attribution: "Demon's Realm" by maxstack (CC-BY-SA 4.0).
 
-Attribution: "Dark Loop" — Machine (CC BY 3.0); "Devilish Design" —
-Johan Brodd (GPL 3.0).
+Two spare tracks are also bundled: "Dark Loop" by Machine — **CC BY 3.0**
+(<https://opengameart.org/content/crypt>) and "Devilish Design" by
+Johan Brodd — **GPL 3.0**
+(<https://opengameart.org/content/devilish-design>).
 
 ### `assets/ui-icons/`
 1-bit Pixel Icons by Nikoichu — **CC0 1.0**:

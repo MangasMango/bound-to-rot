@@ -15,12 +15,12 @@
 
 """Music scene states + crossfade — BLUEPRINT §25.
 
-    menu / loading silence / hub / death screen / per-depth rotation in
-    the Anima / while waiting at the Pulse.
+    menu / loading silence / hub / death screen / per-depth Hexed Wilds
+    rotation in the Anima / Dark Alleys while waiting at the Pulse.
 
-Two licensed tracks cover every state: Dark Loop (CC BY 3.0, Machine)
-and Devilish Design (GPL 3.0, Johan Brodd). States sharing a file share
-one loaded stream — see TestSharedStreams below.
+Music from "Demon's Realm | Dark Fantasy Music" by maxstack
+(CC-BY-SA 4.0). States sharing a file share one loaded stream — see
+TestSharedStreams below.
 """
 
 import os
@@ -41,13 +41,13 @@ class TestMusicRegistry(unittest.TestCase):
                             f'missing track for {name}: {rel}')
 
     def test_expected_tracks(self):
-        self.assertIn('Dark Loop.mp3', _MUSIC_FILES['menu'])
-        self.assertIn('Devilish design.mp3', _MUSIC_FILES['hub'])
-        self.assertIn('Dark Loop.mp3', _MUSIC_FILES['death'])
-        self.assertIn('Dark Loop.mp3', _MUSIC_FILES['pulse_wait'])
-        self.assertIn('Dark Loop.mp3', _MUSIC_FILES['wilds_1'])
-        self.assertIn('Dark Loop.mp3', _MUSIC_FILES['wilds_2'])
-        self.assertIn('Dark Loop.mp3', _MUSIC_FILES['wilds_3'])
+        self.assertIn('End of the Road.ogg', _MUSIC_FILES['menu'])
+        self.assertIn('Unyielding Undying.ogg', _MUSIC_FILES['hub'])
+        self.assertIn('End of the Road B.ogg', _MUSIC_FILES['death'])
+        self.assertIn('Dark Alleys.ogg', _MUSIC_FILES['pulse_wait'])
+        self.assertIn('Hexed Wilds A.ogg', _MUSIC_FILES['wilds_1'])
+        self.assertIn('Hexed Wilds B.ogg', _MUSIC_FILES['wilds_2'])
+        self.assertIn('Hexed Wilds C.ogg', _MUSIC_FILES['wilds_3'])
         # the calm overlay and the old raid/menu variants are retired
         self.assertNotIn('calm', _MUSIC_FILES)
         self.assertNotIn('raid', _MUSIC_FILES)
