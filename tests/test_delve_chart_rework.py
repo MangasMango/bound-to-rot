@@ -407,9 +407,6 @@ def _install_headless(monkeypatch_text=None):
     from ui import icons
     patches['_uiicons'] = patch.object(icons, 'draw', lambda *_a, **_k: None)
     patches['_uiicons'].start()
-    patches['_btn_tex'] = patch.object(
-        chart_mod, '_enter_button_tex', lambda pressed=False: None)
-    patches['_btn_tex'].start()
     return patches, drawn
 
 
