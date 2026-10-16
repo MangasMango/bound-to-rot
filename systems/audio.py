@@ -23,15 +23,15 @@ instant stop). States (BLUEPRINT §25):
 
     menu        End of the Road              main menu
     (loading)   off — silence while the loading screen runs
-    hub         Unyielding, Undying          the Hub
+    hub         Devilish Design              the Hub
     death       End of the Road B            permadeath screen
     wilds_N     Hexed Wilds A/B/C            Anima combat, depth-rotated
     pulse_wait  Dark Alleys                  wave cleared, node not chosen yet
 
 Music from "Demon's Realm | Dark Fantasy Music" by maxstack
-(CC-BY-SA 4.0 — see THIRD_PARTY_ASSETS.md). States that share a file
-share one loaded stream, so hopping between them never restarts the
-music.
+(CC-BY-SA 4.0) plus "Devilish Design" by Johan Brodd (GPL 3.0) for the
+Hub — see THIRD_PARTY_ASSETS.md. States that share a file share one
+loaded stream, so hopping between them never restarts the music.
 """
 
 import os
@@ -47,7 +47,7 @@ def _a(rel):  return os.path.join(_ASSETS, rel)
 # Track registry: logical music state -> asset path (relative to assets/).
 _MUSIC_FILES = {
     'menu':       'ost/End of the Road.ogg',
-    'hub':        'ost/Unyielding Undying.ogg',
+    'hub':        'ost/Devilish design.mp3',
     'death':      'ost/End of the Road B.ogg',
     'pulse_wait': 'ost/Dark Alleys.ogg',
     'wilds_1':    'ost/Hexed Wilds A.ogg',

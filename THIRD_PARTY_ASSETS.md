@@ -29,10 +29,10 @@ stays under that licence):
 The repository ships OGG conversions of the 12 source WAVs (the WAVs stay
 local only). Attribution: "Demon's Realm" by maxstack (CC-BY-SA 4.0).
 
-Two spare tracks are also bundled: "Dark Loop" by Machine — **CC BY 3.0**
-(<https://opengameart.org/content/crypt>) and "Devilish Design" by
-Johan Brodd — **GPL 3.0**
-(<https://opengameart.org/content/devilish-design>).
+The Hub cue uses **"Devilish Design"** by Johan Brodd — **GPL 3.0**
+(<https://opengameart.org/content/devilish-design>). One spare track is
+also bundled: "Dark Loop" by Machine — **CC BY 3.0**
+(<https://opengameart.org/content/crypt>).
 
 ### `assets/ui-icons/`
 1-bit Pixel Icons by Nikoichu — **CC0 1.0**:
