@@ -56,14 +56,6 @@ In practice, this means:
 If a change came out of a long AI session, say so in the PR description:
 context helps review, it doesn't hurt you.
 
-## Lore
-
-Lore additions are welcome, but must follow one simple rule:
-
-> **Would this fit in a TOOL song?**
-
-If the answer is no, it doesn't belong in this world.
-
 ## Style Guidelines
 
 ### Follow the formatting of the code you're touching.

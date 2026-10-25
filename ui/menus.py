@@ -38,7 +38,7 @@ from entities.progression import (CharacterManager, clear_delve_data,
 from entities.descend import (DESCEND_ATTRIBUTES, ATTR_CAP,
                               ATTR_LABEL,
                               VESSEL_DEFS, LOOKS_OPTIONS, LOOKS_LABELS,
-                              VESSEL_UNLOCKS)
+                              VESSEL_UNLOCKS, WIP_VESSELS)
 from systems.items import ITEMS, add_to_stash
 from systems import input as _inp
 
@@ -53,10 +53,17 @@ except FileNotFoundError:
     pass
 
 # ── Font helpers ──────────────────────────────────────────────────────
+DEFAULT_FONT = 'Sancreek-Regular.ttf'
+
 def _apply_font(font_name: str):
     path = os.path.join(_FONT_DIR, font_name)
-    if os.path.exists(path):
-        fonts.load(path, fonts.CRISP_SIZES.get(font_name))
+    if not os.path.exists(path):
+        # deleted/unknown font in an old settings.json — fall back
+        font_name = DEFAULT_FONT
+        path = os.path.join(_FONT_DIR, font_name)
+        if not os.path.exists(path):
+            return
+    fonts.load(path, fonts.CRISP_SIZES.get(font_name))
 
 
 # ── Palette ───────────────────────────────────────────────────────────
@@ -111,10 +118,8 @@ class Settings:
         self.crt_effect     = True
         self.hud_scale      = 1.0
         self.debug_overlay  = False
-        self.font_name      = 'alagard.ttf'
+        self.font_name      = 'Sancreek-Regular.ttf'
         self.brightness     = 50  # 0-100
-        self.tarot_deck     = 'arcanum'   # active card deck id (TAROT_DECKS)
-        self.tarot_skins    = []          # unlocked alternative deck ids
         self.load()
 
     def save(self):
@@ -132,8 +137,6 @@ class Settings:
                     'debug_overlay':   self.debug_overlay,
                     'font_name':       self.font_name,
                     'brightness':      self.brightness,
-                    'tarot_deck':      self.tarot_deck,
-                    'tarot_skins':     list(self.tarot_skins),
                 }, f)
         except Exception:
             print("[settings] ERROR: Failed to save settings.json")
@@ -150,11 +153,8 @@ class Settings:
             self.perf_overlay   = bool(d.get('perf_overlay',    False))
             self.crt_effect     = bool(d.get('crt_effect',      True))
             self.hud_scale      = float(d.get('hud_scale',      1.0))
-            self.font_name      = str(d.get('font_name',        'alagard.ttf'))
+            self.font_name      = str(d.get('font_name',        'Sancreek-Regular.ttf'))
             self.brightness     = float(d.get('brightness',     50))
-            self.tarot_deck     = str(d.get('tarot_deck',       'arcanum'))
-            skins               = d.get('tarot_skins', [])
-            self.tarot_skins    = [str(s) for s in skins] if isinstance(skins, list) else []
         except Exception:
             print("[settings] ERROR: Failed to load settings.json")
             traceback.print_exc()
@@ -733,11 +733,7 @@ class MenuSystem:
 
     def _d_main(self, cw: int, ch: int):
         self._draw_menu_background(cw, ch)
-        pages = gui_kit.book_page(cw, ch)
-        if pages is None:
-            pages = ((cw / 2 - 530, 60, 500, ch - 120),
-                     (cw / 2 + 30, 60, 500, ch - 120))
-        left, right = pages
+        left, right = gui_kit.board_page(cw, ch)
 
         # Logo on the left page
         logo = self.logo_tex
@@ -858,11 +854,7 @@ class MenuSystem:
     def _d_characters(self, cw: int, ch: int):
         if not self.popup_mode:
             self._draw_menu_background(cw, ch)
-        pages = gui_kit.book_page(cw, ch)
-        if pages is None:
-            pages = ((cw / 2 - 530, 60, 500, ch - 120),
-                     (cw / 2 + 30, 60, 500, ch - 120))
-        left, right = pages
+        left, right = gui_kit.board_page(cw, ch)
 
         chars = self.char_mgr.characters
         sel_idx = max(0, min(self._char_sel_idx, len(chars) - 1)) if chars else 0
@@ -1104,7 +1096,8 @@ class MenuSystem:
     def _u_char_create(self, _dt):
         self._char_name = self.char_name_input.update()
 
-        avail = [lk for lk in LOOKS_OPTIONS if self.char_mgr.is_vessel_unlocked(lk)]
+        avail = [lk for lk in LOOKS_OPTIONS
+                 if lk not in WIP_VESSELS and self.char_mgr.is_vessel_unlocked(lk)]
         if not avail:
             avail = ['knight']
         if self._char_looks not in avail:
@@ -1175,11 +1168,7 @@ class MenuSystem:
         self._load_preview_sprites()
         if not self.popup_mode:
             self._draw_menu_background(cw, ch)
-        pages = gui_kit.book_page(cw, ch)
-        if pages is None:
-            pages = ((cw / 2 - 530, 60, 500, ch - 120),
-                     (cw / 2 + 30, 60, 500, ch - 120))
-        left, right = pages
+        left, right = gui_kit.board_page(cw, ch)
         pad = 24
 
         # ── Left page: identity ──────────────────────────────────────────
@@ -1227,7 +1216,8 @@ class MenuSystem:
         for lk in LOOKS_OPTIONS:
             vdef  = VESSEL_DEFS.get(lk, {})
             vun   = VESSEL_UNLOCKS.get(lk, {})
-            unlocked = self.char_mgr.is_vessel_unlocked(lk)
+            wip = lk in WIP_VESSELS
+            unlocked = self.char_mgr.is_vessel_unlocked(lk) and not wip
             selected = (self._char_looks == lk)
             row = rl.Rectangle(vx, vy, vw_, row_h)
 
@@ -1250,22 +1240,28 @@ class MenuSystem:
             fonts.draw(passive, int(tx), int(vy + 32), 11, gui_kit.INK_DIM)
 
             if not unlocked:
-                lock_txt = 'LOCKED'
-                fonts.draw(lock_txt, int(tx), int(vy + 54), 13, gui_kit.INK)
-                veil = vun.get('veil') or ''
-                fonts.draw(veil, int(tx), int(vy + 72), 10, gui_kit.INK_DIM)
-                req  = vun.get('depth', 0)
-                best = self.char_mgr.best_depth
-                pct  = min(1.0, best / req) if req else 0.0
-                bar_x = tx
-                bar_w = vw_ - row_h - 16
-                bar_y = vy + row_h - 24
-                rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w), 5,
-                                  _c(0x5A, 0x4A, 0x38, 120))
-                rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w * pct), 5,
-                                  gui_kit.GOLD)
-                prog = f'Best Depth {best}/{req}'
-                fonts.draw(prog, int(bar_x), int(bar_y + 9), 10, gui_kit.INK_DIM)
+                if wip:
+                    fonts.draw('WIP', int(tx), int(vy + 54), 13, gui_kit.INK)
+                    fonts.draw('Not available yet', int(tx), int(vy + 72),
+                               10, gui_kit.INK_DIM)
+                else:
+                    lock_txt = 'LOCKED'
+                    fonts.draw(lock_txt, int(tx), int(vy + 54), 13, gui_kit.INK)
+                    veil = vun.get('veil') or ''
+                    fonts.draw(veil, int(tx), int(vy + 72), 10, gui_kit.INK_DIM)
+                    req  = vun.get('depth', 0)
+                    best = self.char_mgr.best_depth
+                    pct  = min(1.0, best / req) if req else 0.0
+                    bar_x = tx
+                    bar_w = vw_ - row_h - 16
+                    bar_y = vy + row_h - 24
+                    rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w), 5,
+                                      _c(0x5A, 0x4A, 0x38, 120))
+                    rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w * pct), 5,
+                                      gui_kit.GOLD)
+                    prog = f'Best Depth {best}/{req}'
+                    fonts.draw(prog, int(bar_x), int(bar_y + 9), 10,
+                               gui_kit.INK_DIM)
             elif _click(row):
                 self._char_looks = lk
             vy += row_h + 10
@@ -1291,11 +1287,7 @@ class MenuSystem:
         self._load_preview_sprites()
         if not self.popup_mode:
             self._draw_menu_background(cw, ch)
-        pages = gui_kit.book_page(cw, ch)
-        if pages is None:
-            pages = ((cw / 2 - 530, 60, 500, ch - 120),
-                     (cw / 2 + 30, 60, 500, ch - 120))
-        left, right = pages
+        left, right = gui_kit.board_page(cw, ch)
 
         # ── Left page: title ─────────────────────────────────────────────
         title = 'Codex'
@@ -1321,7 +1313,8 @@ class MenuSystem:
         for lk in LOOKS_OPTIONS:
             vdef  = VESSEL_DEFS.get(lk, {})
             vun   = VESSEL_UNLOCKS.get(lk, {})
-            unlocked = self.char_mgr.is_vessel_unlocked(lk)
+            wip = lk in WIP_VESSELS
+            unlocked = self.char_mgr.is_vessel_unlocked(lk) and not wip
 
             gui_kit.paper_panel(vx, vy, vw_, row_h)
 
@@ -1331,7 +1324,7 @@ class MenuSystem:
                                      self._preview_anim_time)
             if not unlocked:
                 rl.draw_rectangle_rec(pic, rl.Color(0, 0, 0, 0x99))
-                lock_txt = 'LOCKED'
+                lock_txt = 'WIP' if wip else 'LOCKED'
                 lk_w = fonts.measure(lock_txt, 12)
                 fonts.draw(lock_txt, int(pic.x + (pic.width - lk_w) / 2),
                            int(pic.y + pic.height / 2 - 8), 12, gui_kit.INK)
@@ -1353,6 +1346,10 @@ class MenuSystem:
             if unlocked:
                 st = 'AVAILABLE'
                 fonts.draw(st, int(tx), int(vy + row_h - 22), 12, C_GREEN)
+            elif wip:
+                st = 'WIP — COMING LATER'
+                fonts.draw(st, int(tx), int(vy + row_h - 22), 12,
+                           gui_kit.INK_DIM)
             else:
                 veil = vun.get('veil') or ''
                 fonts.draw(veil, int(tx), int(vy + row_h - 40), 11,
@@ -1375,7 +1372,8 @@ class MenuSystem:
         name = self._char_name.strip()
         if not name or len(self.char_mgr.characters) >= CharacterManager.MAX_CHARS:
             return
-        if not self.char_mgr.is_vessel_unlocked(self._char_looks):
+        if self._char_looks in WIP_VESSELS \
+                or not self.char_mgr.is_vessel_unlocked(self._char_looks):
             return
         self.char_mgr.create(name=name, looks=self._char_looks)
         self._char_name = ''
@@ -1400,11 +1398,7 @@ class MenuSystem:
     def _d_settings(self, cw: int, ch: int):
         if not self.popup_mode:
             self._draw_menu_background(cw, ch)
-        pages = gui_kit.book_page(cw, ch)
-        if pages is None:
-            pages = ((cw / 2 - 530, 60, 500, ch - 120),
-                     (cw / 2 + 30, 60, 500, ch - 120))
-        left, right = pages
+        left, right = gui_kit.board_page(cw, ch)
 
         # ── Left page: title + tabs ──────────────────────────────────────
         lx = left.x + 24

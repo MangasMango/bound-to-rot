@@ -49,7 +49,7 @@ _AFFIX_RULES = {
     'rare':      (1, 1, 1),
     'epic':      (2, 1, 2),
     'legendary': (2, 2, 2),   # + 1 unique red-text mod
-    'mythic':    (2, 2, 2),   # + 1 unique red-text mod (Emperor upgrade path)
+    'mythic':    (2, 2, 2),   # + 1 unique red-text mod (King of Pikes upgrade path)
 }
 
 V_RAND_MIN = 0.75
@@ -218,7 +218,7 @@ _ROT_DRAWBACKS = [
 ]
 _ROT_DRAWBACK_BY_ID = {a['id']: a for a in _ROT_DRAWBACKS}
 # Registered for tooltip lookup / stat aggregation, but deliberately NOT
-# appended to _AFFIXES (so generation, roll_for and Justice never roll them).
+# appended to _AFFIXES (so generation, roll_for and Ace of Clubs never roll them).
 _AFFIX_BY_ID.update(_ROT_DRAWBACK_BY_ID)
 
 # Legendary behaviour-altering "red-text" mods. Static halves are aggregated
@@ -342,7 +342,7 @@ def generate_instance(item_id, ilvl, rarity=None, equip_slot=None, base_name=Non
         'display_name': name,
         'ilvl':         int(ilvl),
         # Issue #73 DESIGN PIVOT: ALL items drop unidentified — rolled stats
-        # are hidden (and inert) until The Fool identifies the item. Legacy
+        # are hidden (and inert) until The Joker identifies the item. Legacy
         # instances without the key stay identified via is_identified().
         'identified':   False,
         'affixes':      {'prefixes': prefixes, 'suffixes': suffixes},
@@ -368,7 +368,7 @@ def is_identified(entry):
 
 
 def identify(entry):
-    """Mark an item's instance identified (The Fool). Mutates in-place."""
+    """Mark an item's instance identified (The Joker). Mutates in-place."""
     inst = entry.get('instance_data') if isinstance(entry, dict) else None
     if isinstance(inst, dict):
         inst['identified'] = True
@@ -382,7 +382,7 @@ def identify(entry):
 # At ROT_MAX the organ becomes ROTTEN (single state, no tiers): all rolled
 # affixes are buffed by ROTTEN_STAT_MULT, one random drawback suffix is
 # added, and the display name gets the "ROTTEN " prefix. A full snapshot
-# (rot_prev) is kept so Temperance can fully revert the organ.
+# (rot_prev) is kept so Queen of Hearts can fully revert the organ.
 
 ROT_MAX = 100.0
 ROT_PER_WAVE = 20.0
@@ -439,7 +439,7 @@ def make_rotten(inst, rng=None):
     if not isinstance(aff, dict):
         aff = {'prefixes': {}, 'suffixes': {}}
         inst['affixes'] = aff
-    # Full-revert snapshot for the Temperance cleanse (taken BEFORE the buff).
+    # Full-revert snapshot for the Queen of Hearts cleanse (taken BEFORE the buff).
     inst['rot_prev'] = {'affixes': copy.deepcopy(aff),
                         'display_name': inst.get('display_name', '')}
     apply_rotten_buff(aff)
@@ -479,7 +479,7 @@ def add_rot(entry):
 
 
 def cleanse_rot(entry):
-    """Temperance: FULL revert — rot to 0, drawback suffix removed, ROTTEN
+    """Queen of Hearts: FULL revert — rot to 0, drawback suffix removed, ROTTEN
     stat bonuses reverted, original name restored. Returns True when the
     entry carried any rot (i.e. the card application was meaningful)."""
     if not isinstance(entry, dict):
@@ -527,7 +527,7 @@ def max_rot(inventory):
     HUD organ-rot meter binding (owner ruling 2026-10-10): the bar shows the
     organ closest to the ROTTEN state, not an average — the danger state is
     per-organ (add_rot / make_rotten), so the worst organ is the one that
-    needs the Temperance card. Follows the same guards as add_rot: only
+    needs the Queen of Hearts card. Follows the same guards as add_rot: only
     identified organs with a real equipSlot can contribute; backpack and
     stash items never show on the meter. Empty / malformed inventories
     return 0.0 (a fresh character's meter reads empty, never a crash)."""
@@ -593,7 +593,7 @@ def try_rot_mythic(slot, depth, rng=None):
 
 
 def balanced_affix_values(inst):
-    """Justice: recompute every rolled affix at the exact "fair" value —
+    """Ace of Clubs: recompute every rolled affix at the exact "fair" value —
     V_rand collapses to 1.0 so each stat sits at the balanced midpoint of
     its numeric range. Returns {affix_id: value} (does not mutate)."""
     out = {}

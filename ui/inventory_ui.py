@@ -759,7 +759,7 @@ class InventoryUI:
                 opts.append({'type': 'apply',     'label': 'APPLY'})
             if defn.get('equipSlot'):
                 # Owner rule: unidentified items cannot be implanted — they
-                # must be identified with The Fool first (#84 reversed).
+                # must be identified with The Joker first (#84 reversed).
                 if itemgen.is_identified(slot):
                     opts.append({'type': 'equip', 'label': 'IMPLANT'})
                 else:
@@ -1280,7 +1280,7 @@ class InventoryUI:
             lines.append(("One use per wave. Refills when the next wave starts.",
                           C_LABEL))
 
-        # unidentified: rolled stats hidden until identified (The Fool)
+        # unidentified: rolled stats hidden until identified (The Joker)
         if unid:
             lines.append(("Unidentified", _c(190, 160, 90, 255)))
 

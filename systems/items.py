@@ -30,17 +30,18 @@ ITEMS = {
     # placement, highlight, hit-testing and drawing never have to reason about
     # a multi-cell footprint. The size key stays in the table (every consumer
     # reads it) but is always (1, 1) — see ``item_size``.
-    # ── tarot currency cards (issue #73 phase B) — count is card quarters;
-    #    4/4 completes a usable card. Faces reuse the Major Arcana decks. ──
-    'tarot_card_00': {'name': 'The Fool',          'img': 'cards/arcanum/00.png', 'rarity': 'common',   'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 0},
-    'tarot_card_01': {'name': 'The Magician',      'img': 'cards/arcanum/01.png', 'rarity': 'common',   'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 1},
-    'tarot_card_04': {'name': 'The Emperor',       'img': 'cards/arcanum/04.png', 'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 4},
-    'tarot_card_10': {'name': 'Wheel of Fortune',  'img': 'cards/arcanum/10.png', 'rarity': 'uncommon', 'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 10},
-    'tarot_card_11': {'name': 'Justice',           'img': 'cards/arcanum/11.png', 'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 11},
-    'tarot_card_13': {'name': 'Death',             'img': 'cards/arcanum/13.png', 'rarity': 'epic',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 13},
-    'tarot_card_14': {'name': 'Temperance',        'img': 'cards/arcanum/14.png', 'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 14},
-    'tarot_card_15': {'name': 'The Devil',         'img': 'cards/arcanum/15.png', 'rarity': 'epic',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 15},
-    'tarot_card_17': {'name': 'The Star',          'img': 'cards/arcanum/17.png', 'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 17},
+    # ── poker currency cards — count is card quarters; 4/4 completes a
+    #    usable card (the Joker). Faces come from the poker deck
+    #    (assets/cards/dark). ──
+    'poker_joker':          {'name': 'The Joker',         'img': 'cards/dark/JOKER.png', 'rarity': 'common',   'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 0},
+    'poker_ace_hearts':     {'name': 'Ace of Hearts',     'img': 'cards/dark/A-H.png',   'rarity': 'common',   'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 1},
+    'poker_king_pikes':     {'name': 'King of Pikes',     'img': 'cards/dark/K-P.png',   'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 4},
+    'poker_queen_diamonds': {'name': 'Queen of Diamonds', 'img': 'cards/dark/Q-D.png',   'rarity': 'uncommon', 'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 10},
+    'poker_ace_clubs':      {'name': 'Ace of Clubs',      'img': 'cards/dark/A-C.png',   'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 11},
+    'poker_ace_pikes':      {'name': 'Ace of Pikes',      'img': 'cards/dark/A-P.png',   'rarity': 'epic',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 13},
+    'poker_queen_hearts':   {'name': 'Queen of Hearts',   'img': 'cards/dark/Q-H.png',   'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 14},
+    'poker_jack_pikes':     {'name': 'Jack of Pikes',     'img': 'cards/dark/J-P.png',   'rarity': 'epic',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 15},
+    'poker_ace_diamonds':   {'name': 'Ace of Diamonds',   'img': 'cards/dark/A-D.png',   'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 17},
     # ── potions (Diablo 2-style belt, keys 1-6) ────────────────────────
     'health_potion': {'name': 'Health Potion', 'img': 'items/health_potion.png', 'rarity': 'common', 'stackable': True, 'maxStack': 10, 'size': (1, 1), 'isPotion': 'health', 'heal': 40},
     'mana_potion':   {'name': 'Mana Potion',   'img': 'items/mana_potion.png',   'rarity': 'common', 'stackable': True, 'maxStack': 10, 'size': (1, 1), 'isPotion': 'mana',   'heal': 40},
@@ -78,6 +79,45 @@ EQUIP_SLOT_LABELS = {
     'kidney':    'KIDNEY',
 }
 
+# Card ids from before the western-fantasy card migration. Old saves carry
+# them; remapped in place on load so stacks keep merging and drawing.
+LEGACY_CARD_IDS = {
+    'tarot_card_00': 'poker_joker',
+    'tarot_card_01': 'poker_ace_hearts',
+    'tarot_card_04': 'poker_king_pikes',
+    'tarot_card_10': 'poker_queen_diamonds',
+    'tarot_card_11': 'poker_ace_clubs',
+    'tarot_card_13': 'poker_ace_pikes',
+    'tarot_card_14': 'poker_queen_hearts',
+    'tarot_card_15': 'poker_jack_pikes',
+    'tarot_card_17': 'poker_ace_diamonds',
+}
+
+
+def _remap_legacy_slot(slot):
+    if isinstance(slot, dict):
+        new = LEGACY_CARD_IDS.get(slot.get('item', ''))
+        if new:
+            slot['item'] = new
+
+
+def _remap_legacy_grid(grid):
+    if isinstance(grid, list):
+        for slot in grid:
+            _remap_legacy_slot(slot)
+    elif isinstance(grid, dict):
+        for slot in grid.values():
+            _remap_legacy_slot(slot)
+
+
+def remap_legacy_card_ids(inventory, stash=None):
+    """Rename legacy tarot_card_* ids to their poker equivalents, in place,
+    across an inventory dict (grid, gem_sockets) and the stash grid."""
+    if isinstance(inventory, dict):
+        _remap_legacy_grid(inventory.get('grid'))
+        _remap_legacy_grid(inventory.get('gem_sockets'))
+    _remap_legacy_grid(stash)
+
 # Stats stored as 0..1 ratios (displayed as percentages)
 _EQUIP_PCT_KEYS = {'damage_reduction', 'move_speed'}
 
@@ -104,7 +144,7 @@ def is_identified_slot(entry):
 
     Thin wrapper over ``systems.itemgen.is_identified`` so this module stays
     importable on its own (itemgen imports ITEMS from here). Items with no
-    instance data (consumables, currency, tarot cards) are always identified.
+    instance data (consumables, currency, poker cards) are always identified.
     """
     from systems.itemgen import is_identified
     return is_identified(entry)
@@ -114,7 +154,7 @@ def can_equip(entry):
     """Whether a grid entry may be equipped right now.
 
     Owner rule: an item must be IDENTIFIED before it can be equipped
-    (identify with a full 4/4 stack of The Fool from the right-click menu).
+    (identify with a full 4/4 stack of The Joker from the right-click menu).
     This reverses the issue #84 behaviour that allowed equipping blind.
     """
     if not isinstance(entry, dict):
@@ -214,8 +254,8 @@ def make_inventory():
         'flask_slot':  None,
         'grid_v':      INV_GRID_VERSION,
     }
-    # Starter tarot currency (issue #73 phase B): one complete Fool, half a
-    # Magician, a single Wheel quarter — enough to try the usage flow.
+    # Starter card currency (issue #73 phase B): one complete Joker (4/4)
+    # plus one whole Ace of Hearts and one whole Queen of Diamonds.
     try:
         import systems.currency as _currency
         for slot in _currency.starter_set():

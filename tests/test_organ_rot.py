@@ -107,7 +107,7 @@ class TestWaveRotGain(unittest.TestCase):
     def test_non_organs_never_rot(self):
         inv = make_inventory()
         inv['grid'].append(itemgen.roll_for('gem_blue', 1, 5, seed=3))
-        inv['grid'].append({'item': 'tarot_card_13', 'count': 4, 'col': 0, 'row': 1})
+        inv['grid'].append({'item': 'poker_ace_pikes', 'count': 4, 'col': 0, 'row': 1})
         inv['grid'].append({'item': 'flask_health', 'count': 1, 'charges': 1,
                             'col': 1, 'row': 0})
         itemgen.apply_wave_rot(inv)
@@ -210,13 +210,13 @@ class TestRottenState(unittest.TestCase):
         self.assertLess(with_drawback, without)
 
 
-# ── 4: Temperance cleanse ─────────────────────────────────────────────
+# ── 4: Queen of Hearts cleanse ────────────────────────────────────────
 
 class TestTemperanceCleanse(unittest.TestCase):
     def test_card_is_registered(self):
         self.assertIn(14, currency.CURRENCY_CARDS)
-        self.assertIn('tarot_card_14', ITEMS)
-        self.assertEqual(ITEMS['tarot_card_14']['img'], 'cards/arcanum/14.png')
+        self.assertIn('poker_queen_hearts', ITEMS)
+        self.assertEqual(ITEMS['poker_queen_hearts']['img'], 'cards/dark/Q-H.png')
 
     def test_temperance_full_reverts_rotten_organ(self):
         target = _organ('heart', rarity='rare', seed=21)
@@ -263,7 +263,7 @@ class TestTemperanceCleanse(unittest.TestCase):
         result = _apply_temperance(game, target)
         self.assertIsNone(result)
         # nothing consumed — the whole card is still there
-        cards = [e for e in game.inventory['grid'] if e['item'] == 'tarot_card_14']
+        cards = [e for e in game.inventory['grid'] if e['item'] == 'poker_queen_hearts']
         self.assertEqual(cards[0]['count'], 1)
 
     def test_temperance_refuses_non_organs(self):

@@ -20,6 +20,10 @@
 LOOKS_OPTIONS = ['knight', 'warrior', 'fighter']
 LOOKS_LABELS = {'knight': 'Knight Vessel', 'warrior': 'Warrior Vessel', 'fighter': 'Fighter Vessel'}
 
+# Only the knight (Pyrrhian) is playable; the rest stay behind this flag
+# until their western-fantasy redesigns ship.
+WIP_VESSELS = {'warrior', 'fighter'}
+
 VESSEL_DEFS = {
     'knight': {
         'name': 'Pyrrhian',
