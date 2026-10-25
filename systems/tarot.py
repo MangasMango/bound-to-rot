@@ -48,15 +48,15 @@ DIRECTIONS = (DIRECTION_DESCEND, DIRECTION_STAY, DIRECTION_ASCEND, DIRECTION_RET
 # The Major Arcana always used for the guaranteed "Return to Hub" escape card.
 RETURN_ARCANA = 21  # The World
 
-# Card decks — 'arcanum' is the default hi-res deck, 'pixel' is the legacy
-# 73x113 pixel-art deck kept as an unlockable skin.
+# Card decks — 'dark' is the default poker deck, 'light' is the bundled
+# alternative skin.
 TAROT_DECKS = {
-    'arcanum': {'folder': 'cards/arcanum', 'point_filter': False},
-    'pixel':   {'folder': 'cards/pixel',   'point_filter': True},
+    'dark':  {'folder': 'cards/dark',  'point_filter': True},
+    'light': {'folder': 'cards/light', 'point_filter': True},
 }
-DEFAULT_DECK = 'arcanum'
+DEFAULT_DECK = 'dark'
 
-CARD_BACK = 'cards/back.png'
+CARD_BACK = 'cards/dark/BACK.png'
 
 
 def _img(arcana_id: int) -> str:

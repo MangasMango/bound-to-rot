@@ -60,7 +60,7 @@ import time as _time
 
 from config import ASSETS
 
-from systems.items import GRID_COLS, GRID_ROWS
+from systems.items import GRID_COLS, GRID_ROWS, remap_legacy_card_ids
 from entities.descend import (DESCEND_ATTRIBUTES, compute_perk_bonuses,
                               get_available_descend_points, is_perk_unlockable,
                               purchase_perk, increase_attribute, DESCEND_PERKS,
@@ -549,6 +549,7 @@ class Character:
         c.perks = d['perks']
         c.available_points = d['available_points']
         c.stash = d['stash']
+        remap_legacy_card_ids(c.inventory, c.stash)
         return c
 
 
@@ -589,14 +590,19 @@ class CharacterManager:
 
     def note_depth(self, depth: int) -> list[str]:
         """Record the deepest point reached on any descent and auto-unlock any
-        vessels whose veil has now been pierced.  Returns newly unlocked keys."""
+        vessels whose veil has now been pierced.  Returns newly unlocked keys.
+
+        Vessels in WIP_VESSELS are never auto-unlocked while they are
+        unimplemented."""
         newly = []
         changed = False
         if depth > self.best_depth:
             self.best_depth = depth
             changed = True
-        from entities.descend import VESSEL_UNLOCKS
+        from entities.descend import VESSEL_UNLOCKS, WIP_VESSELS
         for lk, data in VESSEL_UNLOCKS.items():
+            if lk in WIP_VESSELS:
+                continue
             req = data['depth']
             if req <= 0 or req > self.best_depth:
                 continue

@@ -30,14 +30,10 @@ _pixel_sizes: list[int] | None = None   # None = scalable; list = pixel font
 _pixel_fonts: dict[int, rl.Font] = {}   # crisp size -> font object
 _last_path: str = ''                    # pixel font file, for lazy per-size loads
 
-# Point sizes at which the bundled bitmap fonts render pixel-perfect.
-# NOTE: 60/72 are also crisp but their atlases overflow with the full
-# codepoint set (packaging failures poison other fonts), so the largest
-# cached size is 48 — bigger requested sizes snap down to it.
-CRISP_SIZES = {
-    'alagard.ttf': [12, 18, 24, 36, 48],
-    'romulus.ttf': [12, 18, 24, 36, 48],
-}
+# Point sizes at which bundled bitmap fonts render pixel-perfect — kept
+# as a hook; the current UI font (Sancreek) is scalable, so it loads at
+# free sizes with bilinear filtering instead.
+CRISP_SIZES = {}
 
 
 _cp_buf = None   # cffi int[] buffer — MUST outlive load_font_ex calls

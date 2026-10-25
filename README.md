@@ -18,7 +18,7 @@ _Started May 10, 2026. Open-sourced October 14, 2026._
 
 ## Contributing
 
-See [CONTRIBUTING](CONTRIBUTING.md) for general code style, AI and PR guidelines, including the lore rule.
+See [CONTRIBUTING](CONTRIBUTING.md) for general code style, AI and PR guidelines.
 
 If you'd like to report a bug or suggest a feature, open an [issue](https://github.com/MangasMango/bound-to-rot/issues). Keep your own agent notes, prompts and plans in `.ai/`; it is gitignored, so each contributor's notes stay local.
 
@@ -26,7 +26,7 @@ If you'd like to report a bug or suggest a feature, open an [issue](https://gith
 
 - **Anima** | an endless isometric descent. Depth drives everything: monster level, item level and reward quality.
 - **The Pulse** | your mobile light anchor. Leave its light radius and darkness starts eating you alive. Clear a wave and the Pulse opens the **chart**: pick your next checkpoint, claim a 1-of-3 relic boon.
-- **Vessels** | Pyrrhian (knight) from the start; Myronian (warrior) at Depth 10, Theran (fighter) at Depth 20, unlocked account-wide.
+- **Vessels** | Pyrrhian (knight) — the only vessel for now. Myronian (warrior) and Theran (fighter) are work in progress.
 - **Permadeath** | dying in the Anima deletes the character. Only your account-wide best depth survives.
 - **Items & Tarot** | gear drops unidentified and is revealed with tarot cards, which double as crafting currency (upgrade, force mythic, reroll). Gems socketed into **Q / W / E / R** grant abilities; a **T** flask gives one charge per wave.
 

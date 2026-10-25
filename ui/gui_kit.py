@@ -13,14 +13,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Procedural GUI widgets plus the spellbook menu theme.
+"""Procedural GUI widgets plus the wood-and-parchment menu theme.
 
-Menu screens draw an open spellbook (assets/gui/spellbookForFlare.png —
-Fantasy Book by yd, CC0) with the LEFT page centred and the right page
-hanging offscreen; wooden buttons, gold frame edges and checkboxes are
-cut from assets/gui/RPG_GUI_v1.png (RPG GUI Construction Kit v1.0 by
-Lamoot, CC-BY 3.0). All kit pieces degrade to the plain drawn widgets
-when the textures are missing.
+Menu screens draw a full-screen wood board (assets/gui/wood background.png)
+with two parchment sheets laid over it — western-poster style; wooden
+buttons, gold frame edges and checkboxes are cut from
+assets/gui/RPG_GUI_v1.png (RPG GUI Construction Kit v1.0 by Lamoot, CC-BY
+3.0). All kit pieces degrade to the plain drawn widgets when the textures
+are missing.
 
 Palette kept from the original UI design guide:
 
@@ -51,12 +51,11 @@ GREY_DARK = col(0x37, 0x37, 0x37, 255)   # Grey Dark
 GREY_LT   = col(0x66, 0x66, 0x66, 255)   # Grey Light
 WHITE     = col(0xD2, 0xD2, 0xD2, 255)   # Main White
 
-# Spellbook page palette
+# Parchment sheet palette
 INK       = col(0x2B, 0x20, 0x16, 255)   # dark ink on parchment
 INK_DIM   = col(0x5A, 0x4A, 0x38, 255)   # faded ink
 GOLD      = col(0xB8, 0x8A, 0x2E, 255)   # kit gold accent
 DANGER    = col(0x8B, 0x1E, 0x12, 255)   # dark red for danger text
-PAGE_BG   = col(0x14, 0x0C, 0x08, 255)   # letterbox behind the book
 
 _PANEL_FILL   = col(0x11, 0x11, 0x11, 205)
 _PANEL_BORDER = col(0xD2, 0xD2, 0xD2, 136)
@@ -68,7 +67,7 @@ _TRACK_FILL   = col(0x11, 0x11, 0x11, 225)
 _GUI_DIR  = os.path.join(config.ASSETS, 'gui')
 _TEX      = {}          # name -> Texture2D or None (missing)
 
-_BOOK_FILE = 'spellbookForFlare.png'
+_WOOD_FILE = 'wood background.png'
 _SHEET_FILE = 'RPG_GUI_v1.png'
 _PAPER_FILE = 'paper background.png'
 
@@ -87,12 +86,6 @@ _PIECES = {
     'ck_off': (147, 16, 30, 27),     # unchecked box (gold)
     'ck_on':  (147, 55, 30, 27),     # checked box (gold tick)
 }
-
-# Left page usable content area inside the book image (inside the gold
-# ornament border, clear of the spine shadow).
-_PAGE_RECT = (220, 80, 675, 845)     # x, y, w, h in book-image pixels
-_BOOK_H    = 1080.0
-
 
 def _tex(name: str):
     """Lazy-load a kit texture once; None when the file is missing."""
@@ -144,33 +137,7 @@ def _piece_dst(rec, src, corner_px, tint):
             rl.Vector2(0, 0), 0.0, tint)
 
 
-# ── Spellbook pages ───────────────────────────────────────────────────
-def book_page(cw: int, ch: int, margin: int = 40):
-    """Draw the open spellbook centred with breathing room over whatever
-    backdrop the caller has drawn. The book keeps its aspect ratio.
-
-    Returns (left_page, right_page) — the usable inner-parchment content
-    rects of both pages — or None when the book texture is missing."""
-    book = _tex(_BOOK_FILE)
-    if book is None or book.id == 0:
-        return None
-    scale = min((ch - 2 * margin) / _BOOK_H,
-                (cw - 2 * margin) / book.width)
-    bw = book.width * scale
-    bh = book.height * scale
-    ox = (cw - bw) / 2
-    oy = (ch - bh) / 2
-    rl.draw_texture_pro(book,
-        rl.Rectangle(0, 0, float(book.width), float(book.height)),
-        rl.Rectangle(float(ox), float(oy), float(bw), float(bh)),
-        rl.Vector2(0, 0), 0.0, rl.WHITE)
-    px, py, pw, ph = _PAGE_RECT
-    left  = rl.Rectangle(ox + px * scale, oy + py * scale,
-                         pw * scale, ph * scale)
-    # right page mirrors the left one around the spine (book centre)
-    right = rl.Rectangle(ox + (book.width - px - pw) * scale, oy + py * scale,
-                         pw * scale, ph * scale)
-    return left, right
+# ── Kit pieces (RPG_GUI_v1 sheet) ─────────────────────────────────────
 
 
 def _roundness(corner: float, w: float, h: float) -> float:
@@ -325,6 +292,41 @@ def paper_panel(x: int, y: int, w: int, h: int, border: bool = True):
                 rl.Rectangle(x + w - b, y + b, b, h - 2 * b), rl.Vector2(0, 0), 0.0, rl.WHITE)
         else:
             rl.draw_rectangle_lines_ex(rec, 1, col(0x8A, 0x6A, 0x2E, 255))
+
+
+# ── Menu board ────────────────────────────────────────────────────────
+def board_page(cw: int, ch: int):
+    """Draw the full-screen wood board and return the two parchment sheet
+    rects the menu screens lay their columns out in: (left, right).
+
+    The wood is tiled edge to edge; each sheet is a parchment panel so
+    ink text stays readable. Layout never depends on the textures being
+    present."""
+    wood = _tex(_WOOD_FILE)
+    if wood is not None and wood.id > 0:
+        tw, th = wood.width, wood.height
+        ty = 0
+        while ty < ch:
+            tx = 0
+            dh = min(th, ch - ty)
+            while tx < cw:
+                dw = min(tw, cw - tx)
+                rl.draw_texture_pro(wood,
+                    rl.Rectangle(0, 0, float(dw), float(dh)),
+                    rl.Rectangle(float(tx), float(ty), float(dw), float(dh)),
+                    rl.Vector2(0, 0), 0.0, rl.WHITE)
+                tx += dw
+            ty += dh
+    else:
+        rl.clear_background(BLACK)
+
+    left  = rl.Rectangle(cw / 2 - 530, 60, 500, ch - 120.0)
+    right = rl.Rectangle(cw / 2 + 30, 60, 500, ch - 120.0)
+    paper_panel(int(left.x), int(left.y),
+                int(left.width), int(left.height))
+    paper_panel(int(right.x), int(right.y),
+                int(right.width), int(right.height))
+    return left, right
 
 
 def kit_check(x: int, y: int, size: int, checked: bool):
