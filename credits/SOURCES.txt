@@ -6,6 +6,8 @@ Tarot / Major Arcana pixel art (used for cards & drops) — SasVel, CC BY 4.0:
 
 Fonts — OSerif by GGBotNet, CC0 1.0:
   https://github.com/ggbotnet/fonts-cc0
+  Default UI font — "Pixel Fonts by Pix3M" (Alagard, Romulus) by Pix3M,
+  CC-BY 3.0: https://opengameart.org/content/pixel-fonts-by-pix3m
 
 UI icons — 1-bit Pixel Icons by Nikoichu, CC0 1.0:
   https://nikoichu.itch.io/pixel-icons

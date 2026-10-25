@@ -533,10 +533,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             print(f"[assets] {asset_guard.missing_notice(self.missing_assets)}")
         self.menu_sys.missing_assets = self.missing_assets
         _saved = Settings()
-        _fn = getattr(_saved, 'font_name', 'OSerif-Regular.ttf')
+        _fn = getattr(_saved, 'font_name', 'alagard.ttf')
         _font_path = os.path.join(_ASSETS, 'fonts', _fn)
         if os.path.exists(_font_path):
-            fonts.load(_font_path, 64)
+            fonts.load(_font_path, fonts.CRISP_SIZES.get(_fn))
         self.audio.init_music()
         self.audio.set_music_state('menu')
         import ui.menus as _m
