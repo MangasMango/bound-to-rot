@@ -667,7 +667,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self.state = STATE_MENU
         self.menu_sys.set_state(sub)
         self.audio.set_music_state('menu')
-        rl.hide_cursor()
 
     def _go_to_pause(self):
         self._pre_pause_state = self.state
@@ -676,7 +675,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # so opening the pause menu can't accidentally fire it mid-delve.
         self.menu_sys.signal()
         self.menu_sys.set_state('paused')
-        rl.hide_cursor()
 
     def _apply_tarot_card(self, card_entry, card_src, card_idx, t_src, t_idx):
         """InventoryUI callback: apply a complete (4/4) tarot currency card
@@ -761,20 +759,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     self._portal_frames.append(rl.load_texture(p))
         add(_pulse_portal)
 
-        def _loot_indicators():
-            # Loot indicator sprites (rarity-coloured)
-            ind_base = os.path.join(_ASSETS, 'user interface', 'loot-indicator')
-            for rarity, fname in (('common',    'loot_indicator_white.png'),
-                                  ('uncommon',  'loot_indicator_green.png'),
-                                  ('rare',      'loot_indicator_blue.png'),
-                                  ('epic',      'loot_indicator_red.png'),
-                                  ('legendary', 'loot_indicator_yellow.png'),
-                                  ('mythic',    'loot_indicator_yellow.png')):
-                p = os.path.join(ind_base, fname)
-                if os.path.exists(p):
-                    self._loot_indicators[rarity] = rl.load_texture(p)
-        add(_loot_indicators)
-
         def _crate_static():
             self._crate_spr = _sprite('prop/crate', 'crate', 1, 1.0)
             self._crate_spr.load()
@@ -825,13 +809,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         add(_ability_icons)
 
         def _filters():
-            vignette_path = os.path.join(_ASSETS, 'user interface', 'filter', 'filter_vignette.png')
+            vignette_path = os.path.join(_ASSETS, 'gui', 'filter_vignette.png')
             self._vignette_tex = rl.load_texture(vignette_path) if os.path.exists(vignette_path) else None
-
-            hl_blue_path = os.path.join(_ASSETS, 'user interface', 'highlight', 'highlight_blue.png')
-            self._hl_blue_tex = rl.load_texture(hl_blue_path) if os.path.exists(hl_blue_path) else None
-            hl_red_path = os.path.join(_ASSETS, 'user interface', 'highlight', 'highlight_red.png')
-            self._hl_red_tex = rl.load_texture(hl_red_path) if os.path.exists(hl_red_path) else None
         add(_filters)
 
         def _ui_tex():
@@ -914,7 +893,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     self.audio.set_music_state('off')
             if hasattr(self, '_pre_pause_state'):
                 del self._pre_pause_state
-            rl.hide_cursor()
         elif sig == 'main_menu':
             self.char_mgr.save()
             self._go_to_menu('main')
@@ -1827,7 +1805,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         `objects` is a list of dicts with world-position keys 'x'/'y'
         (hub objects and delve ground-item interactables share the shape).
-        Purely visual — no player-distance check; the green cursor means
+        Purely visual — no player-distance check; the hover glow means
         "the art is under your cursor", not "you can use it yet".
         """
         if self.inv.open or self._hub_popup or self._delve_chart_is_open():
@@ -2865,8 +2843,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             if sprite: sprite.unload()
         for sprite in self._decor_sprs.values():
             if sprite: sprite.unload()
-        for tex in self._loot_indicators.values():
-            if tex and tex.id > 0: rl.unload_texture(tex)
         if self._gold_drop_spr: self._gold_drop_spr.unload()
         if self._load_brazier_spr: self._load_brazier_spr.unload()
         _unloaded_ids = set()
@@ -2877,10 +2853,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if self._vfx_white and self._vfx_white.id > 0:
             rl.unload_texture(self._vfx_white)
             self._vfx_white = None
-        if self._cursor_tex and self._cursor_tex.id > 0:
-            rl.unload_texture(self._cursor_tex)
-        if self._cursor_tex_green and self._cursor_tex_green.id > 0:
-            rl.unload_texture(self._cursor_tex_green)
         if self._anima_panel_tex and self._anima_panel_tex.id > 0:
             rl.unload_texture(self._anima_panel_tex)
         if self._pulse_tex is not None and self._pulse_tex.id > 0:
@@ -2888,10 +2860,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             self._pulse_tex = None
         if self._vignette_tex and self._vignette_tex.id > 0:
             rl.unload_texture(self._vignette_tex)
-        if self._hl_blue_tex and self._hl_blue_tex.id > 0:
-            rl.unload_texture(self._hl_blue_tex)
-        if self._hl_red_tex and self._hl_red_tex.id > 0:
-            rl.unload_texture(self._hl_red_tex)
         for t in self._ui.values():
             if t and t.id > 0:
                 rl.unload_texture(t)

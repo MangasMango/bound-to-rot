@@ -60,7 +60,6 @@ class HubMixin:
             self.inv.on_drop_item = self._on_inv_drop
             self.iso.follow(self.px, self.py)
             self.audio.set_music_state('hub')
-            rl.hide_cursor()
 
             self._hub_objects = [dict(o) for o in _HUB_LAYOUT]
             for obj in self._hub_objects:
@@ -106,14 +105,12 @@ class HubMixin:
                     # RETURN TO HUB button: from the hub this just closes the
                     # modal (the delve path routes through the same signal).
                     self._on_chart_return_hub()
-                    rl.hide_cursor()
                     return
                 if isinstance(result, tuple) and result[0] == 'select':
                     self._on_chart_select(result[1])
                     return
                 if result == 'close' or inp.key_pressed('hub.anima.close', rl.KEY_ESCAPE):
                     self._hub_popup = None
-                    rl.hide_cursor()
                     return
                 # Resume button (saved mid-delve snapshot) — panel bottom edge
                 lmb = inp.mouse_pressed('hub.anima.resume', rl.MOUSE_BUTTON_LEFT)
@@ -138,7 +135,6 @@ class HubMixin:
                         self.inv.close_stash()
                         self.inv.on_stash_change = None
                     self._hub_popup = None
-                    rl.hide_cursor()
                 return
 
             if inp.key_pressed('hub.anima.close', rl.KEY_ESCAPE):

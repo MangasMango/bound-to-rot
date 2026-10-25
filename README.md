@@ -63,7 +63,7 @@ _Building:_ `pyinstaller main.spec`
 
 ### Assets
 
-Game assets live in `assets/` and **not all of them are in this repository**; see [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md). The `boss`, `environment`, `enemy`, `none-playable character`, `playable character`, `prop` and `user interface` folders come from a third-party pack that forbids redistribution; obtain the pack yourself and copy the files into those folders before running the game.
+Game assets live in `assets/` and **not all of them are in this repository**; see [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md). The `boss`, `environment`, `enemy`, `none-playable character`, `playable character` and `prop` folders come from a third-party pack that forbids redistribution; obtain the pack yourself and copy the files into those folders before running the game.
 
 The game detects missing packs at boot: it prints a console notice, shows a dismissible banner in the menus, and renders affected entities as colored placeholder silhouettes so it stays runnable without them.
 

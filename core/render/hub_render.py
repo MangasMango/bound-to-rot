@@ -82,17 +82,6 @@ class HubRenderMixin:
             cx, cy = sx + tile_size // 2, sy + tile_size // 2
             # Visible ground sprite for every dropped item (hover label on top)
             self._draw_ground_item_sprite(gi, cx, cy, tile_size)
-            rarity = self._drop_rarity(gi)
-            rc     = self._rarity_color(rarity)
-            ind_tex = self._loot_indicators.get(rarity)
-            if ind_tex and ind_tex.id > 0:
-                indicator_size = 22
-                src = rl.Rectangle(0, 0, 256.0, 256.0)
-                dst = rl.Rectangle(float(cx - indicator_size // 2), float(cy - indicator_size // 2),
-                                   float(indicator_size), float(indicator_size))
-                rl.draw_texture_pro(ind_tex, src, dst, rl.Vector2(0, 0), 0.0, rl.WHITE)
-            else:
-                rl.draw_circle(cx, cy, 5, rl.Color(rc.r, rc.g, rc.b, 200))
         rl.end_texture_mode()
         self._rebind_outer_rt()
 
@@ -121,6 +110,9 @@ class HubRenderMixin:
             fonts.draw(lbl, center_x - label_width // 2, ly, 16,
                        rl.Color(obj['color'].r, obj['color'].g, obj['color'].b, 200))
 
+        # Ground drop labels — same always-visible/Alt rule as in the delve
+        self._draw_drop_labels(cw, ch)
+
         self._draw_hud(cw, ch)
 
         if self._hub_popup:
@@ -128,7 +120,6 @@ class HubRenderMixin:
                 content, x_clicked = self._draw_anima_panel(cw, ch)
                 if x_clicked:
                     self._hub_popup = None
-                    rl.hide_cursor()
                 elif self._chart_screen is not None:
                     self._chart_screen.draw(cw, ch,
                                             origin=(content.x, content.y),
@@ -159,7 +150,6 @@ class HubRenderMixin:
                     self.inv.open = False
                     self.inv.close_stash()
                     self.inv.on_stash_change = None
-                    rl.hide_cursor()
             else:
                 self.menu_sys.draw_popup(self._hub_popup, cw, ch)
         else:

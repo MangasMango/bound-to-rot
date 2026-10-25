@@ -36,7 +36,6 @@ EXCLUDED_ASSET_DIRS = (
     'none-playable character',
     'playable character',
     'prop',
-    'user interface',
 )
 
 
@@ -128,23 +127,6 @@ def _make_diamond(w, h, fill, outline):
     return tex
 
 
-def _make_cursor():
-    """Small white arrow with dark outline (32×32, tip near top-left)."""
-    w = h = 32
-    img = rl.gen_image_color(w, h, rl.BLANK)
-    tip = rl.Vector2(3, 2)
-    dark = rl.Color(20, 20, 20, 255)
-    white = rl.Color(245, 245, 245, 255)
-    # dark outline triangle, then slightly inset white triangle
-    rl.image_draw_triangle(img, tip,
-                           rl.Vector2(3, 24), rl.Vector2(16, 17), dark)
-    rl.image_draw_triangle(img, rl.Vector2(5, 5),
-                           rl.Vector2(5, 20), rl.Vector2(14, 15), white)
-    tex = rl.load_texture_from_image(img)
-    rl.unload_image(img)
-    return tex
-
-
 def _window_ready():
     try:
         return bool(rl.is_window_ready())
@@ -170,12 +152,3 @@ def entity_placeholder(kind_hint=''):
     return tex
 
 
-def cursor_placeholder():
-    """Cached fallback mouse cursor texture (None when headless)."""
-    if not _window_ready():
-        return None
-    tex = _cache.get('cursor')
-    if tex is None:
-        tex = _make_cursor()
-        _cache['cursor'] = tex
-    return tex

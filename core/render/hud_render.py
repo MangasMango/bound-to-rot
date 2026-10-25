@@ -166,8 +166,58 @@ class HudRenderMixin:
             ring(obj['x'], obj['y'], click_r, rl.Color(255, 160, 60, 200))
             if interact_r is not None:
                 ring(obj['x'], obj['y'], interact_r, rl.Color(120, 255, 120, 160))
+    def _drop_label_info(self, gi):
+        """(text, colour) for a ground drop's label: the first item's name
+        in its rarity colour, plus '+ N more' when the drop holds extra
+        items. Unidentified items show their base name (the tooltip does
+        the spoiler-free hinting)."""
+        slot = gi.get('items', [None])[0]
+        if not slot:
+            return None
+        item_id = slot['item']
+        idef    = ITEMS.get(item_id, {})
+        inst    = slot.get('instance_data')
+        rarity  = idef.get('rarity', 'common')
+        unid    = inst is not None and not itemgen.is_identified(slot)
+        if inst:
+            rarity = inst.get('rarity', rarity)
+        title = (idef.get('name', item_id) if unid else
+                 (inst['display_name'] if inst else idef.get('name', item_id)))
+        extra = len(gi.get('items', [])) - 1
+        if extra > 0:
+            title = f'{title} +{extra} more'
+        return title, self._rarity_color(rarity)
+
+    def _labels_visible(self) -> bool:
+        """Ground labels show always (setting) or while Alt is held."""
+        if self.menu_sys.settings.item_labels:
+            return True
+        return (rl.is_key_down(rl.KEY_LEFT_ALT)
+                or rl.is_key_down(rl.KEY_RIGHT_ALT))
+
+    def _draw_drop_labels(self, cw, ch):
+        """Always-visible name labels above ground drops (item_labels
+        setting, or hold Alt). Drawn in the above-darkness overlay so the
+        gloom never eats them."""
+        if not self._labels_visible():
+            return
+        tile_size = int(ISO_W * self.iso.scale)
+        for gi in self.ground_items:
+            if gi.get('type') != 'drop' or not gi.get('items'):
+                continue
+            info = self._drop_label_info(gi)
+            if not info:
+                continue
+            text, col = info
+            sx, sy = self.iso.world_to_screen(gi['x'], gi['y'], cw, ch)
+            label_x = sx + tile_size // 2
+            label_y = sy - 6
+            fs = max(13, int(16 * (cw / 1920)))
+            fonts.label(text, label_x, label_y, fs, col)
+
     def _draw_drop_overlay(self, cw, ch):
-        """Re-drop ground sprites and loot indicators above the darkness mask."""
+        """Re-drop ground sprites above the darkness mask, with name
+        labels when labels are visible."""
         tile_size  = int(ISO_W * self.iso.scale)
         for gi in self.ground_items:
             if gi.get('type') != 'drop' or not gi.get('items'):
@@ -177,15 +227,7 @@ class HudRenderMixin:
             tile_center_y = sy + tile_size // 2
             # Ground sprite stays visible above the darkness overlay
             self._draw_ground_item_sprite(gi, tile_center_x, tile_center_y, tile_size)
-            rarity = self._drop_rarity(gi)
-            ind_tex = self._loot_indicators.get(rarity)
-            if ind_tex and ind_tex.id > 0:
-                indicator_size = 22
-                src = rl.Rectangle(0, 0, 256.0, 256.0)
-                dst = rl.Rectangle(float(tile_center_x - indicator_size // 2),
-                                   float(tile_center_y - indicator_size // 2),
-                                   float(indicator_size), float(indicator_size))
-                rl.draw_texture_pro(ind_tex, src, dst, rl.Vector2(0, 0), 0.0, rl.WHITE)
+        self._draw_drop_labels(cw, ch)
     def _draw_aura_range(self, cw, ch):
         """Fire Aura (E-gem active) ground ring while the buff runs — the
         radius is snapshotted at cast time."""
@@ -274,24 +316,22 @@ class HudRenderMixin:
         if not self.click_marker:
             return
         blocked = self.click_marker.get('blocked', False)
-        tex = self._hl_red_tex if blocked else self._hl_blue_tex
-        if not tex or tex.id == 0:
-            return
         duration = 0.3 if blocked else 0.6
         t   = self.click_marker['timer'] / duration
         col = self.click_marker['col']
         row = self.click_marker['row']
         sx, sy = self.iso.world_to_screen(col, row, cw, ch)
         tile_size = int(ISO_W * self.iso.scale)
-        draw_size = tile_size // 2
         center_x  = sx + tile_size // 2
         center_y  = sy + tile_size // 2
         alpha = int(255 * t)
-        src = rl.Rectangle(0, 0, float(tex.width), float(tex.height))
-        dst = rl.Rectangle(float(center_x - draw_size // 2), float(center_y - draw_size // 2),
-                           float(draw_size), float(draw_size))
-        color = rl.Color(255, 255, 255, alpha)
-        rl.draw_texture_pro(tex, src, dst, rl.Vector2(0, 0), 0.0, color)
+        # Code-drawn click marker: an expanding, fading ring on the tile
+        # (replaces the old highlight sprites).
+        ring_r = tile_size * (0.25 + 0.45 * (1.0 - t))
+        ring_col = rl.Color(230, 60, 60, alpha) if blocked \
+            else rl.Color(90, 170, 255, alpha)
+        rl.draw_ring(rl.Vector2(float(center_x), float(center_y)),
+                     max(1.0, ring_r - 3.0), ring_r + 3.0, 0, 360, 36, ring_col)
         if blocked:
             fonts.draw('BLOCKED', center_x - fonts.measure('BLOCKED', 14) // 2,
                        center_y - 28, 14, rl.Color(255, 120, 120, alpha))
@@ -1403,22 +1443,3 @@ class HudRenderMixin:
         import time as _perf_time
         cursor = '|' if int(_perf_time.time() * 2) % 2 == 0 else ' '
         fonts.draw('> ' + self._console_buf + cursor, 10, panel_y + PANEL_HEIGHT - 24, 27, rl.WHITE)
-    def _draw_cursor(self):
-        # green gauntlet when an interactable is under the cursor
-        tex = (self._cursor_tex_green
-               if self._hover_interact
-               and self._cursor_tex_green and self._cursor_tex_green.id > 0
-               else self._cursor_tex)
-        draw_size = 160
-        if not tex or tex.id == 0:
-            # pack missing: procedural arrow so the pointer stays visible
-            from systems import asset_guard
-            tex = asset_guard.cursor_placeholder()
-            draw_size = 48
-            if not tex or tex.id == 0:
-                return
-        mx, my = rl.get_mouse_x(), rl.get_mouse_y()
-        src = rl.Rectangle(0, 0, float(tex.width), float(tex.height))
-        dst = rl.Rectangle(float(mx - draw_size // 2), float(my - draw_size // 2),
-                           float(draw_size), float(draw_size))
-        rl.draw_texture_pro(tex, src, dst, rl.Vector2(0, 0), 0.0, rl.WHITE)
