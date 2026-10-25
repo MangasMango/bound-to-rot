@@ -471,7 +471,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._brazier_break_spr = None
         self._decor_sprs        = {}
         self._decor_items       = []
-        self._loot_indicators   = {}  # rarity -> Texture2D
         self._gold_drop_spr   = None
         self._ability_icons   = {}  # ability_id -> Texture2D
         self._swoosh_effects  = []  # active: {'x','y','angle','timer','color'}
@@ -497,7 +496,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._drop_label_rects = []
         self._hovered_ground_item = None
         # Interactable currently under the mouse (hub object or delve
-        # portal/crate/barrel/brazier) — drives hover glow + green cursor.
+        # portal/crate/barrel/brazier) — drives hover glow.
         self._hover_interact = None
 
         # Enemy sprites
@@ -508,10 +507,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._sl_idle   = None
         self._sl_walk   = None
         self._sl_death  = None
-        self._cursor_tex  = None
         self._vignette_tex = None
-        self._hl_blue_tex  = None
-        self._hl_red_tex   = None
         self._ui           = {}
 
     @property
@@ -533,8 +529,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             print(f"[assets] {asset_guard.missing_notice(self.missing_assets)}")
         self.menu_sys.missing_assets = self.missing_assets
         _saved = Settings()
-        _fn = getattr(_saved, 'font_name', 'alagard.ttf')
+        _fn = getattr(_saved, 'font_name', 'Sancreek-Regular.ttf')
         _font_path = os.path.join(_ASSETS, 'fonts', _fn)
+        if not os.path.exists(_font_path):
+            _fn = 'Sancreek-Regular.ttf'
+            _font_path = os.path.join(_ASSETS, 'fonts', _fn)
         if os.path.exists(_font_path):
             fonts.load(_font_path, fonts.CRISP_SIZES.get(_fn))
         self.audio.init_music()
@@ -554,15 +553,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self.menu_sys.header_tex = _utex_m('20251117darkDwellersHeaderA.png')
         logo_path = os.path.join(_ASSETS, 'logo', 'logo.png')
         self.menu_sys.logo_tex = rl.load_texture(logo_path) if os.path.exists(logo_path) else None
-        bg_path = os.path.join(_ASSETS, 'logo', 'background.png')
+        bg_path = os.path.join(_ASSETS, 'logo', 'background.jpg')
         self.menu_sys.bg_tex = rl.load_texture(bg_path) if os.path.exists(bg_path) else None
         hb_path = os.path.join(_ASSETS, 'ui', '20251117darkDwellersHeaderB.png')
         self.menu_sys.headerB_tex = rl.load_texture(hb_path) if os.path.exists(hb_path) else None
-
-        cursor_path = os.path.join(_ASSETS, 'user interface', 'cursor', 'cursor_gauntlet_blue.png')
-        self._cursor_tex = rl.load_texture(cursor_path) if os.path.exists(cursor_path) else None
-        green_path = os.path.join(_ASSETS, 'user interface', 'cursor', 'cursor_gauntlet_red.png')
-        self._cursor_tex_green = rl.load_texture(green_path) if os.path.exists(green_path) else None
 
         anima_path = os.path.join(_ASSETS, 'ui', 'anima_panel.jpg')
         self._anima_panel_tex = rl.load_texture(anima_path) if os.path.exists(anima_path) else None
@@ -620,7 +614,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     print(f"[shader] '{_sn}' loaded OK")
             self._vfx_white = rl.load_texture_from_image(
                 rl.gen_image_color(1, 1, rl.WHITE))
-        rl.hide_cursor()
+        rl.show_cursor()
 
     def _load_lighting_textures(self):
         """Generated textures for the fire-light shader: tiling value noise
@@ -2127,7 +2121,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     out[k] += v
             inst = eq_item.get('instance_data')
             # Unidentified items (issue #73 phase B): rolled affixes stay
-            # hidden AND inert until The Fool identifies the item.
+            # hidden AND inert until The Joker identifies the item.
             if inst and itemgen.is_identified(eq_item):
                 eff = itemgen.live_effect_totals(inst,
                                                  include_drawbacks=not nullify)

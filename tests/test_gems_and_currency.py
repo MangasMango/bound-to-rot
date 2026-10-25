@@ -142,7 +142,7 @@ class TestUnidentifiedItems(unittest.TestCase):
 
     def test_non_equippable_item_is_never_equippable(self):
         inv = make_inventory()
-        inv['grid'].append({'item': 'tarot_card_13', 'count': 5, 'col': 0, 'row': 0})
+        inv['grid'].append({'item': 'poker_ace_pikes', 'count': 5, 'col': 0, 'row': 0})
         self.assertFalse(equip_from_grid(inv, 0))
 
     def test_moon_rarity_supports_mythic(self):
@@ -236,6 +236,7 @@ class TestTarotCurrency(unittest.TestCase):
         self.assertNotIn(3, currency.CURRENCY_CARDS)
         self.assertNotIn(3, currency.DEFAULT_ARCANA_ORDER)
         self.assertNotIn('tarot_card_03', ITEMS)
+        self.assertNotIn('poker_03', ITEMS)
 
 
 class TestWholeCardsExceptFool(unittest.TestCase):

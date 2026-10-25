@@ -29,7 +29,7 @@ Tiers are driven by the item's rarity:
 import math
 
 RARITY_TIER = {'common': 0, 'uncommon': 1, 'rare': 2, 'epic': 3, 'legendary': 4,
-               'mythic': 4}   # mythic tops the same tier-5 ladder (The Emperor)
+               'mythic': 4}   # mythic tops the same tier-5 ladder (King of Pikes)
 
 ABILITIES = {
     # ── active: cones (liver) ─────────────────────────────────────────

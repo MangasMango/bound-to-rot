@@ -28,7 +28,7 @@ four action keys, and every gem ability is cast by PRESSING its key:
 Equipping a gem item into that key's socket (inventory['gem_sockets'])
 grants/sets that slot's ability. Socketing a different gem re-rolls nothing —
 the ability is rolled when the gem ITEM is generated (itemgen.roll_for) and
-The Star (Gemcutter's Prism) can reroll it later.
+Ace of Diamonds (Gemcutter's Prism) can reroll it later.
 
 Tier (power) comes from the gem's rarity, same RARITY_TIER ladder as organs.
 """

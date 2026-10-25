@@ -1,13 +1,16 @@
 Other Art
 =========
 
-Tarot / Major Arcana pixel art (used for cards & drops) — SasVel, CC BY 4.0:
-  https://sasvel.itch.io/pixel-tarot
+Poker cards (dark & light decks) — "Pixel Poker Cards" by Aspecs Gaming,
+CC0 1.0: https://aspecsgaming.itch.io/mini-pixel-playing-cards
 
-Fonts — OSerif by GGBotNet, CC0 1.0:
-  https://github.com/ggbotnet/fonts-cc0
-  Default UI font — "Pixel Fonts by Pix3M" (Alagard, Romulus) by Pix3M,
-  CC-BY 3.0: https://opengameart.org/content/pixel-fonts-by-pix3m
+Font — Sancreek by Vernon Adams, SIL Open Font License 1.1:
+  https://fonts.google.com/specimen/Sancreek
+
+Inventory / HUD panels and orbs (assets/ui) — "RPG Inventory" and
+"Health Orb 1.1" by itsmars, CC0 1.0:
+  https://opengameart.org/content/rpg-inventory
+  https://opengameart.org/content/health-orb-11
 
 UI icons — 1-bit Pixel Icons by Nikoichu, CC0 1.0:
   https://nikoichu.itch.io/pixel-icons
@@ -22,9 +25,8 @@ UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
   Spare track: "Dark Loop" (CC BY 3.0) by Machine:
   https://opengameart.org/content/crypt
 
-Spellbook menu background — "Fantasy Book" by yd, CC0 1.0:
-  https://opengameart.org/content/fantasy-book
-
 Menu widgets — "RPG GUI Construction Kit v1.0" by Lamoot, CC BY 3.0:
   https://opengameart.org/content/rpg-gui-construction-kit-v10
 
+Original art (no third-party source): icon.ico, assets/logo/,
+assets/pulse/, and the item sprites in assets/items/.

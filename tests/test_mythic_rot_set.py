@@ -79,7 +79,7 @@ class TestMythicDrop(unittest.TestCase):
         gem = {'item': 'gem_blue', 'count': 1,
                'instance_data': {'rarity': 'common', 'display_name': 'Gem',
                                  'ilvl': 5, 'identified': True, 'ability': 'dash'}}
-        card = {'item': 'tarot_card_13', 'count': 1}
+        card = {'item': 'poker_ace_pikes', 'count': 1}
         for _ in range(100):
             self.assertFalse(itemgen.try_rot_mythic(dict(gem), 1, rng))
             self.assertFalse(itemgen.try_rot_mythic(dict(card), 1, rng))
