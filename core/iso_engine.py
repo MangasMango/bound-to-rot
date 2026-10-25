@@ -72,6 +72,8 @@ def angle_to_dir(angle_deg: float) -> str:
 def _rgba(r, g, b, a=255): return rl.Color(r, g, b, a)
 FLOOR_COL  = _rgba(55,  60,  55,  255)
 PUDDLE_COL = _rgba(24,  30,  40,  235)   # baked puddle base under the reflection shader
+HOVER_GOLD = _rgba(230, 190, 90,  220)   # code-drawn hovered-tile outline
+TARGET_RED = _rgba(230,  60,  60,  220)  # code-drawn attack-target ring
 
 TILE_COL = {
     6:   _rgba(155, 115, 75,  255),   # cabinet
@@ -181,8 +183,6 @@ class IsoRenderer:
         self._floor_tex    = None   # ground tile Texture2D
         self._variation_textures = []     # ground variation textures
         self._prop_sprites = {} # static prop IsoSprites keyed by name
-        self._hl    = None   # highlight overlay
-        self._loot_indicator_tex  = None   # loot indicator
         # Precomputed per-level prop placements (populated by generate_props)
         self._tile_cells       = set()   # (col, row)
         self._floor_prop_cells = {}      # (col, row) -> (name, direction)
@@ -210,12 +210,9 @@ class IsoRenderer:
             sprite = IsoSprite(os.path.join(prop_dir, name), name, 1, 1.0)
             sprite.load(['SE', 'SW'])
             self._prop_sprites[name] = sprite
-        self._hl      = _load_tex('user interface/highlight/highlight_yellow.png')
-        self._hl_red  = _load_tex('user interface/highlight/highlight_red.png')
-        self._loot_indicator_tex  = _load_tex('user interface/loot-indicator/loot_indicator_yellow.png')
 
     def unload(self):
-        for t in [self._floor_tex, self._hl, self._hl_red, self._loot_indicator_tex] + self._variation_textures:
+        for t in [self._floor_tex] + self._variation_textures:
             if t and t.id > 0:
                 rl.unload_texture(t)
         for sprite in self._prop_sprites.values():
@@ -544,15 +541,13 @@ class IsoRenderer:
                 if sx + tile_size < 0 or sx > sw or sy + tile_size < 0 or sy > sh + tile_size:
                     continue
                 if hover_cell and hover_cell == (col, row):
-                    self._draw_tex(self._hl, sx, sy, tile_size)
+                    self._diamond_outline(int(sx), int(sy), tile_size,
+                                          HOVER_GOLD)
 
             for e in ent_by_diag.get(diag, []):
                 ex = int((e['col'] - e['row']) * step_x - _cam_x + _sw_half)
                 ey = int((e['col'] + e['row']) * step_y - _cam_y + _sh_half)
                 self._draw_entity(e, ex, ey, tile_size)
-                if e.get('loot'):
-                    tex = e.get('loot_tex') or self._loot_indicator_tex
-                    self._draw_tex(tex, ex, ey, tile_size)
 
         for e in (overlay_entities or []):
             ex = int((e['col'] - e['row']) * step_x - _cam_x + _sw_half)
@@ -685,6 +680,26 @@ class IsoRenderer:
         rl.draw_triangle(_V0, _V1, _V2, color)
         rl.draw_triangle(_V0, _V2, _V3, color)
 
+    def _diamond_outline(self, sx: int, sy: int, tile_size: int, color,
+                         pad: float = 0.0, width: float = 2.0):
+        """Code-drawn hovered-tile highlight: the tile diamond stroked
+        (replaces the old highlight sprite)."""
+        k  = tile_size / TILE_SRC
+        cx = sx + (DIAMOND_X + DIAMOND_W // 2) * k
+        lx = sx + DIAMOND_X * k              - pad
+        rx = sx + (DIAMOND_X + DIAMOND_W) * k + pad
+        my = sy + (DIAMOND_Y + DIAMOND_H // 2) * k
+        ty = sy + DIAMOND_Y * k              - pad
+        by = sy + (DIAMOND_Y + DIAMOND_H) * k + pad
+        top    = rl.Vector2(float(cx), float(ty))
+        right  = rl.Vector2(float(rx), float(my))
+        bottom = rl.Vector2(float(cx), float(by))
+        left   = rl.Vector2(float(lx), float(my))
+        rl.draw_line_ex(top, right, width, color)
+        rl.draw_line_ex(right, bottom, width, color)
+        rl.draw_line_ex(bottom, left, width, color)
+        rl.draw_line_ex(left, top, width, color)
+
     def _draw_tex(self, tex, sx: int, sy: int, tile_size: int, tint=None):
         if tex and tex.id > 0:
             _MUTABLE_DST.x = float(sx); _MUTABLE_DST.y = float(sy)
@@ -705,18 +720,14 @@ class IsoRenderer:
             src = rl.Rectangle(0.0, 0.0, float(direct_tex.width), float(direct_tex.height))
             rl.draw_texture_pro(direct_tex, src, _MUTABLE_DST, _ZERO_VEC, 0.0, e.get('tint', rl.WHITE))
             return
-        # Optional highlight ring drawn at tile level (feet shadow)
+        # Code-drawn attack-target ring at tile level (feet shadow)
         if e.get('shadow'):
             hl_scale       = e.get('hl_scale', 1.0)
-            highlight_size = tile_size * hl_scale
-            highlight_off  = (highlight_size - tile_size) * 0.5
-            hl_tex         = e.get('hl_tex') or self._hl
-            if hl_tex and hl_tex.id > 0:
-                _MUTABLE_DST.x = float(sx - highlight_off)
-                _MUTABLE_DST.y = float(sy - highlight_off)
-                _MUTABLE_DST.width = float(highlight_size)
-                _MUTABLE_DST.height = float(highlight_size)
-                rl.draw_texture_pro(hl_tex, _FULL_SRC, _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
+            rx = tile_size * 0.42 * hl_scale
+            ry = rx * 0.5
+            rl.draw_ellipse_lines(int(sx + tile_size * 0.5),
+                                  int(sy + tile_size * 0.5),
+                                  rx, ry, TARGET_RED)
 
         sprite: IsoSprite = e.get('sprite')
         if not sprite:

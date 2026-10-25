@@ -27,10 +27,10 @@ from systems import asset_guard
 
 
 class TestExcludedDirs(unittest.TestCase):
-    def test_expected_seven_folders(self):
-        self.assertEqual(len(asset_guard.EXCLUDED_ASSET_DIRS), 7)
+    def test_expected_six_folders(self):
+        self.assertEqual(len(asset_guard.EXCLUDED_ASSET_DIRS), 6)
         for name in ('boss', 'environment', 'enemy', 'none-playable character',
-                     'playable character', 'prop', 'user interface'):
+                     'playable character', 'prop'):
             self.assertIn(name, asset_guard.EXCLUDED_ASSET_DIRS)
 
 
@@ -77,12 +77,10 @@ class TestMissingDetection(unittest.TestCase):
                            'environment': ['ground.png'],
                            'none-playable character': ['README.md'],
                            'playable character': ['knight.png'],
-                           'prop': ['README.md'],
-                           'user interface': ['README.md']})
+                           'prop': ['README.md']})
         self.assertEqual(
             sorted(asset_guard.missing_asset_folders(root)),
-            ['enemy', 'none-playable character', 'prop',
-             'user interface'])
+            ['enemy', 'none-playable character', 'prop'])
 
 
 class TestNotice(unittest.TestCase):
@@ -107,7 +105,6 @@ class TestNotice(unittest.TestCase):
         # No GL context in tests → placeholders refuse to build,
         # and IsoSprite keeps its empty-frames (invisible) behaviour.
         self.assertIsNone(asset_guard.entity_placeholder('skeleton'))
-        self.assertIsNone(asset_guard.cursor_placeholder())
 
 
 if __name__ == '__main__':

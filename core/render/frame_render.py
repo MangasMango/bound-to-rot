@@ -64,7 +64,7 @@ class FrameRenderMixin:
         self.iso._outer_rt = self._virtual_rt
         cw, ch = rl.get_screen_width(), rl.get_screen_height()
         # hover state is recomputed by whichever scene draws this frame;
-        # reset first so it never leaks between screens (green cursor logic)
+        # reset first so it never leaks between screens (hover glow logic)
         self._hover_interact = None
 
         if self.state == STATE_MENU:
@@ -105,7 +105,6 @@ class FrameRenderMixin:
             self._draw_console(cw, ch)
 
         self._draw_combat_log(cw, ch)
-        self._draw_cursor()
         self._outer_rt = None
         self.iso._outer_rt = None
         rl.end_texture_mode()
@@ -272,7 +271,6 @@ class FrameRenderMixin:
                 'tint':      tint,
                 'scale':     1,
                 'shadow':    is_target,
-                'hl_tex':    self.iso._hl_red if is_target else None,
                 'mm_col':    rl.Color(200, 60, 60, 255),
                 'actor':     True,
             })
@@ -287,8 +285,6 @@ class FrameRenderMixin:
                 'col':      gi['x'],
                 'row':      gi['y'],
                 'sprite':   None,
-                'loot':     True,
-                'loot_tex': self._loot_indicators.get(rarity),
                 'mm_col':   rc,
             })
 
@@ -318,7 +314,7 @@ class FrameRenderMixin:
         t_after_weather = _perf_time.perf_counter()
         t_after_draw_map = t_weather_start
         # interactable hover (portal/crate/barrel/brazier) — shared with the
-        # hub via _hover_interactable; drives glow labels + green cursor
+        # hub via _hover_interactable; drives glow labels + hover highlight
         self._hover_interact = self._hover_interactable(
             [gi for gi in self.ground_items
              if gi.get('type') in ('portal', 'crate', 'barrel', 'brazier')

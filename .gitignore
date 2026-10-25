@@ -38,8 +38,6 @@ skin_*.png
 !/assets/boss/README.md
 /assets/environment/*
 !/assets/environment/README.md
-/assets/user interface/*
-!/assets/user interface/README.md
 /assets/prop/*
 !/assets/prop/README.md
 /assets/enemy/*

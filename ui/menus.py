@@ -120,6 +120,7 @@ class Settings:
         self.debug_overlay  = False
         self.font_name      = 'Sancreek-Regular.ttf'
         self.brightness     = 50  # 0-100
+        self.item_labels    = True  # always show ground-loot labels
         self.load()
 
     def save(self):
@@ -137,6 +138,7 @@ class Settings:
                     'debug_overlay':   self.debug_overlay,
                     'font_name':       self.font_name,
                     'brightness':      self.brightness,
+                    'item_labels':     self.item_labels,
                 }, f)
         except Exception:
             print("[settings] ERROR: Failed to save settings.json")
@@ -155,6 +157,7 @@ class Settings:
             self.hud_scale      = float(d.get('hud_scale',      1.0))
             self.font_name      = str(d.get('font_name',        'Sancreek-Regular.ttf'))
             self.brightness     = float(d.get('brightness',     50))
+            self.item_labels    = bool(d.get('item_labels',     True))
         except Exception:
             print("[settings] ERROR: Failed to load settings.json")
             traceback.print_exc()
@@ -1470,6 +1473,11 @@ class MenuSystem:
             self.settings.crt_effect = _toggle(
                 'CRT Effect', self.settings.crt_effect, px, oy, PW)
             fonts.draw("Simulate CRT monitor scanlines and vignette", px + 4, oy + 28, 13,
+                       gui_kit.INK_DIM)
+            oy += 48
+            self.settings.item_labels = _toggle(
+                'Always Show Item Labels', self.settings.item_labels, px, oy, PW)
+            fonts.draw("Item names above ground loot; hold Alt when off", px + 4, oy + 28, 13,
                        gui_kit.INK_DIM)
             oy += 48
             self.settings.debug_overlay = _toggle(
