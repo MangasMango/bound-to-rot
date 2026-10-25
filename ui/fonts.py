@@ -13,32 +13,125 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Shared font — loaded once, used by all UI modules."""
+"""Shared font — loaded once, used by all UI modules.
+
+Pixel fonts (see CRISP_SIZES) rasterize cleanly only at specific point
+sizes, so one font object per crisp size is kept and every requested
+size snaps to the nearest crisp one before drawing (1:1 glyphs — no
+scaling artifacts). Scalable fonts keep bilinear filtering and free
+sizes."""
 from __future__ import annotations
 
 import pyray as rl
+from pyray import ffi
 
-_font: rl.Font | None = None
+_font: rl.Font | None = None            # scalable font (single object)
+_pixel_sizes: list[int] | None = None   # None = scalable; list = pixel font
+_pixel_fonts: dict[int, rl.Font] = {}   # crisp size -> font object
+_last_path: str = ''                    # pixel font file, for lazy per-size loads
+
+# Point sizes at which the bundled bitmap fonts render pixel-perfect.
+# NOTE: 60/72 are also crisp but their atlases overflow with the full
+# codepoint set (packaging failures poison other fonts), so the largest
+# cached size is 48 — bigger requested sizes snap down to it.
+CRISP_SIZES = {
+    'alagard.ttf': [12, 18, 24, 36, 48],
+    'romulus.ttf': [12, 18, 24, 36, 48],
+}
 
 
-def load(path: str, size: int = 64):
-    global _font
+_cp_buf = None   # cffi int[] buffer — MUST outlive load_font_ex calls
+_cp_n = 0
+
+
+def _codepoints():
+    """ASCII + Latin-1 accents + common punctuation — load_font_ex with
+    a NULL codepoint list only loads 95 ASCII glyphs, which turns em-dashes
+    and accented text into '?'. Returns (int* pointer, count); the buffer
+    is cached module-level because a cast does NOT keep it alive."""
+    global _cp_buf, _cp_n
+    if _cp_buf is None:
+        cps = ([c for c in range(0x20, 0x7F)]
+               + [c for c in range(0xA0, 0x100)]
+               + [0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2026, 0x2022])
+        _cp_buf = ffi.new('int[]', cps)
+        _cp_n = len(cps)
+    return ffi.cast('int *', _cp_buf), _cp_n
+
+
+def _load_font_at(path: str, size: int, pixel: bool) -> rl.Font | None:
     try:
-        _font = rl.load_font_ex(path, size, None, 0)
-        rl.set_texture_filter(_font.texture, rl.TEXTURE_FILTER_BILINEAR)
+        if pixel:
+            cp, n = _codepoints()
+            f = rl.load_font_ex(path, size, cp, n)
+            rl.set_texture_filter(f.texture, rl.TEXTURE_FILTER_POINT)
+        else:
+            f = rl.load_font_ex(path, size, None, 0)
+            rl.set_texture_filter(f.texture, rl.TEXTURE_FILTER_BILINEAR)
+        return f
     except Exception:
-        _font = None
+        return None
+
+
+def load(path: str, sizes=None):
+    """Load a font. `sizes` is the crisp-size list for pixel fonts — one
+    font object per size is created EAGERLY (loading a font mid-frame
+    corrupts the render batch). None/empty = scalable font drawn at free
+    sizes with bilinear filtering."""
+    global _font, _pixel_sizes, _pixel_fonts, _last_path
+    unload()
+    _last_path = path
+    if sizes:
+        _pixel_sizes = sorted(int(s) for s in sizes)
+        for s in _pixel_sizes:
+            f = _load_size(path, s)
+            if f is not None:
+                _pixel_fonts[s] = f
+    else:
+        _font = _load_font_at(path, 64, pixel=False)
+
+
+def _load_size(path: str, size: int) -> rl.Font | None:
+    return _load_font_at(path, size, pixel=True)
 
 
 def unload():
-    global _font
+    global _font, _pixel_sizes, _pixel_fonts
     if _font and _font.baseSize > 0:
         rl.unload_font(_font)
+    for f in _pixel_fonts.values():
+        rl.unload_font(f)
     _font = None
+    _pixel_sizes = None
+    _pixel_fonts = {}
+
+
+def _snap(size) -> int:
+    """Nearest crisp size (ties -> smaller); free sizes pass through."""
+    if _pixel_sizes:
+        s = int(size)
+        best = _pixel_sizes[0]
+        for c in _pixel_sizes:
+            if abs(c - s) < abs(best - s):
+                best = c
+        return best
+    return int(size)
 
 
 def draw(text, x, y, size, color):
-    if _font and _font.baseSize > 0:
+    size = _snap(size)
+    if _pixel_sizes is not None:
+        path_size = _pixel_sizes
+        f = _pixel_fonts.get(size)
+        if f is None:
+            # the caller tracks the path via load(); reuse the last path
+            f = _load_size(_last_path, size)
+            if f is None:
+                return
+            _pixel_fonts[size] = f
+        rl.draw_text_ex(f, str(text), rl.Vector2(float(x), float(y)),
+                        float(size), 1.0, color)
+    elif _font and _font.baseSize > 0:
         rl.draw_text_ex(_font, str(text), rl.Vector2(float(x), float(y)),
                         float(size), 1.0, color)
     else:
@@ -46,6 +139,16 @@ def draw(text, x, y, size, color):
 
 
 def measure(text, size) -> int:
+    size = _snap(size)
+    if _pixel_sizes is not None:
+        f = _pixel_fonts.get(size)
+        if f is None:
+            f = _load_size(_last_path, size)
+            if f is None:
+                return rl.measure_text(str(text), int(size))
+            _pixel_fonts[size] = f
+        v = rl.measure_text_ex(f, str(text), float(size), 1.0)
+        return int(v.x)
     if _font and _font.baseSize > 0:
         v = rl.measure_text_ex(_font, str(text), float(size), 1.0)
         return int(v.x)
@@ -54,6 +157,7 @@ def measure(text, size) -> int:
 
 def label(text, cx, y, size, color, bg_alpha: int = 160, pad_x: int = 5, pad_y: int = 3):
     """Draw centred text with a semi-transparent black background."""
+    size = _snap(size)
     w = measure(text, size)
     bx = cx - w // 2 - pad_x
     by = y - pad_y
