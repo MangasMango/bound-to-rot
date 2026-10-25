@@ -102,8 +102,8 @@ class AudioSystem:
             if stream is not None:
                 self._music[name] = stream
         # UI clicks
-        self._load_pool_a('ui_click', [f'ui-sfx/click{i}.ogg' for i in range(1, 6)])
-        self._load_pool_a('ui_hover', [f'ui-sfx/rollover{i}.ogg' for i in range(1, 7)])
+        self._load_pool_a('ui_click', [f'ui-sfx/click1.ogg'])
+        self._load_pool_a('ui_hover', [f'ui-sfx/rollover1.ogg'])
         self._music_ready = True
 
     def init(self):

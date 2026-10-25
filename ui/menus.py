@@ -56,8 +56,7 @@ except FileNotFoundError:
 def _apply_font(font_name: str):
     path = os.path.join(_FONT_DIR, font_name)
     if os.path.exists(path):
-        fonts.unload()
-        fonts.load(path, 64)
+        fonts.load(path, fonts.CRISP_SIZES.get(font_name))
 
 
 # ── Palette ───────────────────────────────────────────────────────────
@@ -112,7 +111,7 @@ class Settings:
         self.crt_effect     = True
         self.hud_scale      = 1.0
         self.debug_overlay  = False
-        self.font_name      = 'OSerif-Regular.ttf'
+        self.font_name      = 'alagard.ttf'
         self.brightness     = 50  # 0-100
         self.tarot_deck     = 'arcanum'   # active card deck id (TAROT_DECKS)
         self.tarot_skins    = []          # unlocked alternative deck ids
@@ -151,7 +150,7 @@ class Settings:
             self.perf_overlay   = bool(d.get('perf_overlay',    False))
             self.crt_effect     = bool(d.get('crt_effect',      True))
             self.hud_scale      = float(d.get('hud_scale',      1.0))
-            self.font_name      = str(d.get('font_name',        'OSerif-Regular.ttf'))
+            self.font_name      = str(d.get('font_name',        'alagard.ttf'))
             self.brightness     = float(d.get('brightness',     50))
             self.tarot_deck     = str(d.get('tarot_deck',       'arcanum'))
             skins               = d.get('tarot_skins', [])
