@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 PRIVATE_PACKS = (
     'boss', 'environment', 'enemy', 'none-playable character',
-    'playable character', 'prop', 'user interface',
+    'playable character', 'prop',
 )
 
 

@@ -289,7 +289,6 @@ class DelveFlowMixin:
             # NOTE: `depth` is only bound on the fresh-start path above — the
             # resume path skips it, so read the depth off the live delve.
             self.audio.set_delve_depth_music(self._delve.get('depth', 1))
-            rl.hide_cursor()
 
         def _enemy_max_health(self, enemy_type, level, hp_mult: float = 1.0) -> int:
             """Level-1 enemies are a guaranteed one-shot (HP below the player's
@@ -440,7 +439,6 @@ class DelveFlowMixin:
                     for rect, kid in d.get('_junction_rects', []):
                         if rl.check_collision_point_rec(rl.Vector2(float(mx), float(my)), rect):
                             d['_junction_rects'] = []
-                            rl.hide_cursor()
                             self._delve_descend(kid['id'])
                             return
                 return

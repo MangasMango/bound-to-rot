@@ -516,28 +516,12 @@ class DelveRenderMixin:
                         dst = rl.Rectangle(float(tile_center_x - draw_size // 2), float(tile_center_y - draw_size // 2),
                                            float(draw_size), float(draw_size))
                         rl.draw_texture_pro(tex, src, dst, rl.Vector2(0, 0), 0.0, rl.WHITE)
-                        # Small indicator dot below the model
-                        ind_tex = self._loot_indicators.get(rarity)
-                        if ind_tex and ind_tex.id > 0:
-                            indicator_size = 14
-                            src = rl.Rectangle(0, 0, 256.0, 256.0)
-                            dst = rl.Rectangle(float(tile_center_x - indicator_size // 2), float(tile_center_y + draw_size // 3),
-                                               float(indicator_size), float(indicator_size))
-                            rl.draw_texture_pro(ind_tex, src, dst, rl.Vector2(0, 0), 0.0, rl.WHITE)
                     else:
                         # No model texture at all: rarity dot, like non-model drops
                         rl.draw_circle(tile_center_x, tile_center_y, 5, rl.Color(rc.r, rc.g, rc.b, 200))
                 else:
-                    # Non-model items: just the indicator
-                    ind_tex = self._loot_indicators.get(rarity)
-                    if ind_tex and ind_tex.id > 0:
-                        indicator_size = 22
-                        src = rl.Rectangle(0, 0, 256.0, 256.0)
-                        dst = rl.Rectangle(float(tile_center_x - indicator_size // 2), float(tile_center_y - indicator_size // 2),
-                                           float(indicator_size), float(indicator_size))
-                        rl.draw_texture_pro(ind_tex, src, dst, rl.Vector2(0, 0), 0.0, rl.WHITE)
-                    else:
-                        rl.draw_circle(tile_center_x, tile_center_y, 5, rl.Color(rc.r, rc.g, rc.b, 200))
+                    # Non-model items: small rarity dot so they stay visible
+                    rl.draw_circle(tile_center_x, tile_center_y, 5, rl.Color(rc.r, rc.g, rc.b, 200))
 
                 # Hit-test the visible drop sprite. The name is deliberately
                 # omitted here and shown only by the existing hover tooltip.

@@ -78,7 +78,6 @@ def test_enter_hub_constructs_layout_and_interactables(monkeypatch):
     monkeypatch.setattr(hub, 'compute_derived_stats', lambda *args, **kwargs: {'max_health': 100.0, 'health': 100.0})
     monkeypatch.setattr(hub, 'reset_stats', lambda stats, **values: stats.update(values))
     monkeypatch.setattr(hub, 'make_inventory', lambda: {})
-    monkeypatch.setattr(hub.rl, 'hide_cursor', lambda: None)
     monkeypatch.setattr(hub.rl, 'Color', lambda *args: tuple(args))
 
     hub.HubMixin._enter_hub(game)

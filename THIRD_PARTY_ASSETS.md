@@ -120,11 +120,14 @@ needed. Flare-derived assets stay redistributable under CC BY-SA 3.0.
 
 The following folders are **excluded on purpose**. Be aware that **the core
 game relies heavily on this pack**: the remaining characters (warrior,
-fighter), enemies, bosses, props and UI elements come from the
+fighter), enemies, bosses and props come from the
 **Lords of Pain** pack by trevor-pupkin: <https://trevor-pupkin.itch.io/lords-of-pain>.
 The playable **knight** has already been replaced by a freely licensed
 model (see the section above); its folder still sits under the same
-gitignore umbrella until the whole category is pack-free.
+gitignore umbrella until the whole category is pack-free. The game's UI no
+longer needs the pack: the cursor is the system default, ground highlights
+and click markers are drawn by code, loot labels are text, and the CRT
+vignette lives in `assets/gui/`.
 Its licence states:
 
 > LICENCE: This asset pack can be used in both free and commercial projects.
@@ -141,7 +144,6 @@ gitignored):
 - `assets/none-playable character/`
 - `assets/playable character/`
 - `assets/prop/`
-- `assets/user interface/`
 
 ## Getting the assets
 
