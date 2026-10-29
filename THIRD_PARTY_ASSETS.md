@@ -26,18 +26,37 @@ this folder, and the font picker in the settings menu lists every
 `.ttf` in the folder.
 
 ### `assets/ost/`
-The soundtrack comes from **"Demon's Realm | Dark Fantasy Music"** by
-maxstack — **CC BY-SA 4.0** (attribution + share-alike; the music itself
-stays under that licence):
-<https://maxstack.itch.io/demons-realm>
+The western soundtrack (all OGG):
 
-The repository ships OGG conversions of the 12 source WAVs (the WAVs stay
-local only). Attribution: "Demon's Realm" by maxstack (CC-BY-SA 4.0).
+- **Spaghetti Western Guitar Stab** + **Spaghetti Western Theme
+  (orchestral)** from OpenGameArt — see
+  <https://opengameart.org/content/spaghetti-western-guitar-stab> and
+  <https://opengameart.org/content/spaghetti-western-theme-orchestral>
+  (used for the menu/title cue and the death-screen stab)
+- **Lobo Loco** tracks (hub + the three continuous delve playlist cues) —
+  **CC BY 4.0** (attribution):
+  <https://freemusicarchive.org/music/Lobo_Loco/tunnel-games>
 
-The Hub cue uses **"Devilish Design"** by Johan Brodd — **GPL 3.0**
-(<https://opengameart.org/content/devilish-design>). One spare track is
-also bundled: "Dark Loop" by Machine — **CC BY 3.0**
-(<https://opengameart.org/content/crypt>).
+Exact file → track mapping lives in `assets/ost/credits.txt`. The former
+"Demon's Realm" (maxstack, CC-BY-SA) and "Devilish Design" (Johan Brodd,
+GPL) tracks are retired from the game.
+
+### `assets/environment/` and `assets/prop/desert/`
+
+The world floor and the ground/prop sprites come from the **Desert
+Tileset** by Amstrad — **CC-BY-SA 3.0** (attribution + share-alike):
+<https://opengameart.org/content/desert-tileset>
+
+The tileset is itself a modification of the **Grasslands tileset from
+the Flare game** — also CC-BY-SA 3.0 — plus textures from
+seamless-pixels.blogspot.com and pdtextures.blogspot.com:
+<https://opengameart.org/content/grassland-tileset>
+
+The master atlas is tracked as `assets/environment/tileset_desert.png`;
+`scripts/slice_environment.py` slices it into engine-ready floor
+canvases (`environment/plain_*.png`, `environment/brush_*.png`), prop
+sprite canvases (`assets/prop/desert/**`), and the portal magic circles
+(`assets/portal/portal1_frame_*.png`).
 
 ### `assets/ui/`
 The inventory, bank and HUD panels come from itsmars on OpenGameArt —
@@ -118,16 +137,19 @@ needed. Flare-derived assets stay redistributable under CC BY-SA 3.0.
 
 ## Assets NOT distributed with this repository
 
-The following folders are **excluded on purpose**. Be aware that **the core
-game relies heavily on this pack**: the remaining characters (warrior,
-fighter), enemies, bosses and props come from the
-**Lords of Pain** pack by trevor-pupkin: <https://trevor-pupkin.itch.io/lords-of-pain>.
-The playable **knight** has already been replaced by a freely licensed
-model (see the section above); its folder still sits under the same
-gitignore umbrella until the whole category is pack-free. The game's UI no
-longer needs the pack: the cursor is the system default, ground highlights
-and click markers are drawn by code, loot labels are text, and the CRT
-vignette lives in `assets/gui/`.
+The following folders are **excluded on purpose**. Be aware that **the
+game still relies on parts of this pack**: the remaining characters
+(warrior, fighter), enemies, bosses and the vendor/stash NPC art come
+from the **Lords of Pain** pack by trevor-pupkin:
+<https://trevor-pupkin.itch.io/lords-of-pain>. The playable **knight**
+has already been replaced by a freely licensed model (see the section
+above); its folder still sits under the same gitignore umbrella until
+the whole category is pack-free. The world floor and most props no
+longer need the pack: they are tracked from the desert tileset (see
+`assets/environment/` and `assets/prop/desert/` above). The game's UI no
+longer needs the pack: the cursor is the system default, ground
+highlights and click markers are drawn by code, loot labels are text,
+and the CRT vignette lives in `assets/gui/`.
 Its licence states:
 
 > LICENCE: This asset pack can be used in both free and commercial projects.
@@ -139,11 +161,11 @@ Excluded folders (each contains a README placeholder; contents are
 gitignored):
 
 - `assets/boss/`
-- `assets/environment/`
 - `assets/enemy/`
 - `assets/none-playable character/`
 - `assets/playable character/`
-- `assets/prop/`
+- `assets/prop/` (only the instructions README; the sliced desert
+  sprites in `assets/prop/desert/` are tracked)
 
 ## Getting the assets
 

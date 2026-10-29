@@ -17,7 +17,7 @@ import math
 
 import pyray as rl
 
-from core.iso_engine import ISO_W
+from core.iso_engine import ISO_W, ENTITY_BASE
 from core.game import (
     HOVER_GLOW_ALPHA,
     HUB_CLICK_RADIUS,
@@ -47,6 +47,7 @@ class HubRenderMixin:
             hub_entities.append({
                 'col': _HEART_POS[0], 'row': _HEART_POS[1],
                 'texture': self._pulse_tex, 'scale': 1.2 * breath,
+                'big_art': True,   # ENTITY canvas, same size as _draw_hub_bright
             })
 
         # Torch columns flanking the heart
@@ -103,7 +104,10 @@ class HubRenderMixin:
         for obj in self._hub_objects:
             sx, sy = self.iso.world_to_screen(obj['x'], obj['y'], cw, ch)
             center_x = sx + tile_size // 2
-            art_h = tile_size * obj.get('scale', 1.0)
+            # tileset waypoint art rides the tile cell; the vendor npc keeps
+            # the legacy character canvas size
+            art_base = ENTITY_BASE * self.iso.scale if obj['type'] == 'vendor' else tile_size
+            art_h = art_base * obj.get('scale', 1.0)
             ly = int(sy + tile_size / 2 - art_h / 2 + obj.get('label_dy', 0)) - 22
             lbl = obj['label']
             label_width = fonts.measure(lbl, 16)
@@ -159,13 +163,14 @@ class HubRenderMixin:
         flames and the Delve Heart stay bright instead of being dimmed by the
         multiply pass."""
         tile_size = max(1, int(ISO_W * self.iso.scale))
+        ent_px    = ENTITY_BASE * self.iso.scale
         half = tile_size * 0.5
 
-        def draw_tex(col, row, tex, scale=1.0, dy=0.0, tint=None):
+        def draw_tex(col, row, tex, scale=1.0, dy=0.0, tint=None, ent=False):
             if tex is None or tex.id <= 0:
                 return
             sx, sy = self.iso.world_to_screen(col, row, cw, ch)
-            size = tile_size * scale
+            size = (ent_px if ent else tile_size) * scale
             src = rl.Rectangle(0.0, 0.0, float(tex.width), float(tex.height))
             dst = rl.Rectangle(float(sx + half - size * 0.5),
                                float(sy + half - size * 0.5 + dy),
@@ -179,19 +184,19 @@ class HubRenderMixin:
             pulse = (math.sin(self.anim_time * 2.2) + 1.0) / 2.0
             sx, sy = self.iso.world_to_screen(_HEART_POS[0], _HEART_POS[1], cw, ch)
             step_x, step_y = self.iso._steps()
-            glow_r = tile_size * (0.07 + 0.01 * pulse)
+            glow_r = ent_px * (0.07 + 0.01 * pulse)
             rl.draw_ellipse(int(sx + half), int(sy + half), glow_r, glow_r * step_y / step_x,
                             rl.Color(255, 190, 100, int(16 + 12 * pulse)))
             breath = 1.0 + 0.06 * math.sin(self.anim_time * 2.2)
-            draw_tex(_HEART_POS[0], _HEART_POS[1], self._pulse_tex, 1.2 * breath)
+            draw_tex(_HEART_POS[0], _HEART_POS[1], self._pulse_tex, 1.2 * breath, ent=True)
 
-        # Torch flames mounted on the column tops
+        # Torch fire bowls mounted on the pillar tops (tileset art)
         if self._torch_spr:
             for col, row in _TORCH_POS:
                 draw_tex(col, row, self._torch_spr.get('S', self.anim_time),
                          1.0, dy=-tile_size * 0.55)
 
-        # Brazier flames
+        # Brazier campfires
         if self._brazier_spr:
             for col, row in _BRAZIER_POS:
                 draw_tex(col, row, self._brazier_spr.get('S', self.anim_time), 1.2)

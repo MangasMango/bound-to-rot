@@ -19,7 +19,6 @@ import pyray as rl
 
 from core.game import (
     ANGEL_STREAK_WINDOW,
-    ATTACK_RANGE,
     DARKNESS_AMBIENT,
     DELVE_PERSONAL_LIGHT,
     DESCEND_ATTRIBUTES,
@@ -28,6 +27,7 @@ from core.game import (
     MELEE_RANGE,
     PULSE_OFFSET_X,
     PULSE_OFFSET_Y,
+    SHADER_EDGE_SCALE,
     STATE_DEAD,
     STREAK_BIG_POP_SECS,
     STREAK_LOST_FADE,
@@ -36,7 +36,7 @@ from core.game import (
     VESSEL_DEFS,
     VESSEL_UNLOCKS,
 )
-from core.iso_engine import ISO_W
+from core.iso_engine import ISO_W, ENTITY_BASE
 from entities.progression import compute_derived_stats
 from entities.descend import compute_perk_bonuses
 from entities.zombies import DETECT_RANGE
@@ -70,7 +70,14 @@ class HudRenderMixin:
         """Red danger pulse while the player stands outside every light."""
         in_light = False
         for light in lights:
-            reach = light['r'] + DELVE_PERSONAL_LIGHT
+            if light.get('kind') == 'pulse':
+                # delve pulse: the radius IS the full-safety edge (the
+                # personal-light grace is already baked into it)
+                reach = light['r']
+            else:
+                # hub lights: `r` is the visible edge (EDGE_SCALE-compensated
+                # in _HUB_LIGHTS) — gameplay reach keeps its pre-swap value
+                reach = light['r'] / SHADER_EDGE_SCALE + DELVE_PERSONAL_LIGHT
             if math.hypot(self.px - light['x'], self.py - light['y']) <= reach:
                 in_light = True
                 break
@@ -210,9 +217,10 @@ class HudRenderMixin:
                 continue
             text, col = info
             sx, sy = self.iso.world_to_screen(gi['x'], gi['y'], cw, ch)
+            fs      = max(13, int(16 * (cw / 1920)))
             label_x = sx + tile_size // 2
-            label_y = sy - 6
-            fs = max(13, int(16 * (cw / 1920)))
+            # label sits dead-centre ON the loot sprite (owner ruling)
+            label_y = sy + tile_size // 2 - fs // 2 - 1
             fonts.label(text, label_x, label_y, fs, col)
 
     def _draw_drop_overlay(self, cw, ch):
@@ -255,9 +263,10 @@ class HudRenderMixin:
                               rl.Color(255, 130, 30, ring_alpha // 2))
     def _draw_enemy_bars(self, cw, ch):
         tile_size    = int(ISO_W * self.iso.scale)
-        bar_w  = max(20, tile_size // 8)
+        ent_px       = ENTITY_BASE * self.iso.scale
+        bar_w  = max(20, int(ent_px) // 8)
         bar_h  = 2
-        ring_r = max(14, tile_size // 7)
+        ring_r = max(14, int(ent_px) // 7)
         for z in self.zombies:
             if z['health'] <= 0 or z.get('death_timer') is not None:
                 continue
@@ -268,7 +277,7 @@ class HudRenderMixin:
             center_y = sy + tile_size // 2
             pct   = max(0.0, z['health'] / z['max_health'])
             bar_x = center_x - bar_w // 2
-            bar_y = sy + tile_size // 4 - bar_h - 6
+            bar_y = sy + int(ent_px) // 4 - bar_h - 6
 
             # Status effect indicator dots above HP bar
             dot_radius = 4
@@ -307,7 +316,8 @@ class HudRenderMixin:
             center_x   = sx + tile_size // 2
             center_y   = sy + tile_size // 4 - rise
             text       = 'IMMUNE' if n['value'] < 0 else ('MISS' if n['value'] == 0 else str(n['value']))
-            font_size  = max(12, int(13 * (cw / 1920)))
+            # all floating combat text ×3 (crits, hits, MISS, IMMUNE, dmg taken)
+            font_size  = 3 * max(12, int(13 * (cw / 1920)))
             text_width = fonts.measure(text, font_size)
             col        = n['color']
             fonts.draw(text, center_x - text_width // 2, center_y, font_size,
@@ -327,7 +337,7 @@ class HudRenderMixin:
         alpha = int(255 * t)
         # Code-drawn click marker: an expanding, fading ring on the tile
         # (replaces the old highlight sprites).
-        ring_r = tile_size * (0.25 + 0.45 * (1.0 - t))
+        ring_r = tile_size * 0.03 * (1.0 - t)
         ring_col = rl.Color(230, 60, 60, alpha) if blocked \
             else rl.Color(90, 170, 255, alpha)
         rl.draw_ring(rl.Vector2(float(center_x), float(center_y)),
@@ -582,7 +592,8 @@ class HudRenderMixin:
         """Draw enemy name, level, and health bar at top center when hovering or in combat."""
         mx, my = rl.get_mouse_x(), rl.get_mouse_y()
         tile_size = int(ISO_W * self.iso.scale)
-        hover_radius = 20
+        # hover precision rides the entity art scale (256 canvas)
+        hover_radius = max(20, int(ENTITY_BASE * self.iso.scale) * 0.45)
         hovered = None
         best_dist = hover_radius
 
@@ -1404,9 +1415,9 @@ class HudRenderMixin:
             rx, ry = ellipse_lines(center_x, center_y, MELEE_RANGE)
             rl.draw_ellipse_lines(center_x, center_y, float(rx), float(ry), rl.Color(255, 120, 0,  200))
 
-        # Player — attack radius (cyan)
+        # Player — ranged attack radius (cyan)
         sx, sy = self.iso.world_to_screen(self.px, self.py, cw, ch)
-        rx, ry = ellipse_lines(sx + half, sy + half, ATTACK_RANGE)
+        rx, ry = ellipse_lines(sx + half, sy + half, self._attack_range())
         rl.draw_ellipse_lines(sx + half, sy + half, float(rx), float(ry), rl.Color(80, 200, 255, 200))
 
         # Darkness system info

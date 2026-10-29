@@ -29,7 +29,7 @@ from core.game import (
     STATE_PAUSED,
     STATE_PLAYING,
 )
-from core.iso_engine import ISO_W
+from core.iso_engine import ISO_W, ENTITY_BASE
 from systems import frames
 from ui import fonts
 
@@ -37,6 +37,21 @@ from ui import fonts
 OUTLINE_COLOR_IDLE = rl.Color(0, 0, 0, 255)
 OUTLINE_COLOR_HIT = rl.Color(190, 20, 20, 255)
 OUTLINE_SIZE = 1.5
+
+# Delve actors (player + enemies) draw dimmer than the raw sprite art —
+# 1.0 = unchanged, lower = darker.
+SPRITE_DARKEN = 0.75
+
+
+def _dim(c, factor=None):
+    """Darken a tint colour by multiplying its RGB channels. Accepts both
+    pyray Color objects and the plain tuples the module constants use."""
+    f = SPRITE_DARKEN if factor is None else factor
+    if hasattr(c, 'r'):
+        r, g, b, a = c.r, c.g, c.b, c.a
+    else:
+        r, g, b, a = c[0], c[1], c[2], c[3]
+    return rl.Color(int(r * f), int(g * f), int(b * f), a)
 
 
 def _outline_color(hit_flash: float):
@@ -124,24 +139,18 @@ class FrameRenderMixin:
         lw    = fonts.measure(label, size)
         tx    = int(cw - self.LOAD_TEXT_OFF_X - lw)
         ty    = int(ch - self.LOAD_TEXT_OFF_Y - size)
-        tex   = self._load_brazier_spr.get('SE', t) if self._load_brazier_spr else None
+        tex   = self._load_runner_spr.get('E', t) if self._load_runner_spr else None
         if tex:
-            w  = tex.width * self.LOAD_BRAZIER_SCALE
-            h  = tex.height * self.LOAD_BRAZIER_SCALE
-            bx = float(cw - self.LOAD_BRAZIER_OFF_X - w)
-            by = float(ch - self.LOAD_BRAZIER_OFF_Y - h)
+            w  = tex.width * self.LOAD_RUNNER_SCALE
+            h  = tex.height * self.LOAD_RUNNER_SCALE
+            bx = float(cw - self.LOAD_RUNNER_OFF_X - w)
+            by = float(ch - self.LOAD_RUNNER_OFF_Y - h)
             src = rl.Rectangle(0, 0, float(tex.width), float(tex.height))
             dst = rl.Rectangle(bx, by, w, h)
             rl.draw_texture_pro(tex, src, dst, rl.Vector2(0, 0), 0.0, rl.WHITE)
-            if self.LOAD_BRAZIER_DEBUG:
+            if self.LOAD_RUNNER_DEBUG:
                 rl.draw_rectangle_lines(int(bx), int(by), int(w), int(h),
                                         rl.Color(0xFF, 0x00, 0xFF, 255))
-                fx = bx + (115 / 256) * w
-                fy = by + (105 / 256) * h
-                fw = (42 / 256) * w
-                fh = (31 / 256) * h
-                rl.draw_rectangle_lines(int(fx), int(fy), int(fw), int(fh),
-                                        rl.Color(0x00, 0xFF, 0x00, 255))
         fonts.draw(label, tx, ty, size, rl.Color(0xAA, 0xAA, 0xAA, 255))
     def _draw_game(self, cw, ch):
         self._ensure_scene_rt(cw, ch)
@@ -188,10 +197,12 @@ class FrameRenderMixin:
             'time':      self.anim_time,
             'idle':      self.player_state == 'idle',
             'scale':     1,
+            'tint':      _dim(rl.WHITE),
             'shadow':    True,
             'hl_scale':  1,
             'mm_col':    rl.Color(0xFF, 0xFF, 0xFF, 255),
             'actor':     True,
+            'big_art':   True,      # legacy character canvas keeps ENTITY_BASE size
         })
 
         # ── pulse (delve crawler) ─────────────────────────────────────
@@ -201,6 +212,7 @@ class FrameRenderMixin:
                 'row':      self._delve['pulse_y'],
                 'texture':  self._pulse_tex,
                 'scale':    1,
+                'big_art':  True,   # ENTITY canvas, same size as _draw_pulse_sprite
                 'mm_col':   rl.Color(255, 210, 80, 255),
             })
 
@@ -211,7 +223,7 @@ class FrameRenderMixin:
             if death_timer is not None:
                 spr        = self._sl_death if etype == 'slime' else self._sk_death
                 alpha      = max(0, int(255 * (1.0 - death_timer / DEATH_DURATION)))
-                tint       = rl.Color(255, 255, 255, alpha)
+                tint       = _dim(rl.Color(255, 255, 255, alpha))
                 anim_timer = death_timer
             else:
                 if etype == 'slime':
@@ -229,11 +241,12 @@ class FrameRenderMixin:
                         anim_timer = z['anim_timer']
                 is_target  = (z is self.attack_target)
                 tile_size  = int(ISO_W * self.iso.scale)
+                ent_px     = ENTITY_BASE * self.iso.scale
                 sprite_sx, sprite_sy = self.iso.world_to_screen(z['x'], z['y'], cw, ch)
                 sprite_cx  = sprite_sx + tile_size / 2
                 sprite_cy  = sprite_sy + tile_size / 2
-                is_hovered = (abs(mx_screen - sprite_cx) <= tile_size * 0.38
-                              and abs(my_screen - sprite_cy) <= tile_size * 0.45)
+                is_hovered = (abs(mx_screen - sprite_cx) <= ent_px * 0.38
+                              and abs(my_screen - sprite_cy) <= ent_px * 0.45)
 
                 # Status-effect tint overlay
                 if z.get('frozen_timer', 0) > 0:
@@ -248,11 +261,11 @@ class FrameRenderMixin:
                     s_tint = None
 
                 if is_target:
-                    tint = rl.Color(255, 90, 90, 255)
+                    tint = _dim(rl.Color(255, 90, 90, 255))
                 elif is_hovered:
-                    tint = rl.Color(255, 175, 175, 255)
+                    tint = _dim(rl.Color(255, 175, 175, 255))
                 else:
-                    tint = rl.Color(255, 255, 255, 255)
+                    tint = _dim(rl.WHITE)
                 if s_tint:
                     tint = rl.Color(
                         tint.r * s_tint.r // 255,
@@ -273,6 +286,7 @@ class FrameRenderMixin:
                 'shadow':    is_target,
                 'mm_col':    rl.Color(200, 60, 60, 255),
                 'actor':     True,
+                'big_art':   True,      # legacy character canvas keeps ENTITY_BASE size
             })
 
         # ── loot (minimap blips for drops only, rarity-coloured) ─────
@@ -325,6 +339,7 @@ class FrameRenderMixin:
         self._weather_ms = (t_after_weather - t_weather_start) * 1000
 
         self._draw_glow_effects(cw, ch)
+        self._draw_tracer_effects(cw, ch)
         self._draw_swoosh_effects(cw, ch)
         self._draw_flame_effects(cw, ch)
         self._draw_glint_effects(cw, ch)

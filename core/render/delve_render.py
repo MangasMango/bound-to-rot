@@ -19,12 +19,13 @@ import pyray as rl
 
 from core.game import (
     DARKNESS_AMBIENT,
+    DELVE_PERSONAL_LIGHT,
     HOVER_GLOW_ALPHA,
     PULSE_OFFSET_X,
     PULSE_OFFSET_Y,
     _LIGHT_KIND_STRENGTH,
 )
-from core.iso_engine import ISO_W
+from core.iso_engine import ISO_W, ENTITY_BASE
 from systems import itemgen
 from systems.items import EQUIP_SLOT_LABELS, ITEMS, format_equip_stat
 from ui import fonts, icons
@@ -62,11 +63,13 @@ class DelveRenderMixin:
         if self._delve is None:
             return
         d = self._delve
-        # The Pulse carries the Delve Heart's light (kind 'heart'): the same
-        # deep breathing + warm tint + flame anchor as the hub heart, riding
-        # the pulse's exact path (pulse_x/pulse_y, incl. room-to-room slides).
-        lights = [{'x': d['pulse_x'], 'y': d['pulse_y'], 'r': d['light_r'],
-                   'kind': 'heart', 'phase': 0.0, 'ax': -0.35, 'ay': 0.21}]
+        # The Pulse is the delve's light source: kind 'pulse' — brighter than
+        # the hub heart (no deep breathing dip). The radius is the VISIBLE
+        # LIGHT EDGE (lighting.fs EDGE_SCALE semantics) and matches the
+        # gameplay light check exactly (delve_flow: light_r + personal).
+        lights = [{'x': d['pulse_x'], 'y': d['pulse_y'],
+                   'r': d['light_r'] + DELVE_PERSONAL_LIGHT,
+                   'kind': 'pulse', 'phase': 0.0, 'ax': 0.0, 'ay': 0.0}]
         self._render_darkness(cw, ch, lights, d.get('dark_timer', 0.0))
     def _render_darkness(self, cw: int, ch: int, lights: list, dark_timer: float):
         """Fire-light pass over arbitrary light anchors.
@@ -224,8 +227,8 @@ class DelveRenderMixin:
             r_px = light['r'] * tile_size * sx_ratio * iso_correction
             # Layered falloff: faint wide halo + bright core = smooth gradient
             # instead of a hard spotlight circle.
-            draw_blob(lx_rt, ly_rt, int(r_px * 1.6 * f), rl.Color(tr, tg, tb, 70))
-            draw_blob(lx_rt, ly_rt, int(r_px * f),      rl.Color(tr, tg, tb, 185))
+            draw_blob(lx_rt, ly_rt, int(r_px * 1.0 * f), rl.Color(tr, tg, tb, 70))
+            draw_blob(lx_rt, ly_rt, int(r_px * 0.8 * f),  rl.Color(tr, tg, tb, 185))
         rl.end_blend_mode()
         rl.end_texture_mode()
         self._rebind_outer_rt()
@@ -242,18 +245,19 @@ class DelveRenderMixin:
         d = self._delve
         sx, sy = self.iso.world_to_screen(d['pulse_x'], d['pulse_y'], cw, ch)
         tile_size = max(1, int(ISO_W * self.iso.scale))
-        entity_size = tile_size
         half = tile_size * 0.5
 
         # Attract pulse animation when ready; always-on hub-heart breathing
         # (1.0 + 0.06·sin, 2.2 Hz) so the pulse reads as the same heart art
         # as the hub's Delve Heart (hub_render.py:29-35).
+        # The pulse is the interactive light anchor, not floor art: it keeps
+        # the ENTITY canvas scale so its click target stays readable.
         tint = rl.WHITE
         breath = 1.0 + 0.06 * math.sin(self.anim_time * 2.2)
-        entity_size = int(tile_size * breath)
+        entity_size = int(ENTITY_BASE * self.iso.scale * breath)
         if d.get('state') == 'ready':
             pulse = (math.sin(self.raid_time * 3.0) + 1.0) / 2.0
-            entity_size = int(tile_size * breath * (1.0 + pulse * 0.02))
+            entity_size = int(ENTITY_BASE * self.iso.scale * breath * (1.0 + pulse * 0.02))
             glow_alpha = int(8 + 12 * pulse)
             glow_r = entity_size // 4
             step_x, step_y = self.iso._steps()
@@ -278,7 +282,8 @@ class DelveRenderMixin:
 
         label = 'PULSE'
         lw = fonts.measure(label, 14)
-        fonts.draw(label, cx - lw // 2, sy - 14, 14,
+        # pulse art keeps the ENTITY canvas scale — hug its visible top
+        fonts.draw(label, cx - lw // 2, sy + ts // 2 - int(ENTITY_BASE * self.iso.scale * 0.3), 14,
                    rl.Color(255, 210, 80, 200))
     def _draw_delve_junction(self, cw: int, ch: int):
         """Forward-path choice, hosted inside the Anima panel frame."""
@@ -566,7 +571,7 @@ class DelveRenderMixin:
 
     def _draw_swoosh_effects(self, cw, ch):
         tile_size = int(ISO_W * self.iso.scale)
-        draw_size = int(tile_size * 1.4)
+        draw_size = int(ENTITY_BASE * self.iso.scale * 1.4)
         for e in self._swoosh_effects:
             progress = min(1.0, e['timer'] * 22.0 / 8.0)   # 8 frames @ 22 FPS
             sx, sy   = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
@@ -581,11 +586,11 @@ class DelveRenderMixin:
             sx, sy   = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
             self._vfx_quad('vfx_glint',
                            sx + tile_size // 2, sy + tile_size // 2,
-                           int(tile_size * e.get('scale', 1.0)), 0.0,
+                           int(ENTITY_BASE * self.iso.scale * e.get('scale', 1.0)), 0.0,
                            e.get('color', rl.WHITE), progress=progress)
     def _draw_flame_effects(self, cw, ch):
         tile_size = int(ISO_W * self.iso.scale)
-        draw_size = int(tile_size * 1.1)
+        draw_size = int(ENTITY_BASE * self.iso.scale * 1.1)
         for e in self._flame_effects:
             progress = min(1.0, e['timer'] * 12.0 / 8.0)   # 8 frames @ 12 FPS
             sx, sy   = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
@@ -600,23 +605,52 @@ class DelveRenderMixin:
         tile_size = int(ISO_W * self.iso.scale)
         for e in self._glow_effects:
             progress  = e['timer'] / _GLOW_DUR
-            alpha     = int(220 * (1.0 - progress))
+            alpha     = int(e.get('alpha', 220) * (1.0 - progress))
             base_col  = e.get('color', rl.WHITE)
             tint      = rl.Color(base_col.r, base_col.g, base_col.b, alpha)
             sx, sy    = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
             self._vfx_quad('vfx_glow',
                            sx + tile_size // 2, sy + tile_size // 2,
-                           int(tile_size * 2.2 * e.get('scale', 1.0)), 0.0, tint)
+                           int(ENTITY_BASE * self.iso.scale * 2.2 * e.get('scale', 1.0)), 0.0, tint)
 
         # Angel form — persistent pulsing halo on the player
         if self._angel_timer > 0:
             pulse     = 0.5 + 0.5 * math.sin(rl.get_time() * 8.0)
             alpha     = int(120 + 90 * pulse)
-            draw_size = int(tile_size * 2.4)
+            draw_size = int(ENTITY_BASE * self.iso.scale * 2.4)
             sx, sy    = self.iso.world_to_screen(self.px, self.py, cw, ch)
             self._vfx_quad('vfx_glow',
                            sx + tile_size // 2, sy + tile_size // 2,
                            draw_size, 0.0, rl.Color(255, 235, 150, alpha))
+
+    def _draw_tracer_effects(self, cw, ch):
+        """Bullet tracers for the gunslinger's ranged auto-attack: a faint
+        full-path beam from the muzzle to the bullet's current position plus
+        a hairline bright streak riding the bullet head (additive, so the
+        post bloom picks it up)."""
+        if not self._bullets:
+            return
+        tile_size = int(ISO_W * self.iso.scale)
+        trail_len = tile_size * 0.9                  # streak length (px)
+        rl.begin_blend_mode(rl.BLEND_ADDITIVE)
+        for b in self._bullets:
+            sx0, sy0 = self.iso.world_to_screen(b['sx'], b['sy'], cw, ch)
+            hx,  hy  = self.iso.world_to_screen(b['x'],  b['y'],  cw, ch)
+            mx,  my  = sx0 + tile_size // 2, sy0 + tile_size // 2
+            bx,  by  = hx + tile_size // 2,  hy + tile_size // 2
+            # faint full-path beam, muzzle -> bullet head
+            rl.draw_line_ex((mx, my), (bx, by), 1.0, rl.Color(255, 220, 140, 24))
+            # hairline streak: short segment behind the bullet head
+            dx, dy = bx - mx, by - my
+            dist   = math.hypot(dx, dy)
+            if dist > 1.0:
+                ux, uy = dx / dist, dy / dist
+                k = min(trail_len, dist) / dist * 0.5
+                rl.draw_line_ex((bx - dx * k, by - dy * k), (bx, by),
+                                1.0, rl.Color(255, 220, 150, 130))
+                rl.draw_line_ex((bx - dx * k * 0.45, by - dy * k * 0.45), (bx, by),
+                                1.0, rl.Color(255, 255, 235, 210))
+        rl.end_blend_mode()
     def _draw_ground_tooltip(self, gi, cw, ch):
         slot = gi.get('items', [None])[0]
         if not slot:

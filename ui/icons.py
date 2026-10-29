@@ -53,7 +53,7 @@ ICON_MAP = {
 
     # ── DESCEND attributes ──────────────────────────────────────────
     'dexterity':   'RPG_Stat_Dexterity_Agility_Boots_Movement_Speed_Small.png',
-    'endurance':   'RPG_Stat_Shield_Defense_Armor.png',
+    'endurance':   'RPG_Item_Stat_Shield_Defense_Armor.png',
     'strength':    'RPG_Stat_Strength_Fist_Melee_Attack_Small.png',
     'cunning':     'RPG_Stat_Intelligence_Intellect_Brain_Wisdom_Thinking_IQ_Small.png',
     'essence':     'RPG_Stat_Luck_Four_Leaf_Clover_2_Small.png',
@@ -72,7 +72,7 @@ ICON_MAP = {
     'fire_resist':     'Weather_Wildfire_Flame_Element_Hot_Burn.png',
     'cold_resist':     'Weather_Snowflake_Freeze_Cold_Snowstorm_Frozen_Frost_Element_Winter_Season.png',
     'lightning_resist':'Weather_Thunderstorm_Cloud_Lightning_Zap.png',
-    'physical_resist': 'RPG_Stat_Shield_Defense_Armor.png',
+    'physical_resist': 'RPG_Item_Stat_Shield_Defense_Armor.png',
     'magic_resist':    'RPG_Spell_Magic_Circle_Ritual_Pentagram.png',
     'rot_resist':      'Weather_Biohazard_Biological_Danger_Sign.png',
     'darkness_resist': 'Weather_Moon_Night_Crescent_Darkness_Mode_Twilight_Small.png',
@@ -143,10 +143,21 @@ ICON_MAP = {
 
 # Cache: name → Texture2D
 _cache = {}
+_cache_white = {}
 
 
-def _load_icon(name: str) -> rl.Texture2D | None:
-    """Lazy-load a 16x16 icon, caching the result."""
+def _load_icon(name: str, white: bool = False) -> rl.Texture2D | None:
+    """Lazy-load an icon, caching the result.
+
+    white=True bakes an all-white silhouette (alpha kept) into a second
+    cached texture for the dark menu sheets.
+    """
+    if white:
+        return _load_white_icon(name)
+    return _load_colored_icon(name)
+
+
+def _load_colored_icon(name: str) -> rl.Texture2D | None:
     if name in _cache:
         return _cache[name]
 
@@ -169,6 +180,51 @@ def _load_icon(name: str) -> rl.Texture2D | None:
     rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
 
     _cache[name] = tex
+    return tex
+
+
+def _load_white_icon(name: str) -> rl.Texture2D | None:
+    """All-white silhouette of an icon: RGB forced to 255, alpha kept.
+    The recolour happens in memory (PNG round-trip); the coloured cache
+    is never touched."""
+    if name in _cache_white:
+        return _cache_white[name]
+
+    filename = ICON_MAP.get(name)
+    if not filename:
+        return None
+
+    path = os.path.join(_ICON_DIR, filename)
+    if not os.path.exists(path):
+        return None
+
+    png_bytes = None
+    try:
+        import io
+        import numpy as np
+        from PIL import Image
+
+        pil = Image.open(path).convert('RGBA')
+        arr = np.asarray(pil).copy()
+        arr[..., :3] = 255
+        buf = io.BytesIO()
+        Image.frombuffer('RGBA', pil.size, arr.tobytes(),
+                         'raw', 'RGBA', 0, 1).save(buf, 'PNG')
+        png_bytes = buf.getvalue()
+    except Exception:
+        return None
+
+    img = rl.load_image_from_memory('.png', png_bytes, len(png_bytes))
+    if img.width <= 0 or img.height <= 0:
+        return None
+
+    tex = rl.load_texture_from_image(img)
+    rl.unload_image(img)
+
+    # Nearest-neighbour for crisp pixel-art upscaling
+    rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
+
+    _cache_white[name] = tex
     return tex
 
 
@@ -196,11 +252,18 @@ def item_icon(idef: dict, item_id: str = None) -> str | None:
     return None
 
 
-def draw(name: str, x: int, y: int, size: int = 24, tint=None):
-    """Draw an icon at (x, y) at a given pixel size. 24px = 1.5x scale."""
-    tex = _load_icon(name)
+def draw(name: str, x: int, y: int, size: int = 24, tint=None,
+         white: bool = False):
+    """Draw an icon at (x, y) at a given pixel size. 24px = 1.5x scale.
+
+    white=True forces an all-white silhouette (tint is ignored); used on
+    the dark menu sheets so the icons read on near-black panels."""
+    tex = _load_icon(name, white=white)
     if not tex or tex.id <= 0:
         return
+
+    if white:
+        tint = rl.WHITE
 
     rl.draw_texture_pro(
         tex,
@@ -213,7 +276,8 @@ def draw(name: str, x: int, y: int, size: int = 24, tint=None):
 
 def unload():
     """Release all cached icon textures."""
-    for tex in _cache.values():
+    for tex in (*_cache.values(), *_cache_white.values()):
         if tex and tex.id > 0:
             rl.unload_texture(tex)
     _cache.clear()
+    _cache_white.clear()

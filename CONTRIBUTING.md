@@ -23,6 +23,44 @@ For most changes, this should not be necessary. I just want to know if you're
 doing something big, so I can offer advice and/or make sure you're not wasting
 your time on it.
 
+### Use Conventional Commits with issue references.
+Commit messages must follow the [Conventional Commits](https://www.conventionalcommits.org/)
+format, with a reference to the issue the commit resolves where one exists:
+
+```
+type: #N short summary
+```
+
+For example: `fix: #21 keyboard only works if the user has set EN language`.
+
+Allowed types:
+
+| Type | Use it for |
+|---|---|
+| `fix` | Bug fixes |
+| `feat` | New features and mechanics |
+| `chore` | Maintenance, dependency updates, non-code work |
+| `docs` | Documentation |
+| `refactor` | Code changes that don't fix or add anything |
+| `test` | Test-only changes |
+| `perf` | Performance improvements |
+| `ci` | Workflow/CI changes |
+| `build` | Packaging, spec files, interpreter/tooling setup |
+
+Rules:
+
+- One commit per issue where practical. If a commit touches several issues,
+  split it or list them: `fix: #4, #3 ...`.
+- A scope is optional but welcome when it narrows the intent:
+  `fix(input): #21 ...`.
+- If there is no associated issue, omit the reference: `chore: bump deps`.
+- Keep it going forward: legacy commits predate the convention and are exempt
+  from the CI check, which only validates new commits.
+- Close issues via the PR body (`Closes #N`), not the commit message; PR
+  titles use the same `type: #N summary` format.
+
+CI rejects commits that don't start with a valid type and colon.
+
 ### Do not make formatting or "cleanup" PRs.
 Yes, there are occurrences of trailing spaces, extra newlines, empty indents,
 and other tiny errors. No, I don't want to merge, view, or get notified by your

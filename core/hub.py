@@ -23,6 +23,7 @@ from core.game import (
     _HUB_PATH_CELLS,
     _STASH_POS,
     _VENDOR_POS,
+    SHADER_EDGE_SCALE,
 )
 
 class HubMixin:
@@ -217,7 +218,10 @@ class HubMixin:
             best = None
             for light in lights:
                 dist = math.hypot(self.px - light['x'], self.py - light['y'])
-                reach = light['r'] + DELVE_PERSONAL_LIGHT
+                # `r` is the VISIBLE LIGHT EDGE (lighting.fs EDGE_SCALE
+                # semantics, hub radii are compensated in _HUB_LIGHTS) — the
+                # gameplay reach keeps its pre-compensation value
+                reach = light['r'] / SHADER_EDGE_SCALE + DELVE_PERSONAL_LIGHT
                 if best is None or dist - reach < best[0] - best[1]:
                     best = (dist, reach)
             dist, reach = best
@@ -248,6 +252,7 @@ class HubMixin:
                 'time': self.anim_time,
                 'idle': self.player_state == 'idle',
                 'scale': 1, 'shadow': True,
+                'big_art': True,      # legacy character canvas keeps ENTITY_BASE size
             }
             actors = []
             # Vendor NPC — the subservient, looping his working animation
@@ -257,6 +262,7 @@ class HubMixin:
                     'sprite': self._hub_subservient_spr,
                     'direction': 'SE', 'time': self.anim_time,
                     'idle': False, 'scale': 1.1, 'shadow': True,
+                    'big_art': True,
                 })
             # Stash crate
             if self._crate_spr:

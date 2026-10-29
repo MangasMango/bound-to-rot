@@ -57,6 +57,8 @@ INK_DIM   = col(0x5A, 0x4A, 0x38, 255)   # faded ink
 GOLD      = col(0xB8, 0x8A, 0x2E, 255)   # kit gold accent
 DANGER    = col(0x8B, 0x1E, 0x12, 255)   # dark red for danger text
 
+MUTED     = col(0xB0, 0xA8, 0x9C, 255)   # dim grey for secondary text on dark
+
 _PANEL_FILL   = col(0x11, 0x11, 0x11, 205)
 _PANEL_BORDER = col(0xD2, 0xD2, 0xD2, 136)
 _BTN_FILL     = col(0x11, 0x11, 0x11, 200)
@@ -109,32 +111,6 @@ def piece(name: str):
         return None, None
     x, y, w, h = _PIECES[name]
     return t, rl.Rectangle(float(x), float(y), float(w), float(h))
-
-
-def _piece_dst(rec, src, corner_px, tint):
-    """Nine-slice `src` into `rec` keeping caps of ~corner_px unstretched."""
-    x, y, w, h = rec.x, rec.y, rec.width, rec.height
-    sx, sy, sw, sh = src.x, src.y, src.width, src.height
-    c = min(corner_px, sw / 2, sh / 2, w / 2, h / 2)
-    sx2, sy2 = sx + sw - c, sy + sh - c
-    dx2, dy2 = x + w - c, y + h - c
-    for cx, cy, cw, ch, px, py, pw, ph in [
-        (sx,    sy,    c,  c,  x,    y,    c,  c),
-        (sx+c,  sy,    sw-2*c, c,  x+c,  y,    w-2*c,  c),
-        (sx2,   sy,    c,  c,  dx2,  y,    c,  c),
-        (sx,    sy+c,  c,  sh-2*c,  x,    y+c,  c,  h-2*c),
-        (sx+c,  sy+c,  sw-2*c, sh-2*c,  x+c,  y+c,  w-2*c,  h-2*c),
-        (sx2,   sy+c,  c,  sh-2*c,  dx2,  y+c,  c,  h-2*c),
-        (sx,    sy2,   c,  c,  x,    dy2,  c,  c),
-        (sx+c,  sy2,   sw-2*c, c,  x+c,  dy2,  w-2*c,  c),
-        (sx2,   sy2,   c,  c,  dx2,  dy2,  c,  c),
-    ]:
-        if pw <= 0 or ph <= 0 or cw <= 0 or ch <= 0:
-            continue
-        rl.draw_texture_pro(_sheet(),
-            rl.Rectangle(float(cx), float(cy), float(cw), float(ch)),
-            rl.Rectangle(float(px), float(py), float(pw), float(ph)),
-            rl.Vector2(0, 0), 0.0, tint)
 
 
 # ── Kit pieces (RPG_GUI_v1 sheet) ─────────────────────────────────────
@@ -232,37 +208,17 @@ def check(x: int, y: int, size: int, color=None):
 
 # ── Spellbook-page widgets (RPG_GUI_v1 kit pieces) ────────────────────
 
-def wood_button(r, state: str = 'default', danger: bool = False):
-    """Wooden plank button nine-sliced from the kit sheet — the plank art
-    carries its own painted border, so nothing is stroked on top.
-
-    state: 'default' | 'hover' | 'pressed' | 'disabled'
-    danger: burnt-red tint for destructive actions.
-    Falls back to the square drawn button when the sheet is missing.
-    """
-    src_t, src = piece({'hover': 'wood3', 'pressed': 'wood2'}.get(state, 'wood1'))
-    if src_t is None:
-        button(r, 'red' if danger else 'grey', state)
-        return
-    if state == 'disabled':
-        tint = col(110, 100, 90, 190)
-    elif danger:
-        tint = col(255, 150, 130, 255)
-    elif state == 'pressed':
-        tint = col(170, 150, 130, 255)
-    else:
-        tint = rl.WHITE
-    rec = rl.Rectangle(float(r.x), float(r.y), float(r.width), float(r.height))
-    _piece_dst(rec, src, corner_px=48, tint=tint)
+_PAPER_TINT = col(0x12, 0x0F, 0x0C, 255)
 
 
 def paper_panel(x: int, y: int, w: int, h: int, border: bool = True):
-    """Parchment card: tiled paper fill with gold double-line edges."""
+    """Dark sheet card: tiled paper fill tinted near-black with gold
+    double-line edges."""
     paper = _tex(_PAPER_FILE)
     if paper is None or paper.id == 0:
         rl.draw_rectangle_rec(rec_p := rl.Rectangle(float(x), float(y),
                                                     float(w), float(h)),
-                              col(0xE8, 0xDC, 0xB8, 255))
+                              _PAPER_TINT)
     else:
         # manual tile loop (pyray has no DrawTextureTiled binding)
         tw, th = paper.width, paper.height
@@ -275,7 +231,7 @@ def paper_panel(x: int, y: int, w: int, h: int, border: bool = True):
                 rl.draw_texture_pro(paper,
                     rl.Rectangle(0, 0, float(dw), float(dh)),
                     rl.Rectangle(float(tx), float(ty), float(dw), float(dh)),
-                    rl.Vector2(0, 0), 0.0, col(0xE6, 0xD8, 0xB2, 255))
+                    rl.Vector2(0, 0), 0.0, _PAPER_TINT)
                 tx += dw
             ty += dh
     if border:
@@ -291,16 +247,16 @@ def paper_panel(x: int, y: int, w: int, h: int, border: bool = True):
             rl.draw_texture_pro(st[0], st[1],
                 rl.Rectangle(x + w - b, y + b, b, h - 2 * b), rl.Vector2(0, 0), 0.0, rl.WHITE)
         else:
-            rl.draw_rectangle_lines_ex(rec, 1, col(0x8A, 0x6A, 0x2E, 255))
+            rl.draw_rectangle_lines_ex(rec_p, 1, col(0x8A, 0x6A, 0x2E, 255))
 
 
 # ── Menu board ────────────────────────────────────────────────────────
 def board_page(cw: int, ch: int):
-    """Draw the full-screen wood board and return the two parchment sheet
+    """Draw the full-screen wood board and return the two dark sheet
     rects the menu screens lay their columns out in: (left, right).
 
-    The wood is tiled edge to edge; each sheet is a parchment panel so
-    ink text stays readable. Layout never depends on the textures being
+    The wood is tiled edge to edge; each sheet is a near-black panel so
+    white text stays readable. Layout never depends on the textures being
     present."""
     wood = _tex(_WOOD_FILE)
     if wood is not None and wood.id > 0:

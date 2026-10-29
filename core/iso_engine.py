@@ -15,10 +15,12 @@
 
 """
 Isometric renderer — replaces engine.py for the iso rewrite.
-Tile PNG: 256×256. Diamond inscribed inside: 174×128, bounding box at (41,64).
-  step_x = DIAMOND_W * scale / 2 = 87 * scale
-  step_y = DIAMOND_H * scale / 2 = 64 * scale
-ISO_W = 256 drives tile draw size; the diamond constants drive projection.
+Tile cell: 64×64. Native desert tileset diamond: 64×32, bounding box at
+(0, 16) — engine projection matches the tileset's own 2:1 camera and the
+tiles render at (or near) native pixel size, no pre-scaled bake.
+  step_x = DIAMOND_W * scale / 2 = 32 * scale
+  step_y = DIAMOND_H * scale / 2 = 16 * scale
+ISO_W = 64 drives tile draw size; the diamond constants drive projection.
 """
 
 from config import ASSETS
@@ -29,19 +31,27 @@ import pyray as rl
 _ASSETS = ASSETS
 
 # ── Projection constants ──────────────────────────────────────────────
-TILE_SRC      = 256        # source PNG size (full image)
+TILE_SRC      = 64         # source PNG canvas size (64×64 cell)
 
-ISO_W         = 256        # tile draw size at 1x scale (= TILE_SRC)
-# Diamond geometry inside the 256×256 PNG — bounding box origin (DIAMOND_X, DIAMOND_Y),
-# size DIAMOND_W × DIAMOND_H.  Centre lands at exactly (128, 128) = PNG centre.
-DIAMOND_X     = 41         # left edge of diamond bounding box
-DIAMOND_Y     = 64         # top edge of diamond bounding box
-DIAMOND_W     = 174        # diamond width  (step_x = DIAMOND_W/2 per tile)
-DIAMOND_H     = 128        # diamond height (step_y = DIAMOND_H/2 per tile)
-DEFAULT_SCALE = 2.0        # 512px drawn tile; step_x=174, step_y=128 at this scale
-MIN_SCALE     = 0.2
-MAX_SCALE     = 0.8
-FLOOR_PAD     = 5        # px overlap between adjacent floor tiles
+ISO_W         = 64         # tile draw size at 1x scale (= TILE_SRC)
+# Diamond geometry inside the 64×64 PNG — bounding box origin (DIAMOND_X, DIAMOND_Y),
+# size DIAMOND_W × DIAMOND_H. Heart of the cell lands at (32, 32) = PNG centre.
+# Desert tileset (Amstrad, CC-BY-SA 3.0) floors are sliced by
+# scripts/slice_environment.py to this native cell format.
+DIAMOND_X     = 0          # left edge of diamond bounding box
+DIAMOND_Y     = 16         # top edge of diamond bounding box
+DIAMOND_W     = 64         # diamond width  (step_x = DIAMOND_W/2 per tile)
+DIAMOND_H     = 32         # diamond height (step_y = DIAMOND_H/2 per tile)
+DEFAULT_SCALE = 2.0        # 128px drawn tile (2× native); 32/16 px steps
+MIN_SCALE     = 1.0        # native 1:1 pixel art
+MAX_SCALE     = 3.0
+FLOOR_PAD     = 1        # px overlap between adjacent floor tiles
+
+# World-entity sprite canvas: characters, props, portals and effect quads
+# are authored on 256×256 canvases and keep their on-screen size tied to
+# ENTITY_BASE * scale — INDEPENDENT of the tile scale, so shrinking the
+# tiles (more of the scene in view) does not shrink the actors with them.
+ENTITY_BASE   = 256
 
 # ── 16 compass directions ─────────────────────────────────────────────
 DIRS = ['E','NEE','NE','NNE','N','NNW','NW','NWW',
@@ -100,6 +110,7 @@ def is_walkable(map_data, col: int, row: int) -> bool:
 # Raylib receives Rectangle/Vector2 BY VALUE (ctypes copies the struct),
 # so mutating these between calls is safe in single-threaded Python.
 _FULL_SRC    = rl.Rectangle(0.0, 0.0, float(TILE_SRC), float(TILE_SRC))
+_SRC_TEX     = rl.Rectangle(0.0, 0.0, 256.0, 256.0)   # per-texture full rect
 _ZERO_VEC    = rl.Vector2(0.0, 0.0)
 _MUTABLE_DST = rl.Rectangle(0.0, 0.0, 0.0, 0.0)
 _MUTABLE_PAD = rl.Rectangle(0.0, 0.0, 0.0, 0.0)
@@ -107,6 +118,16 @@ _V0 = rl.Vector2(0.0, 0.0)
 _V1 = rl.Vector2(0.0, 0.0)
 _V2 = rl.Vector2(0.0, 0.0)
 _V3 = rl.Vector2(0.0, 0.0)
+
+
+def _tex_src(tex):
+    """Mutable source rect sized to a texture — entity/prop canvases are
+    256×256 while floor tiles are 64×64, so draws must not assume TILE_SRC."""
+    _SRC_TEX.x = 0.0
+    _SRC_TEX.y = 0.0
+    _SRC_TEX.width = float(max(1, tex.width))
+    _SRC_TEX.height = float(max(1, tex.height))
+    return _SRC_TEX
 
 # ── Sprite ────────────────────────────────────────────────────────────
 
@@ -131,6 +152,10 @@ class IsoSprite:
                 if os.path.exists(path):
                     frames.append(rl.load_texture(path))
             self._textures[direction] = frames
+        if frames and 'desert' in (self._base or ''):
+            # desert prop canvases are pixel art (nearest-baked) — crisp
+            for tex in frames:
+                rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
         if not any(self._textures.values()):
             # Pack missing (non-distributed assets): one shared placeholder
             # silhouette per direction so the entity stays visible.
@@ -172,6 +197,8 @@ class IsoSprite:
 class IsoRenderer:
 
     PROP_TILE_SCALE = 1.5  # tile prop size relative to tile size
+    # per-prop multiplier on top of PROP_TILE_SCALE — oversized art shrink
+    _PROP_EXTRA_SCALE = {'cactus1': 0.6, 'cactus2': 0.6}
 
     # Extra pixel offset as a fraction of tile size (x, y). Negative y = up.
     PROP_TILE_OFFSET = (0.0, 0.0)
@@ -199,14 +226,29 @@ class IsoRenderer:
     def load(self):
         def _load_tex(rel):
             p = os.path.join(_ASSETS, rel)
-            return rl.load_texture(p) if os.path.exists(p) else None
-        self._floor_tex = _load_tex('environment/ground_stone1.png')
+            tex = rl.load_texture(p) if os.path.exists(p) else None
+            if tex is not None:
+                # desert floors/props are pixel art — point filtering keeps
+                # them crisp; the default bilinear filter smears edge halos
+                # that read as a border between tiles
+                rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
+            return tex
+        # Desert tileset floors (plain_1..16, brush_17..32) sliced by
+        # scripts/slice_environment.py — native 64×64 cells; plain_1 is the
+        # base ground, the other 31 are the hash-picked variation pool.
+        self._floor_tex = _load_tex('environment/plain_1.png')
         self._variation_textures = [
-            _load_tex('environment/ground_variation1.png'),
-            _load_tex('environment/ground_variation2.png'),
+            t for t in ([_load_tex(f'environment/plain_{n}.png')
+                         for n in range(2, 17)]
+                        + [_load_tex(f'environment/brush_{n}.png')
+                           for n in range(17, 33)]) if t is not None
         ]
-        prop_dir = os.path.join(_ASSETS, 'prop')
-        for name in ('rocks', 'mushrooms', 'tiles'):
+        prop_dir = os.path.join(_ASSETS, 'prop', 'desert')
+        for name in ('rocks', 'mushrooms', 'tiles',
+                     'bush1', 'bush_purple', 'reed1', 'reed2',
+                     'grass1', 'grass2', 'grass3',
+                     'stone_s1', 'stone_s2', 'stone_s3', 'stone_s4',
+                     'cactus1', 'cactus2'):
             sprite = IsoSprite(os.path.join(prop_dir, name), name, 1, 1.0)
             sprite.load(['SE', 'SW'])
             self._prop_sprites[name] = sprite
@@ -291,7 +333,19 @@ class IsoRenderer:
             self._tile_cells.update(comp)
             claimed.update(comp)
 
-        # ── Rocks & mushrooms on remaining unclaimed floor cells ───────
+        # ── Rocks, bushes & grasses on remaining unclaimed floor cells ──
+        # Weighted scatter across the desert prop pool; hash channels keep
+        # the pick deterministic per seed like the old rocks/mushrooms split.
+        # Each entry is an exclusive upper bound of a hash band.
+        _SCATTER = (
+            (0x02A00000, 'rocks'),
+            (0x04000000, ('stone_s1', 'stone_s2')),
+            (0x05400000, ('grass1', 'grass2', 'grass3')),
+            (0x06800000, 'mushrooms'),
+            (0x07700000, ('bush1', 'bush_purple')),
+            (0x08400000, ('reed1', 'reed2')),
+            (0x09000000, ('cactus1', 'cactus2')),
+        )
         for col in range(cols):
             for row in range(rows):
                 if map_data[col][row] not in (0, 9):
@@ -299,12 +353,15 @@ class IsoRenderer:
                 if (col, row) in claimed:
                     continue
                 n = self._prop_hash(col, row)
-                if n < 0x0C000000:
-                    self._floor_prop_cells[(col, row)] = (
-                        'rocks', self._PROP_DIRS[(n >> 8) % 2])
-                elif n < 0x18000000:
-                    self._floor_prop_cells[(col, row)] = (
-                        'mushrooms', self._PROP_DIRS[(n >> 8) % 2])
+                if n >= 0x09000000:
+                    continue
+                for hi, names in _SCATTER:
+                    if n < hi:
+                        break
+                self._floor_prop_cells[(col, row)] = (
+                    names if isinstance(names, str)
+                    else names[(n >> 8) % len(names)],
+                    self._PROP_DIRS[(n >> 20) % 2])
 
         self._rebuild_any_prop_cells()
 
@@ -468,10 +525,9 @@ class IsoRenderer:
             return range(max(col_min, diag - row_max),
                          min(col_max, diag - row_min) + 1)
 
-        var_tex    = (self._variation_textures[0]
-                      if self._variation_textures and self._variation_textures[0]
-                         and self._variation_textures[0].id > 0
-                      else None)
+        var_count  = 0
+        if self._variation_textures:
+            var_count = len(self._variation_textures)
         has_props      = bool(self._prop_sprites)
         floor_tex      = self._floor_tex if self._floor_tex and self._floor_tex.id > 0 else None
         any_prop_cells = self._any_prop_cells
@@ -514,14 +570,17 @@ class IsoRenderer:
                     self._diamond(int(sx), int(sy), tile_size, TILE_COL.get(tid) or FLOOR_COL, pad=FLOOR_PAD)
                 if tid not in _floor_tids:
                     continue
-                # variation overlay (~25 % of floor tiles)
-                if var_tex:
+                # variation overlay (~35 % of floor tiles, whole hash pool)
+                if var_count:
                     var_h = col ^ (row << 16) ^ (col * row)
                     var_h = ((var_h ^ (var_h >> 14)) * 0x9E3779B9) & 0xFFFFFFFF
                     var_h = ((var_h ^ (var_h >> 15)) * 0x85EBCA77) & 0xFFFFFFFF
                     var_h ^= var_h >> 13
                     if var_h < 0x40000000:
-                        rl.draw_texture_pro(var_tex, _src, _dst, _orig, 0.0, rl.WHITE)
+                        var_tex = (self._variation_textures
+                                   [var_h % var_count])
+                        if var_tex and var_tex.id > 0:
+                            rl.draw_texture_pro(var_tex, _src, _dst, _orig, 0.0, rl.WHITE)
                 # wet-weather puddle base — flat colour disc the reflection
                 # shader composites over later
                 if puddle_cells and (col, row) in puddle_cells:
@@ -560,7 +619,8 @@ class IsoRenderer:
         puddle diamond). Mirrors via a negative-height source rect."""
         direct_tex = e.get('texture')
         tint       = e.get('tint', rl.WHITE)
-        entity_size = tile_size * e.get('scale', 1.2)
+        base        = ENTITY_BASE * self.scale if e.get('big_art') else tile_size
+        entity_size = base * e.get('scale', 1.2)
         half        = tile_size * 0.5
         dst_x = float(sx + half - entity_size * 0.5)
         dst_y = float(sy + half - entity_size * 0.5)
@@ -643,8 +703,10 @@ class IsoRenderer:
                 if tex and tex.id > 0:
                     _MUTABLE_DST.x = float(sx); _MUTABLE_DST.y = float(sy)
                     _MUTABLE_DST.width = float(tile_size); _MUTABLE_DST.height = float(tile_size)
-                    rl.draw_texture_pro(tex, _FULL_SRC, _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
+                    rl.draw_texture_pro(tex, _tex_src(tex), _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
             return
+        # scatter props are tileset art on 256 canvases — sized against the
+        # (small) tile cell, centred on the tile anchor
         prop_size     = tile_size * self.PROP_TILE_SCALE
         center_offset = (tile_size - prop_size) / 2
         prop_x        = center_offset + tile_size * self.PROP_TILE_OFFSET[0]
@@ -656,14 +718,21 @@ class IsoRenderer:
             if sprite:
                 tex = sprite.get_idle(self._PROP_DIRS[self._prop_hash(col, row) % 2])
                 if tex and tex.id > 0:
-                    rl.draw_texture_pro(tex, _FULL_SRC, _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
+                    rl.draw_texture_pro(tex, _tex_src(tex), _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
         elif (col, row) in self._floor_prop_cells:
             name, direction = self._floor_prop_cells[(col, row)]
             sprite = self._prop_sprites.get(name)
             if sprite:
                 tex = sprite.get_idle(direction)
                 if tex and tex.id > 0:
-                    rl.draw_texture_pro(tex, _FULL_SRC, _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
+                    # per-prop shrink for oversized art (e.g. cacti)
+                    prop_size = tile_size * self.PROP_TILE_SCALE * self._PROP_EXTRA_SCALE.get(name, 1.0)
+                    center_offset = (tile_size - prop_size) / 2
+                    prop_x = center_offset + tile_size * self.PROP_TILE_OFFSET[0]
+                    prop_y = center_offset + tile_size * self.PROP_TILE_OFFSET[1]
+                    _MUTABLE_DST.x = float(sx + prop_x); _MUTABLE_DST.y = float(sy + prop_y)
+                    _MUTABLE_DST.width = float(prop_size); _MUTABLE_DST.height = float(prop_size)
+                    rl.draw_texture_pro(tex, _tex_src(tex), _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
 
     def _diamond(self, sx: int, sy: int, tile_size: int, color, pad: float = 0.0):
         k  = tile_size / TILE_SRC
@@ -704,15 +773,22 @@ class IsoRenderer:
         if tex and tex.id > 0:
             _MUTABLE_DST.x = float(sx); _MUTABLE_DST.y = float(sy)
             _MUTABLE_DST.width = float(tile_size); _MUTABLE_DST.height = float(tile_size)
-            rl.draw_texture_pro(tex, _FULL_SRC, _MUTABLE_DST, _ZERO_VEC, 0.0,
+            rl.draw_texture_pro(tex, _tex_src(tex), _MUTABLE_DST, _ZERO_VEC, 0.0,
                                 tint or rl.WHITE)
 
     # ── Entity drawing ────────────────────────────────────────────────
 
     def _draw_entity(self, e: dict, sx: int, sy: int, tile_size: int):
         direct_tex = e.get('texture')
+        # Tileset-sourced art (props, platforms, portals) is sized against
+        # the tile cell; legacy character canvases (knight, enemies, npc)
+        # flag `big_art` and keep their ENTITY_BASE on-screen size.
+        if e.get('big_art'):
+            base = ENTITY_BASE * self.scale
+        else:
+            base = tile_size
         if direct_tex and direct_tex.id > 0:
-            entity_size = tile_size * e.get('scale', 1.2)
+            entity_size = base * e.get('scale', 1.2)
             half        = tile_size * 0.5
             _MUTABLE_DST.x = float(sx + half - entity_size * 0.5)
             _MUTABLE_DST.y = float(sy + half - entity_size * 0.5)
@@ -723,11 +799,15 @@ class IsoRenderer:
         # Code-drawn attack-target ring at tile level (feet shadow)
         if e.get('shadow'):
             hl_scale       = e.get('hl_scale', 1.0)
-            rx = tile_size * 0.42 * hl_scale
+            ring_base      = base * 0.06
+            rx = ring_base * hl_scale
             ry = rx * 0.5
-            rl.draw_ellipse_lines(int(sx + tile_size * 0.5),
-                                  int(sy + tile_size * 0.5),
-                                  rx, ry, TARGET_RED)
+            # draw_ellipse_lines is 1px wide — two concentric strokes
+            # double the thickness
+            cx = int(sx + tile_size * 0.5)
+            cy = int(sy + tile_size * 0.5)
+            rl.draw_ellipse_lines(cx, cy, rx, ry, TARGET_RED)
+            rl.draw_ellipse_lines(cx, cy, rx + 1.5, ry + 1.5, TARGET_RED)
 
         sprite: IsoSprite = e.get('sprite')
         if not sprite:
@@ -738,12 +818,12 @@ class IsoRenderer:
         if not tex or tex.id == 0:
             return
         tint        = e.get('tint', rl.WHITE)
-        entity_size = tile_size * e.get('scale', 1.2)
+        entity_size = base * e.get('scale', 1.2)
         half        = tile_size * 0.5
         _MUTABLE_DST.x = float(sx + half - entity_size * 0.5)
         _MUTABLE_DST.y = float(sy + half - entity_size * 0.5)
         _MUTABLE_DST.width = float(entity_size); _MUTABLE_DST.height = float(entity_size)
-        rl.draw_texture_pro(tex, _FULL_SRC, _MUTABLE_DST, _ZERO_VEC, 0.0, tint)
+        rl.draw_texture_pro(tex, _tex_src(tex), _MUTABLE_DST, _ZERO_VEC, 0.0, tint)
 
     # ── Minimap ───────────────────────────────────────────────────────
 

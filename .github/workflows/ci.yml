@@ -5,6 +5,47 @@ on:
   pull_request:
 
 jobs:
+  commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate commit messages
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            SHAS=$(git rev-list "origin/${BASE_REF}..${SHA}")
+          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
+            SHAS=$(git rev-list "${BEFORE_SHA}..${SHA}")
+          else
+            SHAS="$SHA"
+          fi
+          if [ -z "$SHAS" ]; then
+            echo "No new commits to validate."
+            exit 0
+          fi
+          PATTERN='^(fix|feat|chore|docs|refactor|test|perf|ci|build)(\(.+\))?: .+'
+          FAILED=0
+          for C in $SHAS; do
+            SUBJECT=$(git log -1 --format='%s' "$C")
+            if echo "$SUBJECT" | grep -qP "$PATTERN"; then
+              echo "OK  $C $SUBJECT"
+            else
+              echo "BAD $C $SUBJECT"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -ne 0 ]; then
+            echo "Commit messages must be 'type: #N summary' with one of: fix, feat, chore, docs, refactor, test, perf, ci, build. See CONTRIBUTING.md."
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
     steps:
