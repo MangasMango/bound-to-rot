@@ -393,6 +393,8 @@ def clear_delve_data(char_id: str):
     """Remove the delve snapshot from disk."""
     try:
         os.remove(delve_save_path(char_id))
+    except FileNotFoundError:
+        pass
     except Exception:
         print("[save] ERROR: Failed to clear delve data")
         traceback.print_exc()

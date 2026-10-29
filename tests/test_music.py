@@ -13,14 +13,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Music scene states + crossfade — BLUEPRINT §25.
+"""Music scene states + crossfade.
 
-    menu / loading silence / hub / death screen / per-depth Hexed Wilds
-    rotation in the Anima / Dark Alleys while waiting at the Pulse.
+    menu / loading silence / hub / death screen — plus the continuous
+    delve playlist (western_ingame1/2/3) that advances on track ends and
+    is never re-triggered by waves, depths or node choices.
 
-Music from "Demon's Realm | Dark Fantasy Music" by maxstack
-(CC-BY-SA 4.0). States sharing a file share one loaded stream — see
-TestSharedStreams below.
+    States sharing a file share one loaded stream — see TestSharedStreams.
 """
 
 import os
@@ -31,7 +30,7 @@ from pathlib import Path
 from config import ASSETS
 import systems.audio as audio_mod
 from systems.audio import (AudioSystem, FADE_SECONDS, _MUSIC_FILES,
-                           fade_step, wilds_key_for_depth)
+                           _GAME_PLAYLIST, GAME_MUSIC_STATE, fade_step)
 
 
 class TestMusicRegistry(unittest.TestCase):
@@ -39,31 +38,21 @@ class TestMusicRegistry(unittest.TestCase):
         for name, rel in _MUSIC_FILES.items():
             self.assertTrue(os.path.exists(os.path.join(ASSETS, rel)),
                             f'missing track for {name}: {rel}')
+        for rel in _GAME_PLAYLIST:
+            self.assertTrue(os.path.exists(os.path.join(ASSETS, rel)),
+                            f'missing playlist track: {rel}')
 
     def test_expected_tracks(self):
-        self.assertIn('End of the Road.ogg', _MUSIC_FILES['menu'])
-        self.assertIn('Devilish design.mp3', _MUSIC_FILES['hub'])
-        self.assertIn('End of the Road B.ogg', _MUSIC_FILES['death'])
-        self.assertIn('Dark Alleys.ogg', _MUSIC_FILES['pulse_wait'])
-        self.assertIn('Hexed Wilds A.ogg', _MUSIC_FILES['wilds_1'])
-        self.assertIn('Hexed Wilds B.ogg', _MUSIC_FILES['wilds_2'])
-        self.assertIn('Hexed Wilds C.ogg', _MUSIC_FILES['wilds_3'])
-        # the calm overlay and the old raid/menu variants are retired
-        self.assertNotIn('calm', _MUSIC_FILES)
-        self.assertNotIn('raid', _MUSIC_FILES)
-
-
-class TestDepthRotation(unittest.TestCase):
-    def test_rotates_a_b_c_by_depth(self):
-        self.assertEqual(wilds_key_for_depth(1), 'wilds_1')
-        self.assertEqual(wilds_key_for_depth(2), 'wilds_2')
-        self.assertEqual(wilds_key_for_depth(3), 'wilds_3')
-        self.assertEqual(wilds_key_for_depth(4), 'wilds_1')
-        self.assertEqual(wilds_key_for_depth(5), 'wilds_2')
-        self.assertEqual(wilds_key_for_depth(7), 'wilds_1')
-
-    def test_depth_floor_guard(self):
-        self.assertEqual(wilds_key_for_depth(0), 'wilds_1')
+        self.assertIn('Western_menu.ogg', _MUSIC_FILES['menu'])
+        self.assertIn('western_hub.ogg', _MUSIC_FILES['hub'])
+        self.assertIn('westernguitarstab.ogg', _MUSIC_FILES['death'])
+        self.assertEqual(_GAME_PLAYLIST,
+                         ('ost/western_ingame1.ogg',
+                          'ost/western_ingame2.ogg',
+                          'ost/western_ingame3.ogg'))
+        # the old maxstack / Devilish Design registry states are retired
+        self.assertNotIn('pulse_wait', _MUSIC_FILES)
+        self.assertNotIn('wilds_1', _MUSIC_FILES)
 
 
 class TestFadeMath(unittest.TestCase):
@@ -83,10 +72,8 @@ class TestStateApi(unittest.TestCase):
         a = AudioSystem()
         a.set_music_state('hub')
         self.assertEqual(a._music_state, 'hub')
-        a.set_delve_depth_music(5)
-        self.assertEqual(a._music_state, 'wilds_2')
-        a.set_pulse_wait_music()
-        self.assertEqual(a._music_state, 'pulse_wait')
+        a.set_delve_music()
+        self.assertEqual(a._music_state, GAME_MUSIC_STATE)
         a.set_music_state('off')
         self.assertEqual(a._music_state, 'off')
 
@@ -165,6 +152,86 @@ class TestCrossfadeLifecycle(unittest.TestCase):
             a.set_music_state('off')
         self.assertTrue(all(f['target'] == 0.0 for f in a._fades))
         rl_mock.play_music_stream.assert_not_called()
+
+
+class TestDelvePlaylist(unittest.TestCase):
+    """The delve playlist is continuous: entering 'game' restarts at track 1,
+    `tick()` advances on bare track ends (crossfaded), it loops forever, and
+    gameplay events never touch it (the old wave/depth triggers were removed
+    from the API entirely)."""
+
+    def _ready_audio(self):
+        a = AudioSystem()
+        a._music_ready = True
+        a._music = {'menu': object(), 'hub': object(), 'death': object()}
+        a._playlist_streams = [object(), object(), object()]
+        a._file_streams = {}
+        return a
+
+    def test_enter_game_restarts_playlist_and_plays_track_1(self):
+        a = self._ready_audio()
+        a._playlist_index = 2
+        with mock.patch.object(audio_mod, 'rl') as rl_mock:
+            rl_mock.is_music_stream_playing.return_value = False
+            a.set_music_state(GAME_MUSIC_STATE)
+        self.assertEqual(a._playlist_index, 0)
+        rl_mock.play_music_stream.assert_called_once_with(a._playlist_streams[0])
+
+    def test_tick_advances_on_track_end(self):
+        a = self._ready_audio()
+        with mock.patch.object(audio_mod, 'rl') as rl_mock:
+            playing = set()
+
+            def _playing(m):
+                return m in playing
+
+            def _play(m):
+                playing.add(m)
+                return None
+
+            def _seek(_m, _p):
+                return None
+
+            rl_mock.is_music_stream_playing.side_effect = _playing
+            rl_mock.play_music_stream.side_effect = _play
+            rl_mock.seek_music_stream.side_effect = _seek
+            rl_mock.stop_music_stream.side_effect = lambda m: playing.discard(m)
+            a.set_music_state(GAME_MUSIC_STATE)     # track 1 playing
+            self.assertIs(a._state_stream(GAME_MUSIC_STATE),
+                          a._playlist_streams[0])
+            a.tick(FADE_SECONDS)                    # its fade-in completes
+            self.assertEqual(a._fades, [])
+            # track 1 ends
+            playing.clear()
+            a.tick(0.1)
+            self.assertNotEqual(a._fades, [])        # track 2 fading in
+            self.assertEqual(a._playlist_index, 1)   # target = track 2
+            a.tick(FADE_SECONDS)                     # fade completes
+            self.assertEqual(a._fades, [])
+            self.assertIs(a._state_stream(GAME_MUSIC_STATE),
+                          a._playlist_streams[1])
+            # track 2 ends -> track 3
+            playing.clear()
+            a.tick(0.1)
+            a.tick(FADE_SECONDS)
+            self.assertEqual(a._playlist_index, 2)
+            # track 3 ends -> wraps to track 1
+            playing.clear()
+            a.tick(0.1)
+            a.tick(FADE_SECONDS)
+            self.assertEqual(a._playlist_index, 0)
+
+    def test_rapid_flips_keep_single_fader_per_stream(self):
+        a = self._ready_audio()
+        with mock.patch.object(audio_mod, 'rl') as rl_mock:
+            rl_mock.is_music_stream_playing.return_value = True
+            a.set_music_state('menu')
+            a.set_music_state(GAME_MUSIC_STATE)
+            a.set_music_state('menu')       # flip back mid-fade
+        counts = {}
+        for f in a._fades:
+            counts[id(f['music'])] = counts.get(id(f['music']), 0) + 1
+        self.assertTrue(all(n == 1 for n in counts.values()))
 
 
 class TestSharedStreams(unittest.TestCase):

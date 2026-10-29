@@ -217,20 +217,11 @@ def _btn(r, text: str, size: int = 28, accent: bool = False, disabled: bool = Fa
     _hovered_last[rkey] = hovered
     tw = fonts.measure(text, size)
     if wood:
-        # parchment-page button: wooden plank from the RPG_GUI kit
+        # imageless text button: no fill, colour carries the state
+        tc = (C_RED if hovered else _c(0xE0, 0x60, 0x60, 255)) if danger \
+             else (gui_kit.GOLD if hovered else rl.WHITE)
         if disabled:
-            state = 'disabled'
-        elif hovered and rl.is_mouse_button_down(rl.MOUSE_BUTTON_LEFT):
-            state = 'pressed'
-        elif hovered:
-            state = 'hover'
-        else:
-            state = 'default'
-        gui_kit.wood_button(r, state, danger=danger)
-        tc = (gui_kit.DANGER if not hovered else C_RED) if danger else \
-             (gui_kit.GOLD if hovered else gui_kit.INK)
-        if disabled:
-            tc = gui_kit.INK_DIM
+            tc = C_DIM
     else:
         if lit:
             bg = _c(0xFF, 0xFF, 0xFF, 255)
@@ -238,7 +229,7 @@ def _btn(r, text: str, size: int = 28, accent: bool = False, disabled: bool = Fa
         elif accent:
             tc = rl.WHITE if hovered else C_ACCENT_HOVER
         else:
-            tc = rl.WHITE if hovered else gui_kit.WHITE
+            tc = rl.WHITE
         if disabled:
             tc = _c(0x9A, 0x9A, 0x9A, 180)
 
@@ -267,9 +258,9 @@ def _slider(label: str, value: float, min_v: float, max_v: float,
             x: int, y: int, w: int, size: int = 27) -> float:
     pct     = (value - min_v) / (max_v - min_v)
     val_txt = f"{int(value)}%"
-    fonts.draw(label,   x, y, size, gui_kit.INK)
+    fonts.draw(label,   x, y, size, rl.WHITE)
     fonts.draw(val_txt, x + w - fonts.measure(val_txt, size), y, size,
-               gui_kit.INK_DIM)
+               gui_kit.MUTED)
     bar_h = max(14, size // 2)
     bar_y = y + size + 4
     gui_kit.kit_slider(x, bar_y, w, bar_h, pct)
@@ -282,7 +273,7 @@ def _slider(label: str, value: float, min_v: float, max_v: float,
 
 def _toggle(label: str, value: bool, x: int, y: int, w: int, size: int = 27) -> bool:
     """Kit checkbox toggle: labelled box, checked/unchecked sprites."""
-    fonts.draw(label, x, y, size, gui_kit.INK)
+    fonts.draw(label, x, y, size, rl.WHITE)
     box = size + 4
     bx  = x + w - box
     box_r = rl.Rectangle(float(bx), float(y - 2), float(box), float(box + 4))
@@ -359,7 +350,7 @@ class _TextInput:
 
 def _menu_item(text: str, x: int, y: int, size: int = 28, hovered: bool = False):
     """D2-style text-only menu entry -- no box, just colour on hover."""
-    col = C_GOLD_HOVER if hovered else C_GOLD_TEXT
+    col = gui_kit.GOLD if hovered else rl.WHITE
     fonts.draw(text, x, y, size, col)
 
 
@@ -390,8 +381,8 @@ def _menu_select_markers(cx: int, cy: int, spacing: int, size: int = 8):
         _V1 = rl.Vector2(float(sx + half), float(cy))
         _V2 = rl.Vector2(float(sx), float(cy + half))
         _V3 = rl.Vector2(float(sx - half), float(cy))
-        rl.draw_triangle(_V0, _V1, _V2, C_GOLD_HOVER)
-        rl.draw_triangle(_V0, _V2, _V3, C_GOLD_HOVER)
+        rl.draw_triangle(_V0, _V1, _V2, gui_kit.GOLD)
+        rl.draw_triangle(_V0, _V2, _V3, gui_kit.GOLD)
 
 
 def _text_shadow(text: str, x: int, y: int, size: int, color):
@@ -757,7 +748,7 @@ class MenuSystem:
         # Decorative divider under the logo
         divider_y = (logo_bottom if logo_bottom > 0 else left.y + 90) + 16
         _divider(left.x + 50, divider_y, left.width - 100,
-                 color=gui_kit.INK_DIM)
+                 color=gui_kit.MUTED)
 
         # Vertical menu -- wooden kit buttons on the right page
         items = [
@@ -793,16 +784,10 @@ class MenuSystem:
                 _audio_ref.ui_hover()
             _hovered_last[rkey] = hovered
 
-            if rl.is_mouse_button_down(rl.MOUSE_BUTTON_LEFT) and hovered:
-                state = 'pressed'
-            else:
-                state = 'hover' if active else 'default'
-            gui_kit.wood_button(btn, state, danger=(_ == 'quit'))
-
             if _ == 'quit':
-                tcol = gui_kit.DANGER if not active else C_RED
+                tcol = C_RED if active else _c(0xE0, 0x60, 0x60, 255)
             else:
-                tcol = gui_kit.GOLD if active else gui_kit.INK
+                tcol = gui_kit.GOLD if active else rl.WHITE
             fonts.draw(label, int(bx + (btn_w - tw) / 2),
                        int(by + (btn_h - item_size) / 2), item_size, tcol)
 
@@ -820,7 +805,7 @@ class MenuSystem:
         version = 'v0.1.0'
         fonts.draw(version, int(right.x + right.width
                                 - fonts.measure(version, 15) - 10),
-                   int(right.y + right.height - 26), 15, gui_kit.INK_DIM)
+                   int(right.y + right.height - 26), 15, gui_kit.MUTED)
 
         if self._confirm_quit:
             self._draw_quit_confirm(cw, ch)
@@ -872,7 +857,7 @@ class MenuSystem:
             if self.char_mgr.load_error_backup:
                 bk = self.char_mgr.load_error_backup
                 fonts.draw(bk, int(left.x + 10), int(left.y + 22), 11,
-                           gui_kit.INK_DIM)
+                           gui_kit.MUTED)
 
         pad    = 20
         px_    = left.x + pad
@@ -885,7 +870,7 @@ class MenuSystem:
             msg = 'No characters yet.'
             fonts.draw(msg, int(left.x + (left.width
                                 - fonts.measure(msg, 18)) / 2),
-                       int(left.y + 40), 18, gui_kit.INK_DIM)
+                       int(left.y + 40), 18, gui_kit.MUTED)
 
         # Back button -- always visible so the screen is never a dead end
         back_r = rl.Rectangle(left.x + 4, left.y + left.height - 52, 130, 40)
@@ -902,17 +887,17 @@ class MenuSystem:
 
             gui_kit.paper_panel(px_, cy, pw_, card_h, border=False)
             border = (gui_kit.GOLD if is_focus
-                      else gui_kit.INK_DIM if hv
-                      else gui_kit.INK if is_active
-                      else _c(0x8A, 0x6A, 0x2E, 140))
+                      else gui_kit.MUTED if hv
+                      else _c(0xD2, 0xD2, 0xD2, 130) if is_active
+                      else _c(0x4A, 0x3E, 0x28, 140))
             rl.draw_rectangle_lines_ex(cr, 2 if is_focus else 1, border)
 
             vessel_def = VESSEL_DEFS.get(c.looks, {})
-            icons.draw(c.looks, int(px_ + 8), int(cy + 8), 22, gui_kit.INK)
+            icons.draw(c.looks, int(px_ + 8), int(cy + 8), 22, white=True)
             fonts.draw(c.name, int(px_ + 38), int(cy + 4), 22,
-                       C_RED if is_active else gui_kit.INK)
+                       C_RED if is_active else rl.WHITE)
             fonts.draw(vessel_def.get('name', c.looks), int(px_ + 38),
-                       int(cy + 30), 14, gui_kit.INK_DIM)
+                       int(cy + 30), 14, gui_kit.MUTED)
 
             if hv and rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT):
                 self.char_mgr.select(i)
@@ -939,33 +924,32 @@ class MenuSystem:
                                 right.width - 24, d_h)
             ry = right.y + 24
 
-            fonts.draw(c.name, rx, ry, 24, gui_kit.INK)
+            fonts.draw(c.name, rx, ry, 24, rl.WHITE)
             fonts.draw(vessel_def.get('name', c.looks),
                        rx + fonts.measure(c.name, 24) + 14,
-                       ry + 6, 15, gui_kit.INK_DIM)
+                       ry + 6, 15, gui_kit.MUTED)
             ry += 34
-            _divider(rx, ry, rw - 0, color=gui_kit.INK_DIM)
+            _divider(rx, ry, rw - 0, color=gui_kit.MUTED)
             ry += 10
 
-            # attributes — two columns of three
-            col_w = (rw - 16) / 2
-            for ai, attr_key in enumerate(DESCEND_ATTRIBUTES):
-                cx_ = rx + (ai % 2) * col_w
-                cy_ = ry + (ai // 2) * 22
+            # attributes — one per line
+            for attr_key in DESCEND_ATTRIBUTES:
                 label = ATTR_LABEL.get(attr_key, attr_key.title())
                 val = c.descend.get(attr_key, 0)
-                icons.draw(attr_key, int(cx_), int(cy_), 13, gui_kit.INK)
-                fonts.draw(label[:4], int(cx_ + 17), int(cy_ - 1), 12, gui_kit.INK_DIM)
-                fonts.draw(str(val), int(cx_ + 52), int(cy_ - 1), 12, gui_kit.INK)
-                bar_x = cx_ + 72
-                bar_w = col_w - 84
-                rl.draw_rectangle(int(bar_x), int(cy_ + 4), int(bar_w), 4,
-                                  _c(0x5A, 0x4A, 0x38, 120))
-                rl.draw_rectangle(int(bar_x), int(cy_ + 4),
-                                  int(bar_w * min(val, ATTR_CAP) / ATTR_CAP), 4,
+                icons.draw(attr_key, int(rx), int(ry), 20, white=True)
+                fonts.draw(label, int(rx + 28), int(ry + 1), 17, rl.WHITE)
+                bar_x = rx + 160
+                bar_w = max(60, rw - 160 - 46)
+                rl.draw_rectangle(int(bar_x), int(ry + 6), int(bar_w), 5,
+                                  _c(0x40, 0x40, 0x40, 160))
+                rl.draw_rectangle(int(bar_x), int(ry + 6),
+                                  int(bar_w * min(val, ATTR_CAP) / ATTR_CAP), 5,
                                   gui_kit.GOLD)
-            ry += 3 * 22 + 8
-            _divider(rx, ry, rw, color=gui_kit.INK_DIM)
+                vx_ = int(rx + 140 - fonts.measure(str(val), 17))
+                fonts.draw(str(val), vx_, int(ry + 1), 17, rl.WHITE)
+                ry += 36
+            ry += 2
+            _divider(rx, ry, rw, color=gui_kit.MUTED)
             ry += 8
 
             derived = compute_derived_stats(c.descend, looks=c.looks)
@@ -975,10 +959,10 @@ class MenuSystem:
                 ('Evasion', 'evasion',  derived['evasion']),
                 ('Acc.',    'accuracy', derived['accuracy']),
             ]:
-                icons.draw(icon_name, int(sx), int(ry), 13, gui_kit.INK)
-                fonts.draw(f'{stat_label} {stat_val}', int(sx + 17), int(ry - 1),
-                           13, gui_kit.INK)
-                sx += col_w
+                icons.draw(icon_name, int(sx), int(ry), 20, white=True)
+                fonts.draw(f'{stat_label} {stat_val}', int(sx + 26), int(ry + 1),
+                           17, rl.WHITE)
+                sx += (rw - 40) / 3.0
 
         # ── Bottom buttons (right page) ─────────────────────────────────
         if chars:
@@ -1179,19 +1163,19 @@ class MenuSystem:
         lw_ = left.width - 2 * pad
         ly = left.y + 18
 
-        fonts.draw('Create Character', lx, ly, 26, gui_kit.INK)
+        fonts.draw('Create Character', lx, ly, 26, rl.WHITE)
         ly += 40
 
-        fonts.draw('Character Name', lx, ly, 14, gui_kit.INK_DIM)
+        fonts.draw('Character Name', lx, ly, 14, gui_kit.MUTED)
         ly += 18
         box_r = rl.Rectangle(lx, ly, min(280, lw_), 34)
         hv = _hov(box_r)
-        rl.draw_rectangle_rec(box_r, _c(0xE2, 0xD4, 0xAC, 255))
+        rl.draw_rectangle_rec(box_r, _c(0x11, 0x11, 0x11, 220))
         rl.draw_rectangle_lines_ex(box_r, 1,
-                                   gui_kit.GOLD if hv else gui_kit.INK_DIM)
+                                   gui_kit.GOLD if hv else gui_kit.MUTED)
         cursor = '|' if int(_time.time() * 2) % 2 == 0 else ' '
         fonts.draw(self._char_name + cursor, int(lx + 10), int(ly + 6), 22,
-                   gui_kit.INK)
+                   rl.WHITE)
         ly += 52
 
         # selected vessel flavour text fills the rest of the left page
@@ -1202,10 +1186,10 @@ class MenuSystem:
         fonts.draw(sel_vd.get('name', LOOKS_LABELS.get(self._char_looks, '')),
                    lx, fy, 18, gui_kit.GOLD)
         fy += 26
-        _divider(lx, fy, lw_, color=gui_kit.INK_DIM)
+        _divider(lx, fy, lw_, color=gui_kit.MUTED)
         fy += 14
         for line in _wrap_text(flavor, 14, int(lw_)):
-            fonts.draw(line, lx, fy, 14, gui_kit.INK_DIM)
+            fonts.draw(line, lx, fy, 14, gui_kit.MUTED)
             fy += 18
 
         # ── Right page: vessel choice ────────────────────────────────────
@@ -1213,7 +1197,7 @@ class MenuSystem:
         vw_ = right.width - 2 * pad
         vy = right.y + 18
 
-        fonts.draw('Vessel', vx, vy, 14, gui_kit.INK_DIM)
+        fonts.draw('Vessel', vx, vy, 14, gui_kit.MUTED)
         vy += 20
         row_h = min(150.0, (right.y + right.height - 66 - vy - 2 * 10) / 3)
         for lk in LOOKS_OPTIONS:
@@ -1226,32 +1210,32 @@ class MenuSystem:
 
             gui_kit.paper_panel(vx, vy, vw_, row_h, border=False)
             border = gui_kit.GOLD if selected else (
-                gui_kit.INK_DIM if _hov(row) and unlocked
-                else _c(0x8A, 0x6A, 0x2E, 150))
+                gui_kit.MUTED if _hov(row) and unlocked
+                else _c(0x4A, 0x3E, 0x28, 150))
             rl.draw_rectangle_lines_ex(row, 2 if selected else 1, border)
 
             pic = rl.Rectangle(vx + 8, vy + 8, row_h - 16, row_h - 16)
-            rl.draw_rectangle_rec(pic, _c(0x5A, 0x4A, 0x38, 90))
+            rl.draw_rectangle_rec(pic, _c(0x1A, 0x17, 0x14, 200))
             self._draw_preview_frame(self._preview_sprites.get(lk), pic,
                                      self._preview_anim_time)
 
             tx = vx + row_h
             name = vdef.get('name', LOOKS_LABELS[lk])
             fonts.draw(name, int(tx), int(vy + 10), 16,
-                       gui_kit.INK if unlocked else gui_kit.INK_DIM)
+                       rl.WHITE if unlocked else gui_kit.MUTED)
             passive = vdef.get('passive', '')
-            fonts.draw(passive, int(tx), int(vy + 32), 11, gui_kit.INK_DIM)
+            fonts.draw(passive, int(tx), int(vy + 32), 11, gui_kit.MUTED)
 
             if not unlocked:
                 if wip:
-                    fonts.draw('WIP', int(tx), int(vy + 54), 13, gui_kit.INK)
+                    fonts.draw('WIP', int(tx), int(vy + 54), 13, rl.WHITE)
                     fonts.draw('Not available yet', int(tx), int(vy + 72),
-                               10, gui_kit.INK_DIM)
+                               10, gui_kit.MUTED)
                 else:
                     lock_txt = 'LOCKED'
-                    fonts.draw(lock_txt, int(tx), int(vy + 54), 13, gui_kit.INK)
+                    fonts.draw(lock_txt, int(tx), int(vy + 54), 13, rl.WHITE)
                     veil = vun.get('veil') or ''
-                    fonts.draw(veil, int(tx), int(vy + 72), 10, gui_kit.INK_DIM)
+                    fonts.draw(veil, int(tx), int(vy + 72), 10, gui_kit.MUTED)
                     req  = vun.get('depth', 0)
                     best = self.char_mgr.best_depth
                     pct  = min(1.0, best / req) if req else 0.0
@@ -1259,12 +1243,12 @@ class MenuSystem:
                     bar_w = vw_ - row_h - 16
                     bar_y = vy + row_h - 24
                     rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w), 5,
-                                      _c(0x5A, 0x4A, 0x38, 120))
+                                      _c(0x40, 0x40, 0x40, 160))
                     rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w * pct), 5,
                                       gui_kit.GOLD)
                     prog = f'Best Depth {best}/{req}'
                     fonts.draw(prog, int(bar_x), int(bar_y + 9), 10,
-                               gui_kit.INK_DIM)
+                               gui_kit.MUTED)
             elif _click(row):
                 self._char_looks = lk
             vy += row_h + 10
@@ -1296,11 +1280,11 @@ class MenuSystem:
         title = 'Codex'
         tw = fonts.measure(title, 30)
         fonts.draw(title, int(left.x + (left.width - tw) / 2),
-                   int(left.y + 40), 30, gui_kit.INK)
+                   int(left.y + 40), 30, rl.WHITE)
         sub = 'Vessels of the Anima'
         sw = fonts.measure(sub, 16)
         fonts.draw(sub, int(left.x + (left.width - sw) / 2),
-                   int(left.y + 80), 16, gui_kit.INK_DIM)
+                   int(left.y + 80), 16, gui_kit.MUTED)
         best = self.char_mgr.best_depth
         prog = f'Best Descent: Depth {best}'
         pw2 = fonts.measure(prog, 14)
@@ -1322,7 +1306,7 @@ class MenuSystem:
             gui_kit.paper_panel(vx, vy, vw_, row_h)
 
             pic = rl.Rectangle(vx + 10, vy + 10, row_h - 20, row_h - 20)
-            rl.draw_rectangle_rec(pic, _c(0x5A, 0x4A, 0x38, 90))
+            rl.draw_rectangle_rec(pic, _c(0x1A, 0x17, 0x14, 200))
             self._draw_preview_frame(self._preview_sprites.get(lk), pic,
                                      self._preview_anim_time)
             if not unlocked:
@@ -1330,20 +1314,20 @@ class MenuSystem:
                 lock_txt = 'WIP' if wip else 'LOCKED'
                 lk_w = fonts.measure(lock_txt, 12)
                 fonts.draw(lock_txt, int(pic.x + (pic.width - lk_w) / 2),
-                           int(pic.y + pic.height / 2 - 8), 12, gui_kit.INK)
+                           int(pic.y + pic.height / 2 - 8), 12, rl.WHITE)
 
             tx = vx + row_h + 6
             tw_ = vw_ - row_h - 22
             name = vdef.get('name', LOOKS_LABELS[lk])
             fonts.draw(name, int(tx), int(vy + 10), 16,
-                       gui_kit.INK if unlocked else gui_kit.INK_DIM)
+                       rl.WHITE if unlocked else gui_kit.MUTED)
             passive = vdef.get('passive', '')
-            fonts.draw(passive, int(tx), int(vy + 30), 11, gui_kit.INK_DIM)
+            fonts.draw(passive, int(tx), int(vy + 30), 11, gui_kit.MUTED)
 
             flavor = vun.get('flavor', '')
             fy = vy + 50
             for line in _wrap_text(flavor, 11, int(tw_)):
-                fonts.draw(line, int(tx), int(fy), 11, gui_kit.INK_DIM)
+                fonts.draw(line, int(tx), int(fy), 11, gui_kit.MUTED)
                 fy += 14
 
             if unlocked:
@@ -1352,23 +1336,23 @@ class MenuSystem:
             elif wip:
                 st = 'WIP — COMING LATER'
                 fonts.draw(st, int(tx), int(vy + row_h - 22), 12,
-                           gui_kit.INK_DIM)
+                           gui_kit.MUTED)
             else:
                 veil = vun.get('veil') or ''
                 fonts.draw(veil, int(tx), int(vy + row_h - 40), 11,
-                           gui_kit.INK)
+                           rl.WHITE)
                 req  = vun.get('depth', 0)
                 pct  = min(1.0, best / req) if req else 0.0
                 bar_x = tx
                 bar_w = tw_ * 0.7
                 bar_y = vy + row_h - 20
                 rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w), 4,
-                                  _c(0x5A, 0x4A, 0x38, 120))
+                                  _c(0x40, 0x40, 0x40, 160))
                 rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w * pct), 4,
                                   gui_kit.GOLD)
                 prog = f'Best Depth {best} / {req}'
                 fonts.draw(prog, int(bar_x + bar_w + 10), int(bar_y - 2), 10,
-                           gui_kit.INK_DIM)
+                           gui_kit.MUTED)
             vy += row_h + 10
 
     def _do_create(self):
@@ -1408,19 +1392,25 @@ class MenuSystem:
         lw_ = left.width - 48
         ly = left.y + 22
 
-        fonts.draw('Settings', lx, ly, 30, gui_kit.INK)
+        fonts.draw('Settings', lx, ly, 30, rl.WHITE)
         ly += 44
-        _divider(lx, ly, lw_, color=gui_kit.INK_DIM)
+        _divider(lx, ly, lw_, color=gui_kit.MUTED)
         ly += 18
 
         tabs   = ['Audio', 'Graphics', 'Controls', 'Save']
         for i, tab in enumerate(tabs):
             r = rl.Rectangle(lx, ly, lw_, 44)
             actv = i == self._settings_tab
-            gui_kit.wood_button(r, 'hover' if actv else 'default')
-            tcol = gui_kit.GOLD if actv else gui_kit.INK
+            tcol = gui_kit.GOLD if actv else rl.WHITE
+            if not actv and _hov(r):
+                tcol = gui_kit.GOLD
             fonts.draw(tab, int(r.x + (r.width - fonts.measure(tab, 20)) / 2),
                        int(r.y + 11), 20, tcol)
+            if actv:
+                # gold underline marks the active tab (no more plank image)
+                ttw = fonts.measure(tab, 20)
+                rl.draw_rectangle(int(r.x + (r.width - ttw) / 2),
+                                  int(r.y + 34), int(ttw), 2, gui_kit.GOLD)
             if _click(r):
                 self._settings_tab = i
                 if _audio_ref:
@@ -1468,28 +1458,28 @@ class MenuSystem:
             self.settings.perf_overlay = _toggle(
                 'Perf Overlay', self.settings.perf_overlay, px, oy, PW)
             fonts.draw("Show FPS, frame times, and draw call metrics", px + 4, oy + 28, 13,
-                       gui_kit.INK_DIM)
+                       gui_kit.MUTED)
             oy += 48
             self.settings.crt_effect = _toggle(
                 'CRT Effect', self.settings.crt_effect, px, oy, PW)
             fonts.draw("Simulate CRT monitor scanlines and vignette", px + 4, oy + 28, 13,
-                       gui_kit.INK_DIM)
+                       gui_kit.MUTED)
             oy += 48
             self.settings.item_labels = _toggle(
                 'Always Show Item Labels', self.settings.item_labels, px, oy, PW)
             fonts.draw("Item names above ground loot; hold Alt when off", px + 4, oy + 28, 13,
-                       gui_kit.INK_DIM)
+                       gui_kit.MUTED)
             oy += 48
             self.settings.debug_overlay = _toggle(
                 'Debug Overlay', self.settings.debug_overlay, px, oy, PW)
             fonts.draw("Show tile coordinates, entity IDs, and collision data", px + 4, oy + 28, 13,
-                       gui_kit.INK_DIM)
+                       gui_kit.MUTED)
             oy += 44
             self.settings.hud_scale = _slider(
                 'HUD Scale', self.settings.hud_scale * 100, 50, 150, px, oy, PW) / 100.0
             oy += 44
             # Font picker
-            fonts.draw('Font', px, oy, 24, gui_kit.INK)
+            fonts.draw('Font', px, oy, 24, rl.WHITE)
             cur_name = self.settings.font_name
             cur_idx  = FONT_NAMES.index(cur_name) if cur_name in FONT_NAMES else 0
             disp     = cur_name.replace('.ttf', '')
@@ -1512,7 +1502,7 @@ class MenuSystem:
                 'Mouse Sensitivity', self.settings.sensitivity, 10, 100, px, oy, PW)
 
         elif self._settings_tab == 3:
-            fonts.draw('Save Data', px, oy, 22, gui_kit.INK)
+            fonts.draw('Save Data', px, oy, 22, rl.WHITE)
             oy += 48
 
             n_chars = len(self.char_mgr.characters)
@@ -1522,10 +1512,10 @@ class MenuSystem:
             oy += 44
 
             fonts.draw('Erases all characters, account-wide vessel',
-                       px + 4, oy, 14, gui_kit.INK_DIM)
+                       px + 4, oy, 14, gui_kit.MUTED)
             oy += 20
             fonts.draw('unlocks, and delve progress. This cannot be undone.',
-                       px + 4, oy, 14, gui_kit.INK_DIM)
+                       px + 4, oy, 14, gui_kit.MUTED)
             oy += 30
 
             del_r = rl.Rectangle(px + 8, oy, PW - 16, 44)
@@ -1591,7 +1581,7 @@ class MenuSystem:
         art panel (skull-arch bank, 8x8 grid) is drawn on top by frame_render."""
         if not self.popup_mode:
             self._draw_menu_background(cw, ch)
-        _text_shadow('Stash', _cx('Stash', 48, cw), 52, 48, C_GOLD_TEXT)
+        _text_shadow('Stash', _cx('Stash', 48, cw), 52, 48, rl.WHITE)
         _divider(cw // 4 + 40, 108, cw // 2 - 80)
 
         back_r = rl.Rectangle(36, 48, 88, 32)
@@ -1675,11 +1665,11 @@ class MenuSystem:
 
             if hv or is_key:
                 _menu_select_markers(cw // 2, iy + item_size // 2, spacing=tw // 2 + 18)
-                _text_shadow(label, ix, iy, item_size, C_GOLD_HOVER)
-                icons.draw(icon_name, ix - 28, iy + 2, 22, C_GOLD_HOVER)
+                _text_shadow(label, ix, iy, item_size, gui_kit.GOLD)
+                icons.draw(icon_name, ix - 28, iy + 2, 22, white=True)
             else:
-                _text_shadow(label, ix, iy, item_size, C_GOLD_TEXT)
-                icons.draw(icon_name, ix - 28, iy + 2, 22, C_GOLD_TEXT)
+                _text_shadow(label, ix, iy, item_size, rl.WHITE)
+                icons.draw(icon_name, ix - 28, iy + 2, 22, white=True)
 
         hint = 'ESC to resume'
         fonts.draw(hint, _cx(hint, 15, cw), panel_y + panel_h - 22, 15, C_DIM)

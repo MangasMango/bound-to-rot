@@ -28,7 +28,9 @@ import random as _rnd
 random = _rnd
 import pyray as rl
 
-from core.iso_engine import IsoRenderer, IsoSprite, MOVE_DIR, DIRS, DIR_ANGLE, angle_to_dir, MIN_SCALE, MAX_SCALE, ISO_W, is_walkable
+from core.iso_engine import (IsoRenderer, IsoSprite, MOVE_DIR, DIRS, DIR_ANGLE,
+                    angle_to_dir, MIN_SCALE, MAX_SCALE, ISO_W, ENTITY_BASE,
+                    is_walkable)
 from systems.audio import AudioSystem
 from ui.inventory_ui import InventoryUI
 from entities.progression import (Character, CharacterManager, RaidTracker, task_def,
@@ -70,8 +72,21 @@ def _sprite(subpath, name, n_frames, fps):
 MAP_SIZE        = 50
 FLAT_MAP        = [[0] * MAP_SIZE for _ in range(MAP_SIZE)]
 
-MOVE_SPEED      = 1.5       # tiles / second (walk; R toggles the run gear)
-ATTACK_RANGE    = 0.30       # tiles
+MOVE_SPEED      = 4.0       # tiles / second (walk; R toggles the run gear).
+                            # Native desert tiles are ~2.7x smaller on screen
+                            # than the old LoP canvas — speed is scaled up to
+                            # keep the old on-screen pace (1.5 * 2.72).
+ATTACK_RANGE_BASE = 5.00     # tiles — gunslinger ranged auto-attack reach
+                            # (boostable later via item affixes, see
+                            # _attack_range()); BULLET_SPEED_TPS sets the
+                            # tracer flight time (~0.25 s for the base range)
+BULLET_SPEED_TPS = 20.0     # tiles / second — bullet flight speed
+
+# Gunslinger knockback: enemies get shoved back along the shot line on a
+# damaging hit. Impulse is the initial slide speed (tiles/s), decaying with
+# KNOCKBACK_DECAY_TIME; item affixes add via the classic 'knockback' key.
+KNOCKBACK_IMPULSE_TPS = 6.0
+KNOCKBACK_DECAY_TIME  = 0.25
 ATTACK_RATE     = 0.6       # attacks / second
 ATTACK_DAMAGE   = 25
 DEATH_DURATION  = 1.1       # seconds death anim plays before removal
@@ -153,22 +168,26 @@ STATE_EDITOR    = 'editor'
 
 HUB_SIZE = 3
 
-# Tile paths connecting spawn (1,2) to the hub waypoints
+# Tile paths connecting spawn (100,101) to the hub waypoints — absolute
+# grid coords on the 200×200 sanctuary floor (the old 3×3-era cells drew
+# the path sprites off in a far corner of the world).
 _HUB_PATH_CELLS = frozenset({
-    (1, 2), (1, 1), (1, 0),        # spawn → delve heart
-    (1, 1), (0, 1),                # → vendor
-    (1, 1), (2, 1),                # → stash
+    (100, 101), (100, 100), (100, 99), (100, 98), (100, 97), (100, 96),
+    (99, 100), (98, 100), (97, 100), (96, 100),
+    (101, 100), (102, 100), (103, 100), (104, 100),
 })
 
 # ── Sanctuary anchors on the 200×200 open floor (absolute grid coords) ──
 # The hub feels infinite: only the torch-lit sanctuary is ever visible; the
-# rest of the floor dissolves into darkness exactly like the delve.
+# rest of the floor dissolves into darkness exactly like the delve. Spread
+# for the native desert tile density (tiles are ~2.7× smaller on screen
+# than the old LoP canvas, so waypoints need more world tiles between them).
 HUB_SPAWN    = (100.5, 101.5)
-_HEART_POS   = (100.5,  99.5)
-_VENDOR_POS  = ( 99.5, 100.5)
-_STASH_POS   = (101.5, 100.5)
-_TORCH_POS   = (( 99.5,  99.5), (101.5,  99.5))
-_BRAZIER_POS = (( 99.5, 101.5), (101.5, 101.5))
+_HEART_POS   = (100.5,  96.5)
+_VENDOR_POS  = ( 96.5, 100.5)
+_STASH_POS   = (104.5, 100.5)
+_TORCH_POS   = (( 98.5,  96.5), (102.5,  96.5))
+_BRAZIER_POS = (( 98.5, 102.5), (102.5, 102.5))
 
 # ── interactable tuning knobs ──────────────────────────────────────
 # CLICK_RADIUS  = how precisely your click must land on the art (tiles).
@@ -183,32 +202,41 @@ DELVE_CLICK_RADIUS = 0.2
 # anchor to the art's top edge); 'label_dy' fine-tunes label height.
 _HUB_LAYOUT = [
     {'type': 'delve',  'x': _HEART_POS[0],   'y': _HEART_POS[1],
-     'label': 'Enter the Anima', 'scale': 1.2, 'label_dy': 200,
+     'label': 'Enter the Anima', 'scale': 2.6, 'label_dy': 70,
      'color': (80, 200, 255, 255)},
     {'type': 'vendor', 'x': _VENDOR_POS[0],  'y': _VENDOR_POS[1],
-     'label': 'Vendor', 'scale': 1.1, 'label_dy': 200,
+     'label': 'Vendor', 'scale': 1.1, 'label_dy': 240,
      'color': (255, 200, 80, 255)},
     {'type': 'stash',  'x': _STASH_POS[0],   'y': _STASH_POS[1],
-     'label': 'Stash', 'scale': 1.5, 'label_dy': 350,
+     'label': 'Stash', 'scale': 1.5, 'label_dy': 45,
      'color': (180, 180, 255, 255)},
 ]
 
 # Torches & braziers keep the sanctuary lit; outside their pools the
 # darkness is real (same ramp + DPS as the delve). 'kind' drives the
 # flicker and tint of each light. 'ax'/'ay' = flame anchor offset from the
-# tile anchor, in tile fractions (x-right, y-down) — each prop's flame art
-# sits at a different spot inside its sprite.
+# tile anchor, in tile fractions (x-right, y-down) — desert-slot anchors:
+# pillar-top fire bowls ('torch') and ground campfires ('brazier').
+# Light radii are in world tiles; native desert tiles are ~2.7× smaller on
+# screen than the old LoP canvas, so the constants are scaled up to keep
+# the pre-swap pool sizes (darkness reach follows automatically).
+# Light radii are in world tiles and mean the VISIBLE LIGHT EDGE (the
+# lighting shader fades to ambient at exactly `r` — lighting.fs EDGE_SCALE).
+# They are the pre-swap pool sizes scaled for the native desert tile density
+# (~2.7x smaller tiles); the ×2.2 shader-edge compensation is baked in.
 _HUB_LIGHTS = [
-    {'x': _HEART_POS[0],            'y': _HEART_POS[1],        'r': 0.75, 'kind': 'heart',  'phase': 0.0, 'ax': -0.35, 'ay': 0.21},
-    {'x': _TORCH_POS[0][0],         'y': _TORCH_POS[0][1],     'r': 0.65, 'kind': 'torch',  'phase': 0.0, 'ax': -0.34, 'ay': -0.39},
-    {'x': _TORCH_POS[1][0],         'y': _TORCH_POS[1][1],     'r': 0.65, 'kind': 'torch',  'phase': 2.1, 'ax': -0.34, 'ay': -0.39},
-    {'x': _BRAZIER_POS[0][0],       'y': _BRAZIER_POS[0][1],   'r': 0.80, 'kind': 'brazier','phase': 4.2, 'ax': -0.01, 'ay': -0.04},
-    {'x': _BRAZIER_POS[1][0],       'y': _BRAZIER_POS[1][1],   'r': 0.80, 'kind': 'brazier','phase': 1.3, 'ax': -0.01, 'ay': -0.04},
+    {'x': _HEART_POS[0],            'y': _HEART_POS[1],        'r': 4.4, 'kind': 'heart',  'phase': 0.0, 'ax': -0.35, 'ay': 0.21},
+    {'x': _TORCH_POS[0][0],         'y': _TORCH_POS[0][1],     'r': 4.0, 'kind': 'torch',  'phase': 0.0, 'ax': -0.01, 'ay': -0.55},
+    {'x': _TORCH_POS[1][0],         'y': _TORCH_POS[1][1],     'r': 4.0, 'kind': 'torch',  'phase': 2.1, 'ax': -0.01, 'ay': -0.55},
+    {'x': _BRAZIER_POS[0][0],       'y': _BRAZIER_POS[0][1],   'r': 4.8, 'kind': 'brazier','phase': 4.2, 'ax': -0.01, 'ay': -0.10},
+    {'x': _BRAZIER_POS[1][0],       'y': _BRAZIER_POS[1][1],   'r': 4.8, 'kind': 'brazier','phase': 1.3, 'ax': -0.01, 'ay': -0.10},
 ]
 
 DELVE_PULSE_SPEED  = 0.9   # tiles/sec baseline
-DELVE_LIGHT_RADIUS   = 2.0   # tiles illuminated by pulse
-DELVE_PERSONAL_LIGHT = 2.0   # player's own tiny ambient radius
+DELVE_LIGHT_RADIUS   = 5.5   # tiles illuminated by the pulse (scaled for the
+                             # native tile density — visual parity with the
+                             # old 2.0-tile pool on the big LoP tiles)
+DELVE_PERSONAL_LIGHT = 5.5   # player's own ambient radius (same compensation)
 DELVE_DARKNESS_DPS   = 10.0  # HP/sec in full darkness at depth 1
 
 # Manual placement offsets for the pulse light in render-texture pixels (1280x720 RT)
@@ -227,10 +255,12 @@ LIGHT_RT_SCALE = 0.5
 # light map to produce a clear, genuine darkening; tune here if needed.
 ACTOR_MIN_LIGHT_TINT = 0.24
 # Python mirrors of the lighting.fs shaping consts — the actor-tint
-# evaluator must stay in sync with the shader (FALL_RATE / CORE_RATE).
+# evaluator must stay in sync with the shader (FALL_RATE / CORE_RATE /
+# EDGE_SCALE: the light radius is the VISIBLE LIGHT EDGE).
 SHADER_FALL_RATE = 0.65
 SHADER_CORE_RATE = 4.2
-_LIGHT_KIND_STRENGTH = {'heart': 0.52, 'brazier': 0.45, 'torch': 0.40}
+SHADER_EDGE_SCALE = 2.2
+_LIGHT_KIND_STRENGTH = {'pulse': 0.75, 'heart': 0.52, 'brazier': 0.45, 'torch': 0.40}
 
 
 def _actor_tint_value(light_amount: float) -> float:
@@ -241,7 +271,7 @@ def _actor_tint_value(light_amount: float) -> float:
 # Ground sprite shown for EVERY dropped item on the floor. Owner-reported
 # issue: items were invisible until hovered. Per-item-type art comes later —
 # swap this constant (or _drop_sprite_for) in one place when it does.
-GROUND_ITEM_SPRITE = ('prop/gold_drop', 'gold_drop')
+GROUND_ITEM_SPRITE = ('prop/desert/gold_drop', 'gold_drop')
 
 _FALLBACK_CHAR = Character()
 
@@ -410,7 +440,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._load_progress   = 0.0
         self._load_stage_text = "Initializing..."
         self._textures_loaded = False
-        self._load_brazier_spr = None
+        self._load_runner_spr = None
         self._load_steps      = None
 
         # Subsystems
@@ -483,6 +513,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._glint_effects   = []  # active: {'x','y','timer','color','scale','vel_x','vel_y'}
         self._flame_effects   = []  # active: {'x','y','timer','color'}
         self._glow_effects    = []  # active: {'x','y','timer','color','scale'}
+        self._bullets         = []  # flying shots: {'x','y','tx','ty','target',
+                                    # 'result','timer'} — damage delivers on
+                                    # arrival (bullet travel time)
         # Procedural VFX: 1x1 white quad drawn through the vfx_* shaders
         # (assets/shaders/vfx_*.fs) — no sprite strips to load.
         self._vfx_white       = None
@@ -653,9 +686,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._textures_loaded = False
         self._load_steps      = None
         self.audio.set_music_state('off')   # no music during loading
-        if self._load_brazier_spr is None:
-            self._load_brazier_spr = _sprite('prop/brazier_lit', 'brazier_lit', 8, 8.0)
-            self._load_brazier_spr.load(dirs=('SE',))
+        if self._load_runner_spr is None:
+            # player running sprite for the loading screen — facing right
+            self._load_runner_spr = _sprite('playable character/fighter/fighter_armed_walk',
+                                            'fighter_armed_walk', 8, 22.0)
+            self._load_runner_spr.load(dirs=('E',))
         rl.begin_drawing()
         rl.clear_background(rl.BLACK)
         rl.end_drawing()
@@ -715,10 +750,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         for lk in ('warrior', 'fighter', 'knight'):
             def _looks(lk=lk):
                 idle         = _sprite(f'playable character/{lk}/{lk}_armed_idle',   f'{lk}_armed_idle',   1,  1.0)
-                walk         = _sprite(f'playable character/{lk}/{lk}_armed_walk',   f'{lk}_armed_walk',   8,  8.0)
+                walk         = _sprite(f'playable character/{lk}/{lk}_armed_walk',   f'{lk}_armed_walk',   8,  22.0)
                 attack       = _sprite(f'playable character/{lk}/{lk}_armed_attack', f'{lk}_armed_attack', 8, 8 * ATTACK_RATE)
                 default_idle = _sprite(f'playable character/{lk}/{lk}_default_idle', f'{lk}_default_idle', 1,  1.0)
-                default_walk = _sprite(f'playable character/{lk}/{lk}_default_walk', f'{lk}_default_walk', 8,  8.0)
+                default_walk = _sprite(f'playable character/{lk}/{lk}_default_walk', f'{lk}_default_walk', 8,  22.0)
                 self._player_sprites[lk] = {
                     'idle': idle, 'walk': walk, 'attack': attack,
                     'default idle': default_idle, 'default walk': default_walk,
@@ -733,7 +768,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         _queue_attr('_sk_idle',   'enemy/skeleton/skeleton_default_idle',
                     'skeleton_default_idle',   8, 4.0)
         _queue_attr('_sk_walk',   'enemy/skeleton/skeleton_default_walk',
-                    'skeleton_default_walk',   8, 6.0)
+                    'skeleton_default_walk',   8, 16.0)
         _queue_attr('_sk_attack', 'enemy/skeleton/skeleton_default_attack',
                     'skeleton_default_attack', 8, 8.0)
         _queue_attr('_sk_death',  'enemy/skeleton/skeleton_special_death',
@@ -742,7 +777,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         _queue_attr('_sl_idle',  'enemy/slime/slime_default_idle',
                     'slime_default_idle',  1, 1.0)
         _queue_attr('_sl_walk',  'enemy/slime/slime_default_walk',
-                    'slime_default_walk',  8, 6.0)
+                    'slime_default_walk',  8, 16.0)
         _queue_attr('_sl_death', 'enemy/slime/slime_special_death',
                     'slime_special_death', 7, 8.0)
 
@@ -760,25 +795,28 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         add(_pulse_portal)
 
         def _crate_static():
-            self._crate_spr = _sprite('prop/crate', 'crate', 1, 1.0)
+            self._crate_spr = _sprite('prop/desert/crate', 'crate', 1, 1.0)
             self._crate_spr.load()
         add(_crate_static)
-        _queue_attr('_crate_break_spr', 'prop/crate_break', 'crate_break', 8, 10.0)
+        _queue_attr('_crate_break_spr', 'prop/desert/crate_break', 'crate_break', 8, 10.0)
 
-        _queue_attr('_barrel_spr',        'prop/barrel',        'barrel',        1,  1.0)
-        _queue_attr('_barrel_break_spr',  'prop/barrel_break',  'barrel_break',  8, 10.0)
-        _queue_attr('_brazier_spr',       'prop/brazier_lit',   'brazier_lit',   8,  8.0)
-        _queue_attr('_brazier_break_spr', 'prop/brazier_break', 'brazier_break', 8, 10.0)
-        _queue_attr('_column_spr',        'prop/column1',       'column1',       1,  1.0)
-        _queue_attr('_torch_spr',         'prop/torch',         'torch',         1,  1.0)
+        _queue_attr('_barrel_spr',        'prop/desert/barrel',        'barrel',        1,  1.0)
+        _queue_attr('_barrel_break_spr',  'prop/desert/barrel_break',  'barrel_break',  8, 10.0)
+        _queue_attr('_brazier_spr',       'prop/desert/brazier_lit',   'brazier_lit',   8,  8.0)
+        _queue_attr('_brazier_break_spr', 'prop/desert/brazier_break', 'brazier_break', 8, 10.0)
+        _queue_attr('_column_spr',        'prop/desert/column1',       'column1',       1,  1.0)
+        _queue_attr('_torch_spr',         'prop/desert/torch',         'torch',         1,  1.0)
         _queue_attr('_hub_subservient_spr',
                     'none-playable character/subservient/subservient_special_working',
                     'subservient_special_working', 8, 6.0)
 
         def _decor():
-            for dname in ('torch', 'bones1', 'bones2', 'bones3'):
-                ds = _sprite(f'prop/{dname}', dname, 1, 1.0)
-                ds.load()
+            for dname in ('torch', 'bones1', 'bones2', 'bones3',
+                          'cactus1', 'cactus2', 'reed1', 'reed2',
+                          'bush_red', 'bush_red2', 'stone_s3', 'stone_s4',
+                          'pole'):
+                ds = _sprite(f'prop/desert/{dname}', dname, 1, 1.0)
+                ds.load(dirs=('S', 'SE'))
                 self._decor_sprs[dname] = ds
         add(_decor)
 
@@ -888,7 +926,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 self.audio.set_music_state('hub')
             else:
                 if self._delve is not None:
-                    self.audio.set_delve_depth_music(self._delve.get('depth', 1))
+                    self.audio.set_delve_music()   # playlist continues
                 else:
                     self.audio.set_music_state('off')
             if hasattr(self, '_pre_pause_state'):
@@ -1206,6 +1244,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         elif kind == 'brazier':
             f = 1.0 + 0.025 * math.sin(t * 2.0 + ph) + 0.015 * math.sin(t * 3.4 + ph * 2.3)
             tint = (255, 195, 125)
+        elif kind == 'pulse':
+            f = 1.0 + 0.025 * math.sin(t * 2.2 + ph) + 0.015 * math.sin(t * 3.7 + ph * 2.1)
+            tint = (255, 200, 130)
         elif kind == 'heart':
             f = 1.0 + 0.04 * math.sin(t * 1.4 + ph)
             tint = (255, 170, 110)
@@ -1234,7 +1275,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             ly = sy + half + L.get('ay', 0.0) * tile_size
             dx = (x_px - lx) * aspect
             dy = y_px - ly
-            dd = math.hypot(dx, dy) / r_px
+            # mirror the shader's edge-radius semantics (lighting.fs)
+            dd = math.hypot(dx, dy) / r_px * SHADER_EDGE_SCALE
             power = min(strength * 2.2, 1.0)
             l = min((math.exp(-dd * dd * SHADER_FALL_RATE)
                      + math.exp(-dd * dd * 10.0) * 0.3) * power, 1.0) \
@@ -1492,7 +1534,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         # ── auto-acquire nearest enemy when idle ──────────────────────
         if self.attack_target is None and self.dest_col is None:
-            self.attack_target = self._nearest_enemy(ATTACK_RANGE)
+            self.attack_target = self._nearest_enemy(
+                self._attack_range(equip_effects.get('attack_range', 0.0)))
 
         # ── resolve auto-attack or movement ───────────────────────────
         if self.attack_target is not None:
@@ -1501,7 +1544,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             else:
                 tx, ty = self.attack_target['x'], self.attack_target['y']
                 dist   = math.hypot(tx - self.px, ty - self.py)
-                if dist > ATTACK_RANGE:
+                if dist > self._attack_range(equip_effects.get('attack_range', 0.0)):
                     self._walk_toward(tx, ty, dt, speed_mult)
                 else:
                     self.dest_col = self.dest_row = None
@@ -1512,62 +1555,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                      + equip_effects['attack_speed_pct'])
                         self.attack_cd = frames.attack_seconds(
                             frames.PLAYER_BASE_ATTACK_FRAMES, atk_speed)
-                        if _is_enemy_immune(self.attack_target, 'physical'):
-                            result = {'damage': 0, 'evaded': False, 'crit': False, 'immune': True}
-                        else:
-                            flat_dmg = equip_effects['melee_damage']
-                            if self._angel_timer > 0:
-                                flat_dmg = int(flat_dmg * 1.5) + 1
-                            melee_dmg = int((ATTACK_DAMAGE * self.stats.get('melee_dmg_mult', 1.0) + flat_dmg)
-                                          * self._outgoing_dmg_mult('physical'))
-                            crit_chance = min(0.75, self.stats.get('_crit_chance', 0.0)
-                                              + equip_effects['crit_chance'])
-                            crushing_chance = min(0.75, self.stats.get('crushing_blow_pct', 0.0)
-                                                  + equip_effects['crushing_blow_chance'])
-                            result = combat.resolve_attack(
-                                self.stats['accuracy'], self.attack_target, melee_dmg,
-                                crit_chance=crit_chance,
-                                crushing_blow_chance=crushing_chance,
-                                double_strike='bang_bang' in itemgen.equipped_uniques(self.inventory))
-                        etype = self.attack_target.get('enemy_type', 'enemy')
-                        if result.get('immune'):
-                            self._spawn_dmg_number(self.attack_target['x'], self.attack_target['y'],
-                                                   -1, color=rl.Color(150, 150, 220, 255))
-                            self._log_combat(f"Immune  → {etype}", 'miss')
-                        elif not result['evaded']:
-                            pen = self.stats.get('penetration_pct', {}).get('physical', 0.0)
-                            strike_damages = result.get('strikes') or [result['damage']]
-                            dealt = sum(self._apply_damage_to_enemy(
-                                self.attack_target, strike_damage, 'physical', pen)
-                                for strike_damage in strike_damages)
-                            self._apply_lifesteal(dealt)
-                            self._vampiric_heal(dealt)
-                            tag = 'crit' if result.get('crit') else 'hit'
-                            self._log_combat(f"Hit {etype}  for {dealt}"
-                                             f"{'  CRIT' if result.get('crit') else ''}"
-                                             f"{'  CRUSH' if result.get('crushing') else ''}", tag)
-                            if result.get('crit'):
-                                dmg_color = rl.Color(255, 220, 40, 255)
-                                self._spawn_swoosh(self.attack_target['x'], self.attack_target['y'],
-                                                   0, 0, color=rl.Color(255, 200, 50, 160))
-                            else:
-                                dmg_color = rl.Color(255, 220, 200, 255)
-                            self._spawn_dmg_number(self.attack_target['x'], self.attack_target['y'],
-                                                   dealt, color=dmg_color)
-                            self.audio.hitmarker()
-                        else:
-                            self._spawn_dmg_number(self.attack_target['x'], self.attack_target['y'],
-                                                   0, color=rl.Color(180, 180, 180, 200))
-                            self._log_combat(f"Missed  → {etype}", 'miss')
-                        if self.attack_target['health'] <= 0:
-                            self.audio.enemy_dead()
-                            self._log_combat(f"Killed  {etype}", 'kill')
-                            self._register_enemy_kill()
-                            self.attack_target['death_timer'] = 0.0
-                            self._spawn_enemy_drops(self.attack_target['x'],
-                                                    self.attack_target['y'],
-                                                    self.attack_target.get('enemy_type', 'skeleton'))
-                            self.attack_target = None
+                        self._fire_bullet(self.attack_target, equip_effects)
 
         elif self.dest_col is not None:
             self._walk_toward(self.dest_col, self.dest_row, dt, speed_mult)
@@ -1686,6 +1674,28 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 live.append(e)
         self._glow_effects = live
 
+        # Advance flying bullets — light homing toward the (living) target;
+        # deliver the pre-rolled hit on arrival, fizzle if the target died.
+        live_b = []
+        for b in self._bullets:
+            t = b.get('target')
+            if t is not None and t.get('health', 0) > 0:
+                b['tx'], b['ty'] = t['x'], t['y']
+            dx = b['tx'] - b['x']
+            dy = b['ty'] - b['y']
+            dist = math.hypot(dx, dy)
+            step = BULLET_SPEED_TPS * dt
+            if dist <= max(0.15, step):
+                b['x'], b['y'] = b['tx'], b['ty']
+                self._spawn_glow(b['tx'], b['ty'], scale=0.7,
+                                 color=rl.Color(255, 240, 180, 255))
+                self._deliver_player_shot(b)
+                continue
+            b['x'] += dx / dist * step
+            b['y'] += dy / dist * step
+            live_b.append(b)
+        self._bullets = live_b
+
         # Advance death timers; cull finished corpses
         for z in self.zombies:
             if z['health'] <= 0:
@@ -1769,9 +1779,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         return angle_to_dir(angle)
 
     def _find_enemy_near(self, mx: int, my: int, cw: int, ch: int):
+        # enemy hitboxes ride the ENTITY canvas scale, matching their art
         tile_size   = int(ISO_W * self.iso.scale)
-        hitbox_w    = tile_size * 0.38
-        hitbox_h    = tile_size * 0.45
+        ent_px      = ENTITY_BASE * self.iso.scale
+        hitbox_w    = ent_px * 0.38
+        hitbox_h    = ent_px * 0.45
         best, best_dist = None, float('inf')
         for z in self.zombies:
             if z['health'] <= 0:
@@ -1820,6 +1832,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         return best
 
 
+
+    def _attack_range(self, extra: float = 0.0) -> float:
+        """Ranged auto-attack reach in tiles: base + item/equip bonus."""
+        return max(1.0, ATTACK_RANGE_BASE + extra)
 
     def _nearest_enemy(self, max_range: float):
         best, best_d = None, max_range
@@ -1953,7 +1969,13 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         _rnd.shuffle(walls_adjacent)
         candidates = walls_adjacent
 
-        _DECOR_TYPES = ['torch', 'bones1', 'bones2', 'bones3']
+        # Desert decor pool: lit campfires (torches), Anima graveyard
+        # pillars (bones*), cacti/reeds/bushes/rock piles, dead telegraph
+        # poles — all sliced from the desert tileset.
+        _DECOR_TYPES = ['bones1', 'bones2', 'bones3',
+                        'cactus1', 'cactus2', 'reed1', 'reed2',
+                        'bush_red', 'bush_red2', 'stone_s3', 'stone_s4',
+                        'pole']
 
         total = len(candidates)
 
@@ -2058,12 +2080,115 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             'color': color if color is not None else rl.WHITE,
         })
 
-    def _spawn_glow(self, wx: float, wy: float, color=None, scale: float = 1.0):
+    def _spawn_glow(self, wx: float, wy: float, color=None, scale: float = 1.0,
+                    alpha: int = 220):
         self._glow_effects.append({
             'x': wx, 'y': wy, 'timer': 0.0,
             'color': color if color is not None else rl.WHITE,
-            'scale': scale,
+            'scale': scale, 'alpha': alpha,
         })
+
+    # ── gunslinger ranged auto-attack ─────────────────────────────────
+
+    def _fire_bullet(self, target, equip_effects: dict):
+        """Fire a shot at `target`: roll the hit NOW (so crit/accuracy use
+        the firing-time stats), let the bullet fly with travel time, and
+        deliver damage + popups when it arrives (_update_bullets)."""
+        tx, ty = target['x'], target['y']
+        # muzzle starts a bit out from the body, toward the target
+        d = math.hypot(tx - self.px, ty - self.py) or 1.0
+        sx = self.px + (tx - self.px) / d * 0.35
+        sy = self.py + (ty - self.py) / d * 0.35
+        if _is_enemy_immune(target, 'physical'):
+            result = {'damage': 0, 'evaded': False, 'crit': False,
+                      'crushing': False, 'strikes': None, 'immune': True}
+        else:
+            flat_dmg = equip_effects['melee_damage']
+            if self._angel_timer > 0:
+                flat_dmg = int(flat_dmg * 1.5) + 1
+            ranged_dmg = int((ATTACK_DAMAGE * self.stats.get('melee_dmg_mult', 1.0)
+                              + flat_dmg) * self._outgoing_dmg_mult('physical'))
+            crit_chance = min(0.75, self.stats.get('_crit_chance', 0.0)
+                              + equip_effects['crit_chance'])
+            crushing_chance = min(0.75, self.stats.get('crushing_blow_pct', 0.0)
+                                  + equip_effects['crushing_blow_chance'])
+            result = combat.resolve_attack(
+                self.stats['accuracy'], target, ranged_dmg,
+                crit_chance=crit_chance,
+                crushing_blow_chance=crushing_chance,
+                double_strike='bang_bang' in itemgen.equipped_uniques(self.inventory))
+        self._bullets.append({
+            'sx': sx, 'sy': sy,           # muzzle (world pos)
+            'x': sx,  'y': sy,            # current flight position
+            'tx': tx, 'ty': ty,           # impact point (homing updates it)
+            'target': target,             # living enemy ref (may die mid-flight)
+            'result': result,             # pre-rolled hit
+            'timer': 0.0,                 # flight time (tracer rendering)
+            # knockback impulse (tiles/sec along the shot line); crits
+            # shove 1.6× harder, item affixes add via 'knockback'
+            'kb': (KNOCKBACK_IMPULSE_TPS + equip_effects.get('knockback', 0.0))
+                  * (1.6 if result.get('crit') else 1.0),
+        })
+        self._spawn_glow(sx, sy, scale=0.12, alpha=60,
+                         color=rl.Color(255, 240, 180, 255))
+        self.audio.revolver_shot()
+
+    def _deliver_player_shot(self, bullet):
+        """Apply a pre-rolled ranged hit when its bullet reaches the enemy."""
+        target = bullet.get('target')
+        # the victim died before the bullet arrived — the shot fizzles
+        if target is None or target.get('health', 0) <= 0:
+            return
+        result = bullet['result']
+        etype = target.get('enemy_type', 'enemy')
+        if result.get('immune'):
+            self._spawn_dmg_number(target['x'], target['y'],
+                                   -1, color=rl.Color(150, 150, 220, 255))
+            self._log_combat(f"Immune  → {etype}", 'miss')
+        elif not result['evaded']:
+            pen = self.stats.get('penetration_pct', {}).get('physical', 0.0)
+            strike_damages = result.get('strikes') or [result['damage']]
+            dealt = sum(self._apply_damage_to_enemy(
+                target, strike_damage, 'physical', pen)
+                for strike_damage in strike_damages)
+            self._apply_lifesteal(dealt)
+            self._vampiric_heal(dealt)
+            tag = 'crit' if result.get('crit') else 'hit'
+            self._log_combat(f"Hit {etype}  for {dealt}"
+                             f"{'  CRIT' if result.get('crit') else ''}"
+                             f"{'  CRUSH' if result.get('crushing') else ''}", tag)
+            if result.get('crit'):
+                dmg_color = rl.Color(255, 220, 40, 255)
+                self._spawn_swoosh(target['x'], target['y'],
+                                   0, 0, color=rl.Color(255, 200, 50, 160))
+            else:
+                dmg_color = rl.Color(255, 220, 200, 255)
+            self._spawn_dmg_number(target['x'], target['y'],
+                                   dealt, color=dmg_color)
+            self.audio.bullet_impact()
+            # gunslinger knockback: shove the enemy back along the shot line
+            kb = bullet.get('kb', 0.0)
+            if (kb > 0.0
+                    and target['health'] > 0
+                    and not target.get('knockback_immune')):
+                shot_d = max(0.05, math.hypot(bullet['tx'] - bullet['sx'],
+                                              bullet['ty'] - bullet['sy']))
+                target['kb_x'] = (bullet['tx'] - bullet['sx']) / shot_d * kb
+                target['kb_y'] = (bullet['ty'] - bullet['sy']) / shot_d * kb
+                target['kb_timer'] = KNOCKBACK_DECAY_TIME
+        else:
+            self._spawn_dmg_number(target['x'], target['y'],
+                                   0, color=rl.Color(180, 180, 180, 200))
+            self._log_combat(f"Missed  → {etype}", 'miss')
+        if target['health'] <= 0:
+            self.audio.enemy_dead()
+            self._log_combat(f"Killed  {etype}", 'kill')
+            self._register_enemy_kill()
+            target['death_timer'] = 0.0
+            self._spawn_enemy_drops(target['x'], target['y'],
+                                    target.get('enemy_type', 'skeleton'))
+            if self.attack_target is target:
+                self.attack_target = None
 
     def _find_drop_near(self, tile_col: float, tile_row: float, radius: float = 0.8):
         best, best_d = None, radius
@@ -2084,7 +2209,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             'attack_speed_pct': 0.0, 'cooldown_recovery_pct': 0.0,
             'crit_chance': 0.0, 'ability_crit_chance': 0.0,
             'crushing_blow_chance': 0.0, 'block_chance': 0.0,
-            'flat_damage_reduction': 0.0,
+            'flat_damage_reduction': 0.0, 'attack_range': 0.0, 'knockback': 0.0,
             'dexterity': 0, 'endurance': 0, 'strength': 0,
             'cunning': 0, 'essence': 0, 'nerve': 0, 'destiny': 0,
         }
@@ -2234,14 +2359,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
     # Loading screen layout — tweak these by hand
-    LOAD_BRAZIER_SCALE = 3.0   # sprite zoom (frame art has transparent padding,
-                               # so >1.0 often looks better)
-    LOAD_BRAZIER_OFF_X = -310    # px from right screen edge to sprite box
-    LOAD_BRAZIER_OFF_Y = -280   # px from bottom screen edge to sprite box
+    LOAD_RUNNER_SCALE = 3.0   # sprite zoom (frame art has transparent padding,
+                              # so >1.0 often looks better)
+    LOAD_RUNNER_OFF_X = -310    # px from right screen edge to sprite box
+    LOAD_RUNNER_OFF_Y = -280    # px from bottom screen edge to sprite box
     LOAD_TEXT_SIZE     = 22    # "loading..." font size
     LOAD_TEXT_OFF_X    = 24    # px from right screen edge to end of text
     LOAD_TEXT_OFF_Y    = 60    # px from bottom screen edge to bottom of text
-    LOAD_BRAZIER_DEBUG = False # True = draw sprite-box outline while tuning
+    LOAD_RUNNER_DEBUG  = False # True = draw sprite-box outline while tuning
 
 
 
@@ -2732,7 +2857,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     self.iso.scale = max(MIN_SCALE, min(MAX_SCALE, float(parts[1])))
                     output = f'Scale {self.iso.scale:.2f}'
                 except ValueError:
-                    output = 'Usage: zoom <0.2..0.8>'
+                    output = 'Usage: zoom <1..3>'
             else:
                 output = f'Zoom: {self.iso.scale:.2f}'
         elif command == 'weather':
@@ -2844,7 +2969,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         for sprite in self._decor_sprs.values():
             if sprite: sprite.unload()
         if self._gold_drop_spr: self._gold_drop_spr.unload()
-        if self._load_brazier_spr: self._load_brazier_spr.unload()
+        if self._load_runner_spr: self._load_runner_spr.unload()
         _unloaded_ids = set()
         for tex in self._ability_icons.values():
             if tex and tex.id > 0 and tex.id not in _unloaded_ids:

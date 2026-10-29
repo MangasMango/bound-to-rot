@@ -16,7 +16,7 @@
 """
 Missing-asset detection and procedural placeholders.
 
-Eight asset packs are not distributed with this repository (see
+The remaining asset packs are not distributed with this repository (see
 THIRD_PARTY_ASSETS.md). The game runs without them: loaders skip missing
 files, entities fall back to placeholder silhouettes, and the menus show a
 notice explaining what is missing and where to get it.
@@ -29,9 +29,10 @@ import pyray as rl
 from config import ASSETS
 
 # Folders excluded from the public repository (Lords-of-Pain pack content).
+# environment and prop are now open-source: floors live in
+# assets/environment/ (desert tileset) and props in assets/prop/desert/.
 EXCLUDED_ASSET_DIRS = (
     'boss',
-    'environment',
     'enemy',
     'none-playable character',
     'playable character',

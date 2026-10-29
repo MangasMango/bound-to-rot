@@ -24,7 +24,8 @@ draws, all tightly scissored. Degrades silently when dry or disabled.
 
 import pyray as rl
 
-from core.iso_engine import ISO_W, _V0, _V1, _V2, _V3
+from core.iso_engine import (ISO_W, ENTITY_BASE, DIAMOND_X, DIAMOND_Y,
+                            DIAMOND_W, DIAMOND_H, _V0, _V1, _V2, _V3)
 
 # Reflection sprite look: cool tint, semi-transparent, drawn flipped.
 _REFL_TINT     = rl.Color(185, 200, 230, 96)
@@ -73,10 +74,10 @@ class WeatherRenderMixin:
         any_drawn = False
         k = tile_size / 256.0
         # diamond bbox inside the 256px tile PNG (DIAMOND_X/Y/W/H geometry)
-        d_x0 = int(41 * k)
-        d_y0 = int(64 * k)
-        d_w  = int(174 * k)
-        d_h  = int(128 * k)
+        d_x0 = int(DIAMOND_X * k)
+        d_y0 = int(DIAMOND_Y * k)
+        d_w  = int(DIAMOND_W * k)
+        d_h  = int(DIAMOND_H * k)
         for col, row, sx, sy in iso.puddle_cells_in_view(self.map, cw, ch):
             mirror_y  = sy + tile_size * 0.5          # tile centre on screen
             clip_top  = sy + d_y0
@@ -121,8 +122,8 @@ class WeatherRenderMixin:
             alpha = int(34 * (1.0 - frac) * (1.0 - frac))
             if alpha <= 2:
                 continue
-            rx = 87.0 * k * scale
-            ry = 64.0 * k * scale
+            rx = (DIAMOND_W * 0.5) * k * scale
+            ry = (DIAMOND_H * 0.5) * k * scale
             _V0.x, _V0.y = cx,          cy - ry
             _V1.x, _V1.y = cx + rx,     cy
             _V2.x, _V2.y = cx,          cy + ry

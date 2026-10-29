@@ -63,7 +63,7 @@ _Building:_ `pyinstaller main.spec`
 
 ### Assets
 
-Game assets live in `assets/` and **not all of them are in this repository**; see [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md). The `boss`, `environment`, `enemy`, `none-playable character`, `playable character` and `prop` folders come from a third-party pack that forbids redistribution; obtain the pack yourself and copy the files into those folders before running the game.
+Game assets live in `assets/` and **not all of them are in this repository**; see [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md). The `boss`, `enemy`, `none-playable character` and `playable character` folders (and most of `prop` — only its `desert/` subset is tracked) come from a third-party pack that forbids redistribution; obtain the pack yourself and copy the files into those folders before running the game. The world floor (`assets/environment/`) and the desert props (`assets/prop/desert/`, portal circles in `assets/portal/`) are tracked with the repository.
 
 The game detects missing packs at boot: it prints a console notice, shows a dismissible banner in the menus, and renders affected entities as colored placeholder silhouettes so it stays runnable without them.
 

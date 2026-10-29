@@ -36,16 +36,27 @@ skin_*.png
 # Non-redistributable asset packs — contents ignored, README placeholder stays
 /assets/boss/*
 !/assets/boss/README.md
-/assets/environment/*
-!/assets/environment/README.md
-/assets/prop/*
-!/assets/prop/README.md
 /assets/enemy/*
 !/assets/enemy/README.md
 /assets/none-playable character/*
 !/assets/none-playable character/README.md
 /assets/playable character/*
 !/assets/playable character/README.md
+
+# Desert environment is open-source (Amstrad CC-BY-SA 3.0) — track it.
+# Everything else in environment/ (LoP leftovers, OFDN backup tiles) stays local.
+/assets/environment/*
+!/assets/environment/README.md
+!/assets/environment/tileset_desert.png
+!/assets/environment/plain_*.png
+!/assets/environment/brush_*.png
+
+# Sliced desert props under prop/desert/ are tracked; every other prop
+# directory (still the Lords-of-Pain pack locally) stays ignored
+/assets/prop/*
+!/assets/prop/README.md
+!/assets/prop/desert/
+!/assets/prop/desert/**
 !/assets/vfx/README.md
 
 # Kit source files (GIMP projects) stay local � rendered PNGs are tracked

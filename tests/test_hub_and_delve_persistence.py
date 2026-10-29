@@ -202,11 +202,13 @@ class CompactHubTests(unittest.TestCase):
         self.assertEqual((_HUB_LAYOUT[0]['x'], _HUB_LAYOUT[0]['y']), _HEART_POS)
         self.assertEqual((_HUB_LAYOUT[1]['x'], _HUB_LAYOUT[1]['y']), _VENDOR_POS)
         self.assertEqual((_HUB_LAYOUT[2]['x'], _HUB_LAYOUT[2]['y']), _STASH_POS)
-        # sanctuary sits at the centre of the 200×200 floor
+        # sanctuary sits near the centre of the 200×200 floor; the spread
+        # grew with the native desert tile density (tiles ~2.7× smaller on
+        # screen than the old LoP canvas)
         import core.delve_gen as delve_gen
         for obj in _HUB_LAYOUT:
-            self.assertTrue(delve_gen.GRID_W // 2 - 3 < obj['x'] < delve_gen.GRID_W // 2 + 3)
-            self.assertTrue(delve_gen.GRID_H // 2 - 3 < obj['y'] < delve_gen.GRID_H // 2 + 3)
+            self.assertTrue(delve_gen.GRID_W // 2 - 5 < obj['x'] < delve_gen.GRID_W // 2 + 5)
+            self.assertTrue(delve_gen.GRID_H // 2 - 5 < obj['y'] < delve_gen.GRID_H // 2 + 5)
 
     def test_hub_lights_cover_the_sanctuary(self):
         """Every sanctuary tile must be within reach of some torch/brazier/
