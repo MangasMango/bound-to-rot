@@ -35,35 +35,42 @@ from entities.player_stats import reset_stats
 class TestResetStatsPreservesPools(unittest.TestCase):
     def test_empty_dict_starts_full(self):
         s = {}
-        reset_stats(s, max_health=80, max_mana=30, mana=30,
-                    max_energy_shield=10)
+        reset_stats(s, max_health=80, max_energy_shield=10)
         self.assertEqual(s['health'], 80)
-        self.assertEqual(s['mana'], 30)
         self.assertEqual(s['energy_shield'], 10)
 
     def test_recalc_keeps_pools_when_max_grows(self):
         s = {}
-        reset_stats(s, max_health=100, max_mana=40, max_energy_shield=20)
+        reset_stats(s, max_health=100, max_energy_shield=20)
         s['health'] = 37.0
-        s['mana'] = 9.0
         s['energy_shield'] = 11.0
         # a gear swap raises every maximum — the pools must NOT refill
-        reset_stats(s, max_health=150, max_mana=60, max_energy_shield=30)
+        reset_stats(s, max_health=150, max_energy_shield=30)
         self.assertEqual(s['health'], 37.0)
-        self.assertEqual(s['mana'], 9.0)
         self.assertEqual(s['energy_shield'], 11.0)
         self.assertEqual(s['max_health'], 150)
 
     def test_pools_clamp_when_max_shrinks(self):
         s = {}
-        reset_stats(s, max_health=100, max_mana=40, max_energy_shield=20)
+        reset_stats(s, max_health=100, max_energy_shield=20)
         s['health'] = 95.0
-        s['mana'] = 38.0
         s['energy_shield'] = 19.0
-        reset_stats(s, max_health=60, max_mana=25, max_energy_shield=0)
+        reset_stats(s, max_health=60, max_energy_shield=0)
         self.assertEqual(s['health'], 60.0)
-        self.assertEqual(s['mana'], 25.0)
         self.assertEqual(s['energy_shield'], 0.0)
+
+    def test_mana_keys_are_ignored_from_old_saves(self):
+        """Owner ruling 2026-10-29: mana left the game. Old saves carrying
+        mana/max_mana/mana_regen load clean — the keys are dropped and
+        nothing regenerates them."""
+        s = {'health': 42.0, 'mana': 17.0, 'max_mana': 20, 'mana_regen': 2.0}
+        reset_stats(s, max_health=80, max_energy_shield=10)
+        self.assertNotIn('mana', s)
+        self.assertNotIn('max_mana', s)
+        self.assertNotIn('mana_regen', s)
+        # the health pool is still preserved-and-clamped as before
+        self.assertEqual(s['health'], 42.0)
+        self.assertEqual(s['energy_shield'], 10)
 
     def test_max_health_pct_growth_does_not_heal(self):
         s = {}
@@ -97,10 +104,8 @@ class TestRecalcKeepsPools(unittest.TestCase):
         game._recalc_derived_stats()              # first build: empty -> full
         full = game.stats['max_health']
         game.stats['health'] = full * 0.37
-        game.stats['mana'] = 3.0
         game._recalc_derived_stats()              # equip-driven recalc
         self.assertEqual(game.stats['health'], full * 0.37)
-        self.assertEqual(game.stats['mana'], 3.0)
 
 
 class TestFreshDelveRefill(unittest.TestCase):

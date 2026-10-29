@@ -348,6 +348,15 @@ def update_zombies(dt, zombies, players, map_data):
 
         if target is not None and nearest_dist <= DETECT_RANGE:
             z['state'] = 'chase'
+            # Dark-spawn sprint easing: boost fades back to the base speed
+            # once the enemy closes in on the player (chase front edge).
+            if z.get('sprinting'):
+                base_speed0 = z.get('base_move_speed') or z.get('move_speed')
+                if nearest_dist <= 6.0:
+                    z['move_speed'] += (base_speed0 - z['move_speed']) * min(1.0, dt * 3.0)
+                    if z['move_speed'] <= base_speed0 * 1.01:
+                        z['move_speed'] = base_speed0
+                        z['sprinting'] = False
             # Keep closing until well inside attack reach — the stop distance
             # must stay strictly below MELEE_RANGE or the enemy halts just
             # outside it and never enters 'attack' (regression guard).

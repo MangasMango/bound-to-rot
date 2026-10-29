@@ -28,7 +28,9 @@ ONE-USE-PER-WAVE semantics (owner's tuning rule):
   - Effects are duration-based (regen over time / timed haste), gated by a
     short shared drink cooldown so a wave's single sip still plays out.
 
-Kinds: health (life regen), mana (mana regen), utility (timed haste).
+Kinds: health (life regen), utility (timed haste). The mana kind/flask
+retired with the mana system (owner ruling 2026-10-29); old saves with a
+mana flask socketed just show an empty T slot (fewer ITEMS defs).
 """
 
 FLASK_CD = 2.0          # shared drink cooldown, seconds
@@ -38,11 +40,10 @@ REGEN_FRACTION = 0.40   # fraction of the pool restored over the duration
 UTILITY_DURATION = 4.0  # s of haste from the utility flask
 UTILITY_MULT = 1.35
 
-FLASK_KINDS = ('health', 'mana', 'utility')
+FLASK_KINDS = ('health', 'utility')
 
 FLASK_ITEM_FOR_KIND = {
     'health':  'flask_health',
-    'mana':    'flask_mana',
     'utility': 'flask_utility',
 }
 
@@ -93,7 +94,7 @@ def use_flask(inventory, state, stats=None):
     """Drink the equipped flask. Mutates: spends a charge, sets the drink
     cooldown in `state` and appends active effect dicts to `state['flask_effects']`.
 
-    Returns a short result string ('health'/'mana'/'utility') or None when the
+    Returns a short result string ('health'/'utility') or None when the
     drink was blocked (no flask / empty charges / on cooldown)."""
     entry = equipped_flask(inventory)
     if not entry:
@@ -111,10 +112,6 @@ def use_flask(inventory, state, stats=None):
     if kind == 'health':
         max_hp = float((stats or {}).get('max_health', 100))
         effects.append({'stat': 'health', 'amount': max_hp * REGEN_FRACTION,
-                        'duration': REGEN_DURATION, 'elapsed': 0.0})
-    elif kind == 'mana':
-        max_mp = float((stats or {}).get('max_mana', 100))
-        effects.append({'stat': 'mana', 'amount': max_mp * REGEN_FRACTION,
                         'duration': REGEN_DURATION, 'elapsed': 0.0})
     else:
         effects.append({'haste': UTILITY_MULT, 'duration': UTILITY_DURATION,

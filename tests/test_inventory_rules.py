@@ -259,9 +259,10 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         before = dict(game.stats)
         ui._exec({'type': 'equip', 'source': 'grid',
                   'index': len(inv['grid']) - 1}, inv, game.stats)
-        # cunning
+        # cunning — the retired 'max mana' read became the neutral
+        # cooldown/attr dumps (mana removed from the game, 2026-10-29)
         self.assertEqual(game.stats['cunning'], before['cunning'] + 6)
-        self.assertEqual(game.stats['max_mana'], before['max_mana'] + 6 * 5)
+        self.assertNotIn('max_mana', game.stats)
         # endurance -> health and energy shield
         self.assertEqual(game.stats['endurance'], before['endurance'] + 3)
         self.assertEqual(game.stats['max_health'],

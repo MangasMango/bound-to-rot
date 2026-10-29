@@ -139,6 +139,19 @@ ICON_MAP = {
     'crack':        'Warfare_Dynamite_Stick_Explosive.png',
     'cart':         'Warfare_Dynamite_TNT_Explosives_Crate_Bundle.png',
     'hidden':       'RPG_Skill_Explosive_Shot_Bomb_Arrow.png',
+
+    # ── Gem abilities (HUD Q/W/E/R slots) — the real ability-icons pack
+    #    is not distributed, so each ability maps to an ui-icons sprite
+    #    (game.py: assets/ability-icons/*.png still override these) ─────
+    'cone_physical': 'RPG_Skill_Strike_Attack_Sword_Slash_Cleave.png',
+    'cone_fire':     'Alchemy_Element_Fire.png',
+    'cone_cold':     'Alchemy_Element_Water.png',
+    'cone_lightning':'Alchemy_Element_Air.png',
+    'cone_magic':    'RPG_Spell_Skill_Magic_Arcane_Missiles_Multishot.png',
+    'dash':          'RPG_Skill_Dash_Dodge_Movement_Speed_Run_Sprint.png',
+    'blink':         'RPG_Teleportation_Stone.png',
+    'lifesteal':     'RPG_Skill_Teeth_Fangs_Bite_Beast_Vampire_Blood_Leech_Damage.png',
+    'fire_aura':     'Weather_Wildfire_Flame_Element_Hot_Burn.png',
 }
 
 # Cache: name → Texture2D

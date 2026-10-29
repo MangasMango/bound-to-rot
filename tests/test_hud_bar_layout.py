@@ -144,13 +144,17 @@ def test_source_carries_the_new_bindings():
     assert 'itemgen.max_rot' in HUD_SRC
     assert "'seg_point'" in HUD_SRC
     assert '_rot_col' in HUD_SRC
-    for helper in ('_section_box', '_divider(', '_chevron('):
-        assert helper in HUD_SRC, f'missing mockup dressing helper: {helper}'
+    assert '_section_box' in HUD_SRC
+    assert '_divider(' in HUD_SRC
 
 
 def test_source_dropped_the_decorative_and_belt_pieces():
     assert 'golden_frame' not in HUD_SRC      # right cluster: dropped (§20.208)
     assert 'belt_slot' not in HUD_SRC         # T shares skill_base (§20.205)
+    # gold chevrons + the bronze band were removed with the 2026-10-29 HUD
+    # cleanup (no more yellow borders around the bar sections)
+    assert '_chevron(' not in HUD_SRC
+    assert 'BRONZE' not in HUD_SRC
     # the meter must never read a stamina stat — stamina is gone for good
     # (tests/test_run_toggle.py guards the stats side)
     for stale in ("stats['stamina'", 'stats.get(\'stamina\'', 'max_stamina'):

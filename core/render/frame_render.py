@@ -20,6 +20,7 @@ import pyray as rl
 from core.game import (
     DEATH_DURATION,
     DELVE_CLICK_RADIUS,
+    DELVE_PERSONAL_LIGHT,
     STATE_DEAD,
     STATE_EDITOR,
     STATE_EXTRACTED,
@@ -345,7 +346,8 @@ class FrameRenderMixin:
         self._draw_glint_effects(cw, ch)
         self._draw_aura_range(cw, ch)
         self._draw_enemy_bars(cw, ch)
-        self._draw_dmg_numbers(cw, ch)
+        # NOTE: _draw_dmg_numbers moved above the darkness overlay (drawn
+        # post-darkness below) so the gloom never dims combat numbers
         self._draw_click_marker(cw, ch)
         t_after_fx = _perf_time.perf_counter()
         rl.end_texture_mode()
@@ -358,10 +360,13 @@ class FrameRenderMixin:
             self._draw_darkness(cw, ch)
             # actors above the darkness: player + monsters keep a readable
             # brightness (pool light + ACTOR_LIGHT_FLOOR), per-sprite tints
-            # (target/hover/status/death-fade) still apply on top of it
+            # (target/hover/status/death-fade) still apply on top of it.
+            # Same light spec as _draw_darkness (kind 'pulse', pool edge =
+            # light_r + personal light, centred anchor).
             d = self._delve
-            lights = [{'x': d['pulse_x'], 'y': d['pulse_y'], 'r': d['light_r'],
-                       'kind': 'heart', 'phase': 0.0, 'ax': -0.35, 'ay': 0.21}]
+            lights = [{'x': d['pulse_x'], 'y': d['pulse_y'],
+                       'r': d['light_r'] + DELVE_PERSONAL_LIGHT,
+                       'kind': 'pulse', 'phase': 0.0, 'ax': 0.0, 'ay': 0.0}]
             tile_size = max(1, int(ISO_W * self.iso.scale))
             half = tile_size * 0.5
             for e in getattr(self, '_delve_draw_entities', []):
@@ -381,6 +386,8 @@ class FrameRenderMixin:
                 self.iso._draw_entity(e2, sx, sy, tile_size)
             self._draw_pulse_sprite(cw, ch)
             self._draw_drop_overlay(cw, ch)
+            # combat numbers above the darkness — never dimmed by the gloom
+            self._draw_dmg_numbers(cw, ch)
             # Ground-item tooltips are UI: resolve and draw them after the
             # darkness mask so labels/panels are never darkened or fire-tinted.
             self._hovered_ground_item = None

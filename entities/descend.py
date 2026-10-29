@@ -134,7 +134,11 @@ DESCEND_PERKS: dict[str, dict] = {
     'str4': _perk('Titan Grip',      '+phys dmg %, +Strength per rank',     3, _ef(('physical_damage_pct', 2), ('strength', 1)), 'strength', 4),
 
     # ── Cunning column ──────────────────────────────────────────────────
-    'cun1': _perk('Deep Well',       '+max mana per rank',                  3, _ef(('maxMana', 5)),              'cunning', 1),
+    # 'Deep Well' (+max mana) was retired when mana left the game;
+    # the cun1 slot is reserved for the bullets mechanic — the guarded
+    # 'maxBullets' bonus key stays inert until that system lands
+    # (owner ruling 2026-10-29).
+    'cun1': _perk('Deep Holster',    '+bullet capacity per rank',           3, _ef(('maxBullets', 5)),           'cunning', 1),
     'cun2': _perk('Arcanist',        '+magic damage % per rank',            3, _ef(('magic_damage_pct', 4)),     'cunning', 2),
     'cun3': _perk('Pyromancer',      '+fire dmg %, +fire pen % per rank',   3, _ef(('fire_damage_pct', 3), ('fire_penetration_pct', 2)), 'cunning', 3),
     'cun4': _perk('Overcharge',      '+lightning dmg %, rank 3: -ES',       3, _ef(('lightning_damage_pct', 3), ('max_energy_shield', -3)), 'cunning', 4),

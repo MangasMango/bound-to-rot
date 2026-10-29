@@ -447,3 +447,136 @@ def test_inventory_draw_smoke_with_real_character_runs_socket_paths(monkeypatch)
     assert any(t is ui._icons['lungs'] for t, _a in textures)
 
 
+# ── the LIVE click pipeline: InventoryUI.update() drives everything ─────
+
+class _Mouse:
+    """Controllable cursor position for the panel geometry."""
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+
+
+class _Clicks:
+    """Rising-edge queue standing in for systems.input.mouse_pressed.
+
+    Tests feed one button edge; the next update() consumes it, and all
+    later calls report False — exactly what the real edge detector counts
+    with the 30 Hz fixed timestep.
+    """
+    def __init__(self):
+        self.queue = []
+
+    def feed(self, button):
+        self.queue.append(button)
+
+    def __call__(self, consumer, button):
+        if button in self.queue:
+            self.queue.remove(button)
+            return True
+        return False
+
+
+def _screen_cell(ui, col, row):
+    """Cursor coords for the centre of a backpack grid cell."""
+    px, s = ui._panel(1280, 720)
+    return (px + (GRID_AX + (col + 0.5) * GRID_ACELL) * s,
+            (GRID_AY + (row + 0.5) * GRID_ACELL) * s)
+
+
+def _screen_socket(ui, i):
+    """Cursor coords for the centre of socket i (0=Q, 1=W, 2=E, 3=R)."""
+    px, s = ui._panel(1280, 720)
+    r = ui._socket_rect(px, s, i)
+    return (r.x + r.width / 2, r.y + r.height / 2)
+
+
+def _pipeline(monkeypatch, clicks, mouse):
+    _headless(monkeypatch)
+    monkeypatch.setattr(rl, 'get_mouse_x', lambda: mouse.x)
+    monkeypatch.setattr(rl, 'get_mouse_y', lambda: mouse.y)
+    import ui.inventory_ui as inv_mod
+    monkeypatch.setattr(inv_mod.inp, 'mouse_pressed', clicks)
+    return inv_mod
+
+
+def test_live_click_pipeline_sockets_green_gem_into_W(monkeypatch):
+    """End-to-end through update(): right-click a grid gem, left-click the
+    SOCKET (W) offer — the W socket takes the gem and the grid entry is
+    consumed. No direct _ctx injection."""
+    mouse, clicks = _Mouse(), _Clicks()
+    _pipeline(monkeypatch, clicks, mouse)
+
+    ui = _ui_with_icons()
+    ui.open = True
+    inv = items.make_inventory()
+    inv['grid'] = [_grid_entry('gem_green', col=1, row=2)]
+
+    mouse.x, mouse.y = _screen_cell(ui, 1, 2)
+    clicks.feed(rl.MOUSE_BUTTON_RIGHT)
+    ui.update(inv, {})
+    assert ui._ctx is not None, 'right-clicking the gem must open the menu'
+    assert ui._ctx['source'] == 'grid' and ui._ctx['index'] == 0
+
+    sidx = next(i for i, o in enumerate(ui._ctx_options())
+                if o['type'] == 'socket' and o['enabled'] and 'W' in o['label'])
+    mouse.x = ui._ctx['x'] + 110
+    mouse.y = ui._ctx['y'] + 2 + sidx * 26 + 13
+    clicks.feed(rl.MOUSE_BUTTON_LEFT)
+    ui.update(inv, {})
+
+    assert ui._ctx is None
+    assert inv['gem_sockets']['W'] is not None
+    assert inv['gem_sockets']['W']['item'] == 'gem_green'
+    assert inv['grid'] == []
+
+
+def test_live_click_pipeline_removes_a_socketed_gem(monkeypatch):
+    """End-to-end through update(): right-click the W socket, left-click
+    REMOVE — the gem returns to the backpack and the socket empties."""
+    mouse, clicks = _Mouse(), _Clicks()
+    _pipeline(monkeypatch, clicks, mouse)
+
+    ui = _ui_with_icons()
+    ui.open = True
+    inv = items.make_inventory()
+    inv['gem_sockets']['W'] = _grid_entry('gem_green')
+
+    mouse.x, mouse.y = _screen_socket(ui, 1)
+    clicks.feed(rl.MOUSE_BUTTON_RIGHT)
+    ui.update(inv, {})
+    assert ui._ctx is not None, 'right-clicking the W socket must open the menu'
+    assert ui._ctx['source'] == 'gems' and ui._ctx['index'] == 'W'
+
+    ridx = next(i for i, o in enumerate(ui._ctx_options())
+                if o['type'] == 'remove_gem')
+    mouse.x = ui._ctx['x'] + 110
+    mouse.y = ui._ctx['y'] + 2 + ridx * 26 + 13
+    clicks.feed(rl.MOUSE_BUTTON_LEFT)
+    ui.update(inv, {})
+
+    assert ui._ctx is None
+    assert inv['gem_sockets']['W'] is None
+    assert any(e['item'] == 'gem_green' for e in inv['grid'])
+
+
+def test_remove_gem_into_full_backpack_keeps_the_gem(monkeypatch):
+    """Full backpack: sockets are never silently emptied — the gem stays
+    and the panel shows 'Backpack full!' (regression: the auto-place
+    result used to be ignored and the gem was destroyed)."""
+    _headless(monkeypatch)
+    ui = _ui_with_icons()
+    ui.open = True
+    inv = items.make_inventory()
+    n_cells = items.INV_COLS * items.INV_ROWS
+    inv['grid'] = [_grid_entry('health_potion', col=c % items.INV_COLS,
+                               row=c // items.INV_COLS)
+                   for c in range(n_cells)]
+    inv['gem_sockets']['W'] = _grid_entry('gem_green')
+    ui._exec({'type': 'remove_gem', 'source': 'gems', 'index': 'W'}, inv, {})
+
+    assert inv['gem_sockets']['W'] is not None
+    assert inv['gem_sockets']['W']['item'] == 'gem_green'
+    assert len(inv['grid']) == n_cells
+    assert ui._notice == 'Backpack full!'
+
+
