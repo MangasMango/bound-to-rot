@@ -19,6 +19,11 @@ from systems import input as inp
 from core.game import *
 from core.game import _rnd, _pick_enemy_dmg_type
 
+# Dark-spawn sprint: enemies spawn past the pool edge and charge with this
+# speed multiplier until they near the light (see zombies.py easing).
+_DARK_SPAWN_SPRINT   = 1.6
+_DARK_SPRINT_END_DST = 6.0   # tiles to the player where the sprint fades
+
 class DelveFlowMixin:
         def _open_anima_panel(self):
             """Open the Anima panel (node chooser popup) from the Hub heart."""
@@ -228,7 +233,6 @@ class DelveFlowMixin:
                 # 2026-10-07); resumes keep their pools — reset_stats
                 # preserves them, so no refill happens there.
                 self.stats['health'] = self.stats['max_health']
-                self.stats['mana'] = self.stats['max_mana']
                 self.stats['energy_shield'] = self.stats.get('max_energy_shield', 0.0)
 
             # Apply passive-tree bonuses to delve lighting
@@ -491,7 +495,9 @@ class DelveFlowMixin:
                 if in_dim:
                     dps_mult = min(dps_mult, 0.5)
                 self.stats['health'] = max(0.0, self.stats['health'] - d['darkness_dps'] * dps_mult * dt)
-                self.hit_flash       = max(self.hit_flash, 0.18)
+                # the red flash rides the damage ramp — zero while the
+                # darkness deals zero DPS, not the instant you step out
+                self.hit_flash = max(self.hit_flash, 0.18 * min(1.0, dps_mult))
                 if self.stats['health'] <= 0:
                     self.raid_running = False
                     self._permadeath()
@@ -524,21 +530,41 @@ class DelveFlowMixin:
                                    + zone_mods.get('elite_chance_bonus', 0.0))
                 elite_budget = min(3, int(depth / 10)) if _rnd.random() < elite_chance else 0
 
-            # Spawn inside the current room rectangle so even tiny (3-5 tile) rooms
-            # work, and pack enemies in for chaotic, close-quarters fights. We
-            # collect the actual floor tiles in the room and sample from those so
-            # positions always land on walkable floor.
-            room_w = d['node'].get('w', 5)
-            room_h = d['node'].get('h', 5)
-            hw = max(0, (room_w - 1) // 2)
-            hh = max(0, (room_h - 1) // 2)
+            # Spawn IN THE DARKNESS, past the visible pool edge (owner
+            # ruling): gather walkable floor tiles in an annulus around the
+            # pulse — min_r = pool edge (light_r + personal light) + 1, band
+            # of 5 tiles — never closer to the player than ~2.5 tiles. The
+            # wave then charges into the player's light (DETECT_RANGE 22
+            # tiles means these spawns aggro immediately).
+            dark_edge = d['light_r'] + DELVE_PERSONAL_LIGHT
+            min_r = dark_edge + 1.0
+            max_r = min_r + 5.0
             cx, cy = int(round(pulse_x)), int(round(pulse_y))
             candidates = []
-            for dc in range(-hw, hw + 1):
-                for dr in range(-hh, hh + 1):
+            cols_len, rows_len = len(self.map), len(self.map[0]) if self.map else 0
+            pad = int(max_r) + 1
+            for dc in range(-pad, pad + 1):
+                for dr in range(-pad, pad + 1):
                     tc, tr = cx + dc, cy + dr
-                    if (0 <= tc < len(self.map) and 0 <= tr < len(self.map[0])
-                            and self.map[tc][tr] == 0 and math.hypot(dc, dr) >= 0.9):
+                    if not (0 <= tc < cols_len and 0 <= tr < rows_len):
+                        continue
+                    if self.map[tc][tr] != 0:
+                        continue
+                    dist = math.hypot(tc + 0.5 - pulse_x, tr + 0.5 - pulse_y)
+                    if not (min_r <= dist <= max_r):
+                        continue
+                    if math.hypot(tc + 0.5 - self.px,
+                                  tr + 0.5 - self.py) < 2.5:
+                        continue   # never drop one in the player's face
+                    candidates.append((tc, tr))
+            if not candidates:
+                # dark ring unreachable (tiny carpeted area) — fall back to
+                # the widest ring map space allows around the pulse
+                for _tries in range(200):
+                    tc = _rnd.randint(max(0, cx - 16), min(cols_len - 1, cx + 16))
+                    tr = _rnd.randint(max(0, cy - 16), min(rows_len - 1, cy + 16))
+                    if self.map[tc][tr] == 0 and math.hypot(
+                            tc + 0.5 - self.px, tr + 0.5 - self.py) >= 2.5:
                         candidates.append((tc, tr))
             if not candidates:
                 candidates = [(cx, cy)]
@@ -562,6 +588,10 @@ class DelveFlowMixin:
                             if etype == 'slime' else combat.skeleton_accuracy(enemy_level))
                 if is_elite:
                     accuracy = int(accuracy * 1.3)
+                # dark-spawn sprint: ×1.6 speed while the enemy is still
+                # far from the pulse (past _APPROACH_SLOW_DIST) so slow
+                # slimes keep the wave cadence — decays near the light
+                move_speed = make_move_speed(etype) * _DARK_SPAWN_SPRINT
                 enemy = {
                     'id':               f'dse{self._enemy_id_seq}',
                     'enemy_type':       etype,
@@ -580,7 +610,9 @@ class DelveFlowMixin:
                     'evasion':          enemy_evasion(etype, enemy_level),
                     'spawn_x':          ex,
                     'spawn_y':          ey,
-                    'move_speed':       make_move_speed(etype),
+                    'move_speed':       move_speed,
+                    'base_move_speed':  make_move_speed(etype),
+                    'sprinting':        True,   # dark-spawn approach boost
                     'speed_ramp':       0.0,
                     'dmg_type':         _pick_enemy_dmg_type(enemy_level),
                     'damage_reduction': mit['damage_reduction'],

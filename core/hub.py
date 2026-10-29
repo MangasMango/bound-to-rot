@@ -236,7 +236,9 @@ class HubMixin:
             if in_dim:
                 dps_mult = min(dps_mult, 0.5)
             self.stats['health'] = max(0.0, self.stats['health'] - DELVE_DARKNESS_DPS * dps_mult * dt)
-            self.hit_flash = max(self.hit_flash, 0.18)
+            # the red flash rides the damage ramp — zero while the darkness
+            # deals zero DPS, not the instant you step out
+            self.hit_flash = max(self.hit_flash, 0.18 * min(1.0, dps_mult))
             if self.stats['health'] <= 0:
                 self._permadeath()
 
