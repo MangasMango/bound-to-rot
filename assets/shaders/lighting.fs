@@ -27,6 +27,10 @@ const int MAX_LIGHTS = 8;
 //             (radius factor vs the old white zone = sqrt(1.05 / CORE_RATE)).
 const float FALL_RATE = 0.65;
 const float CORE_RATE = 4.2;
+// The passed-in radius is the VISIBLE LIGHT EDGE: with EDGE_SCALE 2.2 the
+// gaussian falls to ~ambient at dist == radius. Hub radii are pre-multiplied
+// by EDGE_SCALE in _HUB_LIGHTS so their pools keep their tuned size.
+const float EDGE_SCALE = 2.2;
 
 float sample_noise(vec2 uv) {
     return texture(u_noise, uv).r;
@@ -56,7 +60,7 @@ void main() {
         vec2 d = pixel - lpos;
         d.x *= u_aspect;   // iso squash: world circles project WIDE on screen
                            // (y/x = step_y/step_x), so the X axis compresses
-        float dist = length(d) / radius;
+        float dist = length(d) / radius * EDGE_SCALE;
 
         // Flame churn modulates brightness; wide noise wobbles the shape so
         // the pool never reads as a perfect circle.

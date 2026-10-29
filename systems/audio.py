@@ -19,19 +19,19 @@ Audio system — loads all sound pools once, exposes simple play calls.
 
 Music: every scene state maps to one track, and every transition is a
 CROSSFADE (old stream fades out while the new one fades in — never an
-instant stop). States (BLUEPRINT §25):
+instant stop). States:
 
-    menu        End of the Road              main menu
+    menu        Western menu               main menu + title screen
     (loading)   off — silence while the loading screen runs
-    hub         Devilish Design              the Hub
-    death       End of the Road B            permadeath screen
-    wilds_N     Hexed Wilds A/B/C            Anima combat, depth-rotated
-    pulse_wait  Dark Alleys                  wave cleared, node not chosen yet
+    hub         Settlers Caravan           the Hub
+    death       Western guitar stab        permadeath screen
+    game        western_ingame playlist    the delve — the three in-game
+                western_ingame1/2/3.ogg    tracks play one after another,
+                continuously (crossfaded end-to-end, endless loop) and are
+                NEVER re-triggered by waves, depths or node choices.
 
-Music from "Demon's Realm | Dark Fantasy Music" by maxstack
-(CC-BY-SA 4.0) plus "Devilish Design" by Johan Brodd (GPL 3.0) for the
-Hub — see THIRD_PARTY_ASSETS.md. States that share a file share one
-loaded stream, so hopping between them never restarts the music.
+    (old maxstack / Devilish Design tracks are retired — see
+    assets/ost/credits.txt for the current soundtrack licences)
 """
 
 import os
@@ -46,21 +46,19 @@ def _a(rel):  return os.path.join(_ASSETS, rel)
 
 # Track registry: logical music state -> asset path (relative to assets/).
 _MUSIC_FILES = {
-    'menu':       'ost/End of the Road.ogg',
-    'hub':        'ost/Devilish design.mp3',
-    'death':      'ost/End of the Road B.ogg',
-    'pulse_wait': 'ost/Dark Alleys.ogg',
-    'wilds_1':    'ost/Hexed Wilds A.ogg',
-    'wilds_2':    'ost/Hexed Wilds B.ogg',
-    'wilds_3':    'ost/Hexed Wilds C.ogg',
+    'menu':       'ost/Western_menu.ogg',
+    'hub':        'ost/western_hub.ogg',
+    'death':      'ost/westernguitarstab.ogg',
 }
+# The delve playlist — plays continuously, one after another, forever.
+_GAME_PLAYLIST = (
+    'ost/western_ingame1.ogg',
+    'ost/western_ingame2.ogg',
+    'ost/western_ingame3.ogg',
+)
+GAME_MUSIC_STATE = 'game'   # logical state name for the delve playlist
 
 FADE_SECONDS = 2.5    # crossfade length for every music transition
-
-
-def wilds_key_for_depth(depth: int) -> str:
-    """Anima combat track for a depth: 1->A, 2->B, 3->C, 4->A again…"""
-    return f'wilds_{((max(1, int(depth)) - 1) % 3) + 1}'
 
 
 def fade_step(vol: float, target: float, dt: float, seconds: float) -> float:
@@ -84,6 +82,9 @@ class AudioSystem:
         self._music_ready = False
         self._fades       = []   # [{'music': stream, 'vol': cur, 'target': tgt}]
 
+        self._playlist_streams = []   # shared streams, _GAME_PLAYLIST order
+        self._playlist_index   = 0
+
         self._step_t      = 0.0
         self._enemy_t     = {}
         self._enemy_alert = set()
@@ -101,6 +102,15 @@ class AudioSystem:
                 self._file_streams[rel] = stream
             if stream is not None:
                 self._music[name] = stream
+        # Delve playlist — every track loaded once, in playlist order
+        self._playlist_streams = []
+        for rel in _GAME_PLAYLIST:
+            stream = self._file_streams.get(rel)
+            if stream is None:
+                stream = self._load_music(rel)
+                self._file_streams[rel] = stream
+            if stream is not None:
+                self._playlist_streams.append(stream)
         # UI clicks
         self._load_pool_a('ui_click', [f'ui-sfx/click1.ogg'])
         self._load_pool_a('ui_hover', [f'ui-sfx/rollover1.ogg'])
@@ -135,6 +145,13 @@ class AudioSystem:
 
         # Enemy melee hit on player
         self._load_a('enemy_hit', 'ingame-sfx/impactPunch_medium_000.ogg')
+
+        # Gunslinger — revolver shot + bullet impacts on undead (bone crack)
+        self._load_pool_a('revolver_shot', ['ingame-sfx/revolverShoot1.ogg'])
+        self._load_pool_a('bullet_impact', [f'ingame-sfx/impactGlass_heavy_{i:03d}.ogg'
+                                            for i in range(5)])
+        self._load_pool_a('bullet_impact', [f'ingame-sfx/impactGlass_heavy_{i:03d}.ogg'
+                                            for i in range(5)])
 
         # Crate destruction
         self._load_pool_a('crate_break', [f'ingame-sfx/impactWood_heavy_{i:03d}.ogg' for i in range(5)] +
@@ -193,7 +210,7 @@ class AudioSystem:
         self.music_vol = max(0.0, min(1.0, v))
         # apply to every audible stream — respecting any in-flight fade so
         # the settings slider can't fight the crossfade (it runs every tick)
-        for m in self._music.values():
+        for m in list(self._music.values()) + list(self._playlist_streams):
             if rl.is_music_stream_playing(m):
                 vol = 1.0
                 for f in self._fades:
@@ -204,36 +221,49 @@ class AudioSystem:
 
     def set_music_state(self, state: str):
         """Scene-state music with a crossfade: the old track fades out while
-        the new one fades in (FADE_SECONDS each way) — never an instant stop."""
+        the new one fades in (FADE_SECONDS each way) — never an instant stop.
+        State 'game' is the delve playlist: entering it RESTARTS the playlist
+        at the first track (owner ruling), and track-to-track switching is
+        then driven purely by track ends in tick() — never by gameplay."""
         if not self._music_ready:
             self._music_state = state
             return
         if state == self._music_state:
             return
+        if state == GAME_MUSIC_STATE:
+            self._playlist_index = 0   # entering the delve restarts the list
         self._crossfade_to(state)
         self._music_state = state
 
-    def set_delve_depth_music(self, depth: int):
-        """Anima combat music — Hexed Wilds A/B/C rotated by depth."""
-        self.set_music_state(wilds_key_for_depth(depth))
+    def set_delve_music(self):
+        """Delve music — the continuous western playlist."""
+        self.set_music_state(GAME_MUSIC_STATE)
 
-    def set_pulse_wait_music(self):
-        """Wave cleared and no node selected yet — Dark Alleys."""
-        self.set_music_state('pulse_wait')
+    def _state_stream(self, state: str):
+        """The single stream a logical state plays right now ('game' resolves
+        to the playlist track at the current index)."""
+        if state == GAME_MUSIC_STATE:
+            if not self._playlist_streams:
+                return None
+            return self._playlist_streams[self._playlist_index % len(self._playlist_streams)]
+        return None if state == 'off' else self._music.get(state)
 
     def _crossfade_to(self, state: str):
-        # `_music` is keyed by LOGICAL STATE NAME ('menu', 'hub', 'wilds_1'…)
-        # — look the stream up by state, not by its file path. Every stream
-        # keeps EXACTLY ONE fader: the incoming track fades in (target 1.0),
-        # every other stream fades out (target 0.0), retargeting mid-fade
-        # streams in place so a cut never restarts a fade from zero.
-        target = None if state == 'off' else self._music.get(state)
+        # `_music` is keyed by LOGICAL STATE NAME ('menu', 'hub', …) and the
+        # delve playlist lives in _playlist_streams — resolve the target
+        # stream, then every stream keeps EXACTLY ONE fader: the incoming
+        # track fades in (target 1.0), every other stream fades out
+        # (target 0.0), retargeting mid-fade streams in place so a cut never
+        # restarts a fade from zero.
+        self._crossfade_streams(self._state_stream(state))
+
+    def _crossfade_streams(self, target):
         for f in self._fades:
             f['target'] = 1.0 if f['music'] is target else 0.0
-        for m in self._music.values():
+        for m in list(self._music.values()) + list(self._playlist_streams):
             if any(m is f['music'] for f in self._fades):
                 continue                      # already fading (either way)
-            if m is target:
+            if target is not None and m is target:
                 rl.set_music_volume(m, 0.0)
                 if not rl.is_music_stream_playing(m):
                     rl.play_music_stream(m)
@@ -242,8 +272,19 @@ class AudioSystem:
             elif rl.is_music_stream_playing(m):
                 self._fades.append({'music': m, 'vol': 1.0, 'target': 0.0})
 
+    def _advance_playlist(self):
+        """Track ended — start the next one with a crossfade, wrapping
+        around the playlist endlessly."""
+        if not self._playlist_streams:
+            return
+        self._playlist_index = (self._playlist_index + 1) % len(self._playlist_streams)
+        self._crossfade_streams(self._state_stream(GAME_MUSIC_STATE))
+
     def tick(self, dt):
         for m in self._music.values():
+            if rl.is_music_stream_playing(m):
+                rl.update_music_stream(m)
+        for m in self._playlist_streams:
             if rl.is_music_stream_playing(m):
                 rl.update_music_stream(m)
         remaining = []
@@ -256,6 +297,14 @@ class AudioSystem:
                 continue          # fade complete — volume pinned, drop fader
             remaining.append(f)
         self._fades = remaining
+        # Continuous delve playlist of last resort: while in the delve the
+        # playlist is the ONLY music driver — when the current track ends
+        # (and nothing is fading), roll to the next one, forever.
+        if (self._music_state == GAME_MUSIC_STATE and not self._fades
+                and self._playlist_index < len(self._playlist_streams)):
+            stream = self._state_stream(GAME_MUSIC_STATE)
+            if stream is not None and not rl.is_music_stream_playing(stream):
+                self._advance_playlist()
 
     # ── UI sounds ────────────────────────────────────────────────────
 
@@ -269,6 +318,12 @@ class AudioSystem:
 
     def hitmarker(self):
         self._play_random('hitmark', 0.8)
+
+    def revolver_shot(self):
+        self._play_random('revolver_shot', 0.85)
+
+    def bullet_impact(self):
+        self._play_random('bullet_impact', 0.8)
 
     # ── world sounds ─────────────────────────────────────────────────
 
@@ -332,7 +387,7 @@ class AudioSystem:
         self._enemy_t.clear()
         self._step_t = 0.0
         self._fades  = []
-        for m in self._music.values():
+        for m in list(self._music.values()) + list(self._playlist_streams):
             if rl.is_music_stream_playing(m):
                 rl.stop_music_stream(m)
 
@@ -342,5 +397,5 @@ class AudioSystem:
         for pool in self.pools.values():
             for s in pool:
                 rl.unload_sound(s)
-        for m in self._music.values():
+        for m in list(self._music.values()) + list(self._playlist_streams):
             rl.unload_music_stream(m)

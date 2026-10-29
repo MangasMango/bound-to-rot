@@ -27,11 +27,14 @@ from systems import asset_guard
 
 
 class TestExcludedDirs(unittest.TestCase):
-    def test_expected_six_folders(self):
-        self.assertEqual(len(asset_guard.EXCLUDED_ASSET_DIRS), 6)
-        for name in ('boss', 'environment', 'enemy', 'none-playable character',
+    def test_expected_folders(self):
+        # environment spun free of the exclusion list: the desert floor
+        # art is tracked with the repo (see THIRD_PARTY_ASSETS.md)
+        self.assertEqual(len(asset_guard.EXCLUDED_ASSET_DIRS), 5)
+        for name in ('boss', 'enemy', 'none-playable character',
                      'playable character', 'prop'):
             self.assertIn(name, asset_guard.EXCLUDED_ASSET_DIRS)
+        self.assertNotIn('environment', asset_guard.EXCLUDED_ASSET_DIRS)
 
 
 class TestMissingDetection(unittest.TestCase):
@@ -74,7 +77,6 @@ class TestMissingDetection(unittest.TestCase):
     def test_partial_repo_missing_reported(self):
         root = self._root({'boss': ['demonlord.png'],
                            'enemy': ['README.md'],
-                           'environment': ['ground.png'],
                            'none-playable character': ['README.md'],
                            'playable character': ['knight.png'],
                            'prop': ['README.md']})

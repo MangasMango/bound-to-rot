@@ -19,7 +19,10 @@ from systems.combat import evaluate_hit, apply_status_to_enemy, spread_rot, tick
 from core.iso_engine import is_walkable
 from systems import frames
 
-ZOMBIE_SPEED   = 0.22
+# Enemy chase speeds ride the same tile-scale compensation as the player's
+# MOVE_SPEED (native desert tiles are ~2.7x smaller on screen than the old
+# LoP canvas) so the chase feel matches the pre-swap pacing.
+ZOMBIE_SPEED = 0.6
 DETECT_RANGE   = 22.0       # tiles — enemies acquire the player inside this radius
 HIT_DAMAGE     = 10
 MAX_HEALTH     = 100
@@ -34,10 +37,16 @@ ATTACK_CD      = 1.1
 ATTACK_FPS     = 10
 ATTACK_FRAMES  = 8
 
-SLIME_SPEED     = 0.08
+SLIME_SPEED     = 0.22
 SLIME_HEALTH    = 150
 SLIME_DAMAGE    = 12
 SLIME_ATTACK_CD = 10
+
+# Gunslinger knockback decay — a shove dies out over this window (mirror of
+# KNOCKBACK_DECAY_TIME in core/game.py; kept local to avoid a core import
+# cycle — the impulse magnitude and the timer length live there).
+KNOCKBACK_DECAY_TIME = 0.25
+KNOCKBACK_STOP_TPS   = 0.3   # residual speed below which the slide ends
 
 # D2-style quantized attack cooldowns: legacy wall-clock cooldowns
 # authored as D2 frame counts (seconds × 25 Hz), snapped to whole 30 Hz ticks.
@@ -91,6 +100,13 @@ def default_status_fields():
             'fire': 0.0, 'cold': 0.0, 'lightning': 0.0, 'physical': 0.0,
             'magic': 0.0, 'rot': 0.0, 'darkness': 0.0,
         },
+        # Gunslinger knockback — shove velocity along the shot line, decaying
+        # over KNOCKBACK_DECAY_TIME. `knockback_immune` enemies ignore it
+        # entirely (bosses/elites can flip the flag later; nobody does at launch).
+        'kb_x':             0.0,
+        'kb_y':             0.0,
+        'kb_timer':         0.0,
+        'knockback_immune': False,
     }
 
 
@@ -259,6 +275,25 @@ def update_zombies(dt, zombies, players, map_data):
         hf = z.get('hit_flash', 0.0)
         if hf > 0.0:
             z['hit_flash'] = max(0.0, hf - dt * 2.0)
+
+        # ── Gunslinger knockback slide (frozen enemies don't budge) ───
+        # Runs before the state machines: shoving works out of chase AND
+        # attack (the victim gets pushed out of MELEE_RANGE and re-chases)
+        # and never flips the enemy's facing.
+        if not is_frozen and z.get('kb_timer', 0.0) > 0.0:
+            kb_speed = math.hypot(z['kb_x'], z['kb_y'])
+            if kb_speed > KNOCKBACK_STOP_TPS:
+                _step_enemy(z, z['kb_x'] / kb_speed, z['kb_y'] / kb_speed,
+                            kb_speed * dt, map_data)
+                decay = math.exp(-dt / KNOCKBACK_DECAY_TIME)
+                z['kb_x'] *= decay
+                z['kb_y'] *= decay
+            else:
+                z['kb_x'] = z['kb_y'] = 0.0
+            if z['kb_x'] == 0.0 and z['kb_y'] == 0.0:
+                z['kb_timer'] = 0.0
+            else:
+                z['kb_timer'] = max(0.0, z['kb_timer'] - dt)
 
         enemy_dmg_type = z.get('dmg_type', 'physical')
 

@@ -4,8 +4,8 @@ Build the one-file executable with PyInstaller and zip it for distribution.
 Run per target OS (PyInstaller cannot cross-compile):
     python scripts/build_release.py                 # includes everything on disk
     python scripts/build_release.py --no-private-packs
-        # temporarily removes the 7 non-redistributable packs from the build;
-        # use this for zips you intend to UPLOAD (itch.io, GitHub, ...)
+        # temporarily removes the non-redistributable pack content from the
+        # build; use this for zips you intend to UPLOAD (itch.io, GitHub, ...)
 
 Output: dist/BoundToRot-<version>-<os>-<arch>.zip
 The zip holds the renamed executable plus LICENSE / README / THIRD_PARTY_ASSETS.
@@ -22,9 +22,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 PRIVATE_PACKS = (
-    'boss', 'environment', 'enemy', 'none-playable character',
-    'playable character', 'prop',
+    'boss', 'enemy', 'none-playable character', 'playable character', 'prop',
 )
+
+# prop/ is a mixed folder: desert/ is tracked open-source art, every other
+# child directory is Lords-of-Pain content that must not ship.
+PROP_OPEN_DIRS = {'desert'}
 
 
 def project_version() -> str:
@@ -45,8 +48,18 @@ def has_private_packs() -> list:
     found = []
     for name in PRIVATE_PACKS:
         d = ROOT / 'assets' / name
-        if d.is_dir() and any(p.is_file() and p.name.lower() != 'readme.md'
-                              for p in d.rglob('*')):
+        if not d.is_dir():
+            continue
+        if name == 'prop':
+            # mixed folder: LoP content is any child outside the open set
+            private = [p for p in d.iterdir()
+                       if p.is_dir() and p.name not in PROP_OPEN_DIRS]
+            if private or any(p.is_file() and p.name.lower() != 'readme.md'
+                              for p in d.iterdir()):
+                found.append(name)
+            continue
+        if any(p.is_file() and p.name.lower() != 'readme.md'
+               for p in d.rglob('*')):
             found.append(name)
     return found
 
@@ -59,6 +72,26 @@ def hide_packs(packs) -> list:
     moved = []
     for name in packs:
         src = ROOT / 'assets' / name
+        if name == 'prop':
+            # hide only the private children, keep desert/ and README in place
+            child_moves = []
+            for child in src.iterdir():
+                if child.is_dir() and child.name not in PROP_OPEN_DIRS:
+                    tmp = stash / name / child.name
+                    tmp.parent.mkdir(parents=True, exist_ok=True)
+                    if tmp.exists():
+                        shutil.rmtree(tmp)
+                    child.rename(tmp)
+                    child_moves.append((tmp, child))
+            moved.extend(child_moves)
+            # leftover loose private files
+            for child in src.iterdir():
+                if child.is_file() and child.name.lower() != 'readme.md':
+                    tmp = stash / name / child.name
+                    tmp.parent.mkdir(parents=True, exist_ok=True)
+                    child.rename(tmp)
+                    moved.append((tmp, child))
+            continue
         tmp = stash / name
         if tmp.exists():
             shutil.rmtree(tmp)
@@ -74,6 +107,7 @@ def restore_packs(moved) -> None:
             if src.exists():                  # paranoia: never clobber
                 print(f'[build] ERROR: {src} reappeared while {tmp} hidden')
                 continue
+            src.parent.mkdir(parents=True, exist_ok=True)
             tmp.rename(src)
     if moved and stash.exists() and not any(stash.iterdir()):
         stash.rmdir()
@@ -82,7 +116,7 @@ def restore_packs(moved) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description='Build and zip Bound To Rot.')
     ap.add_argument('--no-private-packs', action='store_true',
-                    help='exclude the 7 non-redistributable asset packs '
+                    help='exclude the non-redistributable asset pack content '
                          '(use for zips you will upload)')
     args = ap.parse_args()
 

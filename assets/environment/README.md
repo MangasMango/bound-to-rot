@@ -1,12 +1,22 @@
-# This asset folder is not distributed with this repository
+# Desert tileset (tracked)
 
-The files normally found here come from a third-party asset pack whose licence
-**does not allow redistribution**, so they are excluded from the public repo
-(this folder's contents are gitignored; only this README is tracked).
+The floor art this folder ships is sliced from the open-source desert
+tileset; the master atlas is kept in `tileset_desert.png`.
 
-See [`THIRD_PARTY_ASSETS.md`](../../THIRD_PARTY_ASSETS.md) at the repository
-root for details.
+> Desert tileset by Amstrad (desert-tileset.png) — **CC-BY-SA 3.0**
+> <https://opengameart.org/content/desert-tileset>
+>
+> "Desert tileset made by modifying the Grasslands tileset from Flare" —
+> Flare game assets are CC-BY-SA 3.0:
+> <https://opengameart.org/content/grassland-tileset>
 
-**To run the game:** obtain the pack yourself and copy its files for this
-folder into here (matching the original file names). The game will not render
-correctly without them.
+Re-slice after editing the atlas:
+
+    python scripts/slice_environment.py
+
+Files produced (do not edit by hand):
+
+- `plain_*.png`, `brush_*.png` — normalized 256×256 floor canvases whose
+  diamond matches the engine projection (`core/iso_engine.py`).
+- `assets/prop/desert/**` — prop sprite canvases (see the script).
+- `ofdn_backup/` — candidate tiles from an unknown author; kept local only.

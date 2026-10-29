@@ -17,13 +17,13 @@ UI icons — 1-bit Pixel Icons by Nikoichu, CC0 1.0:
 
 UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
   https://kenney.nl
-  Music — "Demon's Realm | Dark Fantasy Music" by maxstack, CC-BY-SA 4.0
-  (OGG conversions of the source WAVs; the music stays CC-BY-SA):
-  https://maxstack.itch.io/demons-realm
-  Hub music: "Devilish Design" (GPL 3.0) by Johan Brodd:
-  https://opengameart.org/content/devilish-design
-  Spare track: "Dark Loop" (CC BY 3.0) by Machine:
-  https://opengameart.org/content/crypt
+
+  Music (assets/ost): Spaghetti Western Guitar Stab + Spaghetti Western
+  Theme (orchestral) via OpenGameArt:
+    https://opengameart.org/content/spaghetti-western-guitar-stab
+    https://opengameart.org/content/spaghetti-western-theme-orchestral
+  Lobo Loco tracks (Attribution 4.0 International, in-game + hub):
+    https://freemusicarchive.org/music/Lobo_Loco/tunnel-games
 
 Menu widgets — "RPG GUI Construction Kit v1.0" by Lamoot, CC BY 3.0:
   https://opengameart.org/content/rpg-gui-construction-kit-v10

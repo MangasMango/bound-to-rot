@@ -286,9 +286,7 @@ class DelveFlowMixin:
             self.audio.reset()
 
             self.state = STATE_PLAYING
-            # NOTE: `depth` is only bound on the fresh-start path above — the
-            # resume path skips it, so read the depth off the live delve.
-            self.audio.set_delve_depth_music(self._delve.get('depth', 1))
+            self.audio.set_delve_music()   # continuous western playlist (restarts at track 1)
 
         def _enemy_max_health(self, enemy_type, level, hp_mult: float = 1.0) -> int:
             """Level-1 enemies are a guaranteed one-shot (HP below the player's
@@ -425,7 +423,6 @@ class DelveFlowMixin:
 
                     self._delve_mark_cleared()
                     self._apply_organ_rot()
-                    self.audio.set_pulse_wait_music()   # cleared the wave — Dark Alleys until a node is chosen
                     d['state'] = 'ready'
                     self._save_delve()
 
@@ -871,7 +868,6 @@ class DelveFlowMixin:
             # the depth record is monotonic and never rolls back.
             d['depth'] = child['depth']
             chart['best_depth'] = max(chart.get('best_depth', 0) or 0, d['depth'])
-            self.audio.set_delve_depth_music(d['depth'])
 
             # Choose a carve direction from the child's chart column position:
             # left → W, right → E, centre → S (downward bias like the chart).
