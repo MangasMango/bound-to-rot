@@ -117,6 +117,9 @@ class HubRenderMixin:
         # Ground drop labels — same always-visible/Alt rule as in the delve
         self._draw_drop_labels(cw, ch)
 
+        # combat numbers above the hub darkness, matching the delve hook
+        self._draw_dmg_numbers(cw, ch)
+
         self._draw_hud(cw, ch)
 
         if self._hub_popup:

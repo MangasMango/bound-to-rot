@@ -44,15 +44,14 @@ ITEMS = {
     'poker_ace_diamonds':   {'name': 'Ace of Diamonds',   'img': 'cards/dark/A-D.png',   'rarity': 'rare',     'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 17},
     # ── potions (Diablo 2-style belt, keys 1-6) ────────────────────────
     'health_potion': {'name': 'Health Potion', 'img': 'items/health_potion.png', 'rarity': 'common', 'stackable': True, 'maxStack': 10, 'size': (1, 1), 'isPotion': 'health', 'heal': 40},
-    'mana_potion':   {'name': 'Mana Potion',   'img': 'items/mana_potion.png',   'rarity': 'common', 'stackable': True, 'maxStack': 10, 'size': (1, 1), 'isPotion': 'mana',   'heal': 40},
     # ── gems (issue #73 DESIGN PIVOT: gems grant QWER abilities) ───────
     'gem_blue':  {'name': 'Blue Gem',  'img': 'items/gem_blue.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'Q'},
     'gem_green': {'name': 'Green Gem', 'img': 'items/gem_green.png', 'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'W'},
     'gem_red':   {'name': 'Red Gem',   'img': 'items/gem_red.png',   'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'E'},
     'gem_white': {'name': 'White Gem', 'img': 'items/gem_white.png', 'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'R'},
     # ── flasks (issue #73 ADDITION: T-slot flask, one use per wave) ───
+    # flask_mana retired with the mana system (owner ruling 2026-10-29)
     'flask_health':  {'name': 'Health Flask',  'img': 'items/health.png', 'rarity': 'common', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isFlask': 'health',  'charges': 1},
-    'flask_mana':    {'name': 'Mana Flask',    'img': 'items/mana.png',   'rarity': 'common', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isFlask': 'mana',    'charges': 1},
     'flask_utility': {'name': 'Haste Flask',   'img': 'items/mana.png',   'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isFlask': 'utility', 'charges': 1},
     # ── organs ────────────────────────────────────────────────────────
     'lungs':     {'name': 'Lungs',            'img': 'items/organ_lungs.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'lungs',     'equip': {'move_speed': 0.04}},

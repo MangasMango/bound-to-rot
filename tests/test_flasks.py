@@ -22,9 +22,8 @@ import systems.itemgen as itemgen
 from systems.items import ITEMS, make_inventory
 
 
-def make_stats(max_health=100.0, max_mana=100.0, health=50.0, mana=20.0):
-    return {'max_health': max_health, 'max_mana': max_mana,
-            'health': health, 'mana': mana}
+def make_stats(max_health=100.0, health=50.0):
+    return {'max_health': max_health, 'health': health}
 
 
 class TestFlaskBasics(unittest.TestCase):
@@ -41,8 +40,15 @@ class TestFlaskBasics(unittest.TestCase):
         self.assertEqual(flask['charges'], 1)   # one use per wave
 
     def test_roll_for_flask_initializes_charges(self):
-        slot = itemgen.roll_for('flask_mana', 1, 1, seed=5)
+        slot = itemgen.roll_for('flask_utility', 1, 1, seed=5)
         self.assertEqual(slot['charges'], 1)
+
+
+    def test_mana_flask_was_retired_with_mana(self):
+        """Owner ruling 2026-10-29: mana left the game, so neither the item
+        def nor its projectable kind exists any more."""
+        self.assertNotIn('flask_mana', ITEMS)
+        self.assertNotIn('mana', flasks.FLASK_KINDS)
 
 
 class TestFlaskUsage(unittest.TestCase):
@@ -60,16 +66,6 @@ class TestFlaskUsage(unittest.TestCase):
             flasks.tick_flask_effects(state, stats, 0.1)
         self.assertAlmostEqual(stats['health'], 90.0, delta=1.5)
         self.assertEqual(state['flask_effects'], [])
-
-    def test_mana_flask_regen(self):
-        inv = make_inventory()
-        inv['flask_slot'] = {'item': 'flask_mana', 'count': 1, 'charges': 3}
-        state = {'_flask_cd': 0.0, 'flask_effects': []}
-        stats = make_stats(mana=20.0)
-        self.assertEqual(flasks.use_flask(inv, state, stats), 'mana')
-        for _ in range(30):
-            flasks.tick_flask_effects(state, stats, 0.1)
-        self.assertAlmostEqual(stats['mana'], 60.0, delta=1.5)
 
     def test_utility_flask_haste_multiplier(self):
         inv = make_inventory()

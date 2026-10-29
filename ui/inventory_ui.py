@@ -282,6 +282,19 @@ class InventoryUI:
                                          # mutation so the owner can invalidate
                                          # and recompute derived stats.
         self.layout_dbg      = False  # inv_layout debug overlay
+        self._notice         = None    # (text, remaining seconds) transient panel notice
+        self._notice_timer   = 0.0
+
+    def notify(self, text: str, seconds: float = 2.0):
+        """Set the transient in-panel notice line ('Backpack full!' etc.)."""
+        self._notice = text
+        self._notice_timer = seconds
+
+    def _tick_notice(self):
+        if self._notice_timer > 0.0:
+            self._notice_timer = max(0.0, self._notice_timer - rl.get_frame_time())
+            if self._notice_timer <= 0.0:
+                self._notice = None
 
     def _gear_changed(self):
         """Notify the owner that equipped gear changed (derived-stat cache)."""
@@ -503,7 +516,11 @@ class InventoryUI:
             entry = inventory['equipped'].get(idx)
             if not entry:
                 return
-            self._ap_inv(inventory['grid'], entry)
+            # honour the auto-place result: on a full backpack the item
+            # STAYS equipped and a notice is shown instead of vanishing
+            if not self._ap_inv(inventory['grid'], entry):
+                self.notify('Backpack full!')
+                return
             inventory['equipped'][idx] = None
             self._gear_changed()
 
@@ -531,7 +548,10 @@ class InventoryUI:
                 return
             entry = (inventory.get('gem_sockets') or {}).get(idx)
             if entry:
-                self._ap_inv(inventory['grid'], entry)
+                # full backpack: the gem STAYS socketed, nothing is lost
+                if not self._ap_inv(inventory['grid'], entry):
+                    self.notify('Backpack full!')
+                    return
                 inventory['gem_sockets'][idx] = None
                 self._gear_changed()
 
@@ -540,7 +560,9 @@ class InventoryUI:
                 return
             entry = inventory.get('flask_slot')
             if entry:
-                self._ap_inv(inventory['grid'], entry)
+                if not self._ap_inv(inventory['grid'], entry):
+                    self.notify('Backpack full!')
+                    return
                 inventory['flask_slot'] = None
                 self._gear_changed()
 
@@ -889,6 +911,15 @@ class InventoryUI:
         self._draw_grid(inventory, px, s, mx, my)
         self._draw_tiles(px, s, mx, my)
         self._draw_character_level(inventory, px)
+
+        # transient notice (e.g. 'Backpack full!')
+        self._tick_notice()
+        if self._notice:
+            nx = px + 12 * s
+            nw = fonts.measure(self._notice, 16)
+            rl.draw_rectangle(int(nx - 8), int(46 * s), int(nw + 16),
+                              int(24 * s), _c(0, 0, 0, 0xaa))
+            fonts.draw(self._notice, int(nx), int(50 * s), 16, C_CMP_DOWN)
 
         if self.layout_dbg:
             self._draw_layout_dbg(px, s)

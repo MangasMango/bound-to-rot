@@ -103,9 +103,8 @@ SKELETON_DROP_TABLE = [
     ('gem_green',     1, 1,  0.010),
     ('gem_red',       1, 1,  0.008),
     ('gem_white',     1, 1,  0.006),
-    # T-slot flasks (issue #73 ADDITION)
+    # T-slot flasks (issue #73 ADDITION; flask_mana retired with mana)
     ('flask_health',  1, 1,  0.012),
-    ('flask_mana',    1, 1,  0.010),
     ('flask_utility', 1, 1,  0.008),
 ]
 SLIME_DROP_TABLE = []
@@ -876,6 +875,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 'orb_fill1':     _utex('orb_fill_1.png'),
                 'orb_mask':      _utex('orb_mask.png'),
                 'orb_angel':     _utex('orb_angel.png'),
+                'orb_mag':       _utex('orb_mag.png'),
                 'skill_base':    _utex('skill_base.png'),
                 'belt_slot':     _utex('belt_slot.png'),
                 'golden_frame':  _utex('golden_frame.png'),
@@ -1656,12 +1656,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 live.append(e)
         self._flame_effects = live
 
-        # Advance and cull damage numbers
-        _DMG_NUM_DUR = 1.2
+        # Advance and cull damage numbers (crits live 1.5 s, the rest 1.2 s)
         live = []
         for n in self._dmg_numbers:
             n['timer'] += dt
-            if n['timer'] < _DMG_NUM_DUR:
+            if n['timer'] < (1.5 if n.get('crit') else 1.2):
                 live.append(n)
         self._dmg_numbers = live
 
@@ -1721,8 +1720,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         if self._delve is not None:
             d_dist = math.hypot(self.px - self._delve['pulse_x'], self.py - self._delve['pulse_y'])
-            if d_dist > self._delve.get('light_r', 3.0):
-                darkness_pct = min(1.0, (d_dist - self._delve['light_r']) / 4.0)
+            # the dream-foreboding warp starts AT the visible pool edge
+            # (light_r + the personal light) — never inside the lit pool
+            pool_edge = self._delve['light_r'] + DELVE_PERSONAL_LIGHT
+            if d_dist > pool_edge:
+                darkness_pct = min(1.0, (d_dist - pool_edge) / 4.0)
                 self._pp_dream = max(self._pp_dream, darkness_pct * 0.6)
 
         hp_pct = self.stats['health'] / max(1, self.stats['max_health'])
@@ -2161,10 +2163,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 dmg_color = rl.Color(255, 220, 40, 255)
                 self._spawn_swoosh(target['x'], target['y'],
                                    0, 0, color=rl.Color(255, 200, 50, 160))
+                self._spawn_crit_sparkles(target['x'], target['y'])
             else:
                 dmg_color = rl.Color(255, 220, 200, 255)
             self._spawn_dmg_number(target['x'], target['y'],
-                                   dealt, color=dmg_color)
+                                   dealt, color=dmg_color,
+                                   crit=bool(result.get('crit')))
             self.audio.bullet_impact()
             # gunslinger knockback: shove the enemy back along the shot line
             kb = bullet.get('kb', 0.0)
@@ -2379,12 +2383,25 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
 
-    def _spawn_dmg_number(self, wx, wy, value, color=None):
+    def _spawn_dmg_number(self, wx, wy, value, color=None, crit: bool = False):
         self._dmg_numbers.append({
             'x': wx, 'y': wy, 'timer': 0.0,
             'value': int(value),
             'color': color if color is not None else rl.WHITE,
+            'crit': crit,   # crits: bigger, longer life, pop-in + fast rise
         })
+
+    def _spawn_crit_sparkles(self, wx, wy):
+        """Gold sparkle burst at a crit impact — the dopamine garnish that
+        rides the big popping number."""
+        for _i in range(5):
+            ang = _rnd.uniform(0.0, math.tau)
+            spd = _rnd.uniform(2.0, 4.0)
+            self._spawn_glint(wx, wy,
+                              color=rl.Color(255, 200, 60, 255),
+                              scale=_rnd.uniform(0.3, 0.5),
+                              vel_x=math.cos(ang) * spd,
+                              vel_y=math.sin(ang) * spd - 1.5)
 
     def _log_combat(self, message, entry_type='hit'):
         now = self.raid_time
@@ -2489,8 +2506,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 combat.apply_status_to_enemy(z, dmg_type, dealt)
                 self._log_combat(f"{ability_id} hit {z.get('enemy_type', 'enemy')} for {dealt}"
                                  f"{'  CRIT' if crit else ''}", 'crit' if crit else 'hit')
+                if crit:
+                    self._spawn_crit_sparkles(z['x'], z['y'])
                 self._spawn_dmg_number(z['x'], z['y'], dealt,
-                                       color=rl.Color(255, 220, 40, 255) if crit else swoosh_color)
+                                       color=rl.Color(255, 220, 40, 255) if crit else swoosh_color,
+                                       crit=bool(crit))
                 if dmg_type == 'lightning':
                     lightning_chain_targets.append(z)
                 if z['health'] <= 0:
@@ -2524,9 +2544,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                         combat.apply_status_to_enemy(candidate, 'lightning', dealt)
                         self._log_combat(f"Chain hit {candidate.get('enemy_type', 'enemy')} for {dealt}"
                                          f"{'  CRIT' if crit else ''}", 'crit' if crit else 'hit')
+                        if crit:
+                            self._spawn_crit_sparkles(candidate['x'], candidate['y'])
                         self._spawn_dmg_number(candidate['x'], candidate['y'],
                                                dealt,
-                                               color=rl.Color(255, 220, 40, 255) if crit else rl.Color(255, 230, 50, 255))
+                                               color=rl.Color(255, 220, 40, 255) if crit else rl.Color(255, 230, 50, 255),
+                                               crit=bool(crit))
                         if candidate['health'] <= 0:
                             self._log_combat(f"Killed {candidate.get('enemy_type', 'enemy')} (chain)", 'kill')
                             self._register_enemy_kill()
