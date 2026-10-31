@@ -33,18 +33,8 @@ skin_*.png
 /assets/Animation Index.txt
 /assets/+ Update.txt
 
-# Non-redistributable asset packs - contents ignored, README placeholder stays
-/assets/boss/*
-!/assets/boss/README.md
-/assets/enemy/*
-!/assets/enemy/README.md
-/assets/none-playable character/*
-!/assets/none-playable character/README.md
-/assets/playable character/*
-!/assets/playable character/README.md
-
-# Desert environment is open-source (Amstrad CC-BY-SA 3.0) - track it.
-# Everything else in environment/ (LoP leftovers, OFDN backup tiles) stays local.
+# Desert environment: only the open-source desert tileset (Amstrad
+# CC-BY-SA 3.0) is tracked; local leftovers stay untracked.
 /assets/environment/*
 !/assets/environment/README.md
 !/assets/environment/tileset_desert.png
