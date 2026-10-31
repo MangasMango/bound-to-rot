@@ -233,6 +233,54 @@ class TestDelvePlaylist(unittest.TestCase):
             counts[id(f['music'])] = counts.get(id(f['music']), 0) + 1
         self.assertTrue(all(n == 1 for n in counts.values()))
 
+    def test_reset_leaves_music_streams_playing(self):
+        # reset() clears run-local SFX state only: playing streams and
+        # active faders must survive it untouched (no hard stops).
+        a = self._ready_audio()
+        menu_s = a._music['menu']
+        with mock.patch.object(audio_mod, 'rl') as rl_mock:
+            rl_mock.is_music_stream_playing.return_value = True
+            a.set_music_state('menu')
+            n_fades = len(a._fades)
+            self.assertGreaterEqual(n_fades, 1)
+            a.reset()
+        self.assertEqual(len(a._fades), n_fades)    # all faders kept
+        menu_f = next(f for f in a._fades if f['music'] is menu_s)
+        self.assertEqual(menu_f['target'], 1.0)     # fade-in untouched
+        rl_mock.stop_music_stream.assert_not_called()
+        self.assertEqual(a._enemy_alert, set())
+        self.assertEqual(a._step_t, 0.0)
+
+    def test_delve_entry_crossfades_instead_of_cutting(self):
+        # Regression for #5: entering the delve must crossfade the hub
+        # music into the playlist, never stop it instantly.
+        a = self._ready_audio()
+        hub_s, track1 = a._music['hub'], a._playlist_streams[0]
+        with mock.patch.object(audio_mod, 'rl') as rl_mock:
+            playing = {hub_s: True}
+            rl_mock.is_music_stream_playing.side_effect = (
+                lambda m: playing.get(m, False))
+            rl_mock.play_music_stream.side_effect = (
+                lambda m: playing.__setitem__(m, True))
+            rl_mock.stop_music_stream.side_effect = (
+                lambda m: playing.__setitem__(m, False))
+
+            a.set_music_state('hub')                # hub starts
+            a.tick(FADE_SECONDS)                    # hub fade-in completes
+            self.assertEqual(a._fades, [])
+            a.reset()                               # delve run-start bookkeeping
+            self.assertTrue(playing[hub_s])         # hub still playing
+            a.set_delve_music()                     # hub -> playlist crossfade
+            self.assertEqual(a._playlist_index, 0)  # playlist restarts at track 1
+            targets = {id(f['music']): f['target'] for f in a._fades}
+            self.assertEqual(targets[id(hub_s)], 0.0)    # hub fading out
+            self.assertEqual(targets[id(track1)], 1.0)   # track 1 fading in
+            self.assertTrue(playing[hub_s])         # not stopped during the fade
+            a.tick(FADE_SECONDS)                    # crossfade completes
+            self.assertFalse(playing[hub_s])        # hub stopped gracefully
+            self.assertTrue(playing[track1])
+        self.assertEqual(a._fades, [])
+
 
 class TestSharedStreams(unittest.TestCase):
     """States that point at the same file must share ONE loaded stream,
