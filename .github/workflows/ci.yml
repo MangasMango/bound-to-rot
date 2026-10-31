@@ -19,10 +19,14 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -eu
+          # Merge commits are exempt: on pull_request events GitHub checks
+          # out an ephemeral merge ref whose subject is auto-generated
+          # ("Merge <sha> into <sha>"), and real merge commits cannot land
+          # on main anyway (linear history is enforced).
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            SHAS=$(git rev-list "origin/${BASE_REF}..${SHA}")
+            SHAS=$(git rev-list --no-merges "origin/${BASE_REF}..${SHA}")
           elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
-            SHAS=$(git rev-list "${BEFORE_SHA}..${SHA}")
+            SHAS=$(git rev-list --no-merges "${BEFORE_SHA}..${SHA}")
           else
             SHAS="$SHA"
           fi
