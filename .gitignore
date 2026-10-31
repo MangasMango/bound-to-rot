@@ -50,17 +50,15 @@ skin_*.png
 !/assets/environment/tileset_desert.png
 !/assets/environment/plain_*.png
 !/assets/environment/brush_*.png
+!/assets/environment/path_tiles.png
 
-# Sliced desert props under prop/desert/ are tracked; every other prop
-# directory (still the Lords-of-Pain pack locally) stays ignored
-/assets/prop/*
-!/assets/prop/README.md
-!/assets/prop/desert/
-!/assets/prop/desert/**
-!/assets/vfx/README.md
 
-# Kit source files (GIMP projects) stay local � rendered PNGs are tracked
+# Kit source files (GIMP projects) stay local 
+# rendered PNGs are tracked
 /assets/gui/*.xcf
+
+# VFX sheets with unconfirmed licence — keep local only (see THIRD_PARTY_ASSETS.md)
+/assets/vfx/*
 
 # Source WAVs stay local � OGG conversions are tracked (see assets/ost/credits.txt)
 /assets/ost/*.wav

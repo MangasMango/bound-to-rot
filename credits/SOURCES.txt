@@ -15,15 +15,26 @@ Inventory / HUD panels and orbs (assets/ui) — "RPG Inventory" and
 UI icons — 1-bit Pixel Icons by Nikoichu, CC0 1.0:
   https://nikoichu.itch.io/pixel-icons
 
+Ability gem icons — "Icons - Dark Magic" by Cethiel, CC0 1.0:
+  https://opengameart.org/content/icons-dark-magic
+
 UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
   https://kenney.nl
 
-  Music (assets/ost): Spaghetti Western Guitar Stab + Spaghetti Western
-  Theme (orchestral) via OpenGameArt:
-    https://opengameart.org/content/spaghetti-western-guitar-stab
-    https://opengameart.org/content/spaghetti-western-theme-orchestral
-  Lobo Loco tracks (Attribution 4.0 International, in-game + hub):
-    https://freemusicarchive.org/music/Lobo_Loco/tunnel-games
+  Music (assets/ost):
+    "Spaghetti Western Guitar Stab" by SpringySpringo, CC BY 3.0:
+      https://opengameart.org/content/spaghetti-western-guitar-stab
+    "Spaghetti Western Theme (Orchestral)" by linxiaoma (Markus Lindner),
+    CC BY 4.0:
+      https://opengameart.org/content/spaghetti-western-theme-orchestral
+    Lobo Loco tracks (Attribution 4.0 International, in-game + hub):
+      https://freemusicarchive.org/music/Lobo_Loco/tunnel-games
+
+World tileset (assets/environment) — Desert Tileset by Amstrad,
+CC BY-SA 3.0 (itself a modification of the Flare grassland tileset,
+also CC BY-SA 3.0):
+  https://opengameart.org/content/desert-tileset
+  https://opengameart.org/content/grassland-tileset
 
 Menu widgets — "RPG GUI Construction Kit v1.0" by Lamoot, CC BY 3.0:
   https://opengameart.org/content/rpg-gui-construction-kit-v10
