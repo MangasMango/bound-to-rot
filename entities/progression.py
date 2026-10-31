@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Characters, currency and item-based progression.
+"""Characters and item-based progression.
 
 Save schema versioning and migration (issue #126)
 ================================================
@@ -179,7 +179,7 @@ _RETIRED_ROSTER_FIELDS = ('format_version', 'version', 'characters_v0')
 def _migrate_1_to_2(data: dict) -> dict:
     """v1 -> v2: strip retired level/XP fields and normalise roster payload.
 
-    v1 is the pre-framework save format. Character data (currency, descend,
+    v1 is the pre-framework save format. Character data (descend,
     perks, inventory, stash) is preserved as-is; only fields the
     current model cannot represent are removed, and missing optional keys are
     defaulted so the payload is loadable.
@@ -440,7 +440,6 @@ def compute_derived_stats(descend: dict, perk_bonuses: dict = None,
         'block_chance':          min(0.75, (bonus('block_chance') + dex * 1.5) / 100.0),
         'crushing_blow_pct':     min(0.75, bonus('crushing_blow_pct') / 100.0),
         'entropy_grace_pct':     (dst * 1.5 + ess * 1.0 + bonus('entropy_grace_pct')) / 100.0,
-        'currency_gain_pct':     bonus('currency_gain_pct') / 100.0,
         'damage_pct':            {t: bonus(f'{t}_damage_pct') / 100.0 for t in ('physical', 'magic', 'lightning', 'cold', 'fire', 'rot')},
         'penetration_pct':       {t: bonus(f'{t}_penetration_pct') / 100.0 for t in ('physical', 'magic', 'lightning', 'cold', 'fire', 'rot')},
         'resist_pct':            {t: bonus(f'{t}_resist_pct') / 100.0 for t in ('fire', 'cold', 'lightning', 'physical', 'magic', 'rot', 'darkness')},
@@ -458,7 +457,6 @@ class Character:
         self.id             = char_id or str(int(_time.time() * 1000))
         self.name           = name
         self.looks          = looks if looks in LOOKS_OPTIONS else 'fighter'
-        self.currency       = 500
         self.descend: dict  = vessel_baseline_stats(self.looks)
         self.perks: dict    = {}
         self.available_points: int = 0
@@ -490,7 +488,6 @@ class Character:
             'id':             self.id,
             'name':           self.name,
             'looks':          self.looks,
-            'currency':       self.currency,
             'descend':        self.descend,
             'perks':          self.perks,
             'available_points': self.available_points,
@@ -507,12 +504,11 @@ class Character:
         ValueError, which CharacterManager turns into a backup + a visible
         message rather than a partially loaded roster.
         """
-        required = {'id', 'name', 'looks', 'currency', 'descend',
+        required = {'id', 'name', 'looks', 'descend',
                     'perks', 'available_points', 'inventory', 'stash'}
         if not isinstance(d, dict) or not required.issubset(d):
             raise ValueError('incompatible character save')
         c = cls(d['id'], d['name'], d['looks'])
-        c.currency = d['currency']
         c.inventory = d['inventory']
         c.descend = d['descend']
         c.perks = d['perks']
@@ -734,5 +730,4 @@ class RaidTracker:
             'time':        self.time,
             'loot':        self.loot,
             'extracted':   self.extracted,
-            'currency':    char.currency,
         }
