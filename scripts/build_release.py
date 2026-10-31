@@ -22,12 +22,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 PRIVATE_PACKS = (
-    'boss', 'enemy', 'none-playable character', 'playable character',
+    'vfx',
 )
-
-# Loose files with an unconfirmed or non-redistributable licence (the vfx
-# sheets stay local; see assets/vfx/credits.txt and README.md, Assets).
-PRIVATE_PACKS += ('vfx',)
 PRIVATE_FILES = (
     '+ Update.txt', 'Animation Index.txt', 'Asset Index.txt', 'Licence.txt',
 )

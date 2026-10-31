@@ -1352,8 +1352,8 @@ class MenuSystem:
           'Spaghetti Western Theme (Orchestral) by linxiaoma (CC BY 4.0)',
           'Lobo Loco - Tunnel Games (CC BY 4.0)')),
         ('Characters',
-         ('Knight rendered from the Hero Clint model (CC BY 4.0)',
-          'Skeleton rendered from the Flare game (CC BY-SA 3.0)')),
+         ('Skeleton rendered from the Flare game (CC BY-SA 3.0)',
+          'Knight, slime and zombie_licker made in-house')),
     )
 
     def _u_credits(self, _dt):

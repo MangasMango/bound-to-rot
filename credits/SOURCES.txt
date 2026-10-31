@@ -40,4 +40,7 @@ Menu widgets - "RPG GUI Construction Kit v1.0" by Lamoot, CC BY 3.0:
   https://opengameart.org/content/rpg-gui-construction-kit-v10
 
 Original art (no third-party source): icon.ico, assets/logo/,
-assets/pulse/, and the item sprites in assets/items/.
+assets/pulse/, the item sprites in assets/items/, the knight/slime/
+zombie_licker sprite sets (assets/playable character/,
+assets/enemy/), and the blacksmith/descend panels and angel statue
+in assets/ui/.
