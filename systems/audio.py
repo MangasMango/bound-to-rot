@@ -382,14 +382,12 @@ class AudioSystem:
             self._play_random('footstep', 0.45)
 
     def reset(self):
-        """Run start: stop every stream and clear fade state."""
+        """Run start: clear run-local SFX state. Music is deliberately NOT
+        touched - stream starts/stops belong to the crossfade machinery
+        (set_music_state), never a hard stop."""
         self._enemy_alert.clear()
         self._enemy_t.clear()
         self._step_t = 0.0
-        self._fades  = []
-        for m in list(self._music.values()) + list(self._playlist_streams):
-            if rl.is_music_stream_playing(m):
-                rl.stop_music_stream(m)
 
     def cleanup(self):
         for s in self.sounds.values():
