@@ -57,6 +57,9 @@ Rules:
   resolves an issue, link it from the PR description instead - a
   `Closes #N` line in the body auto-closes the issue on merge and keeps the
   issue and PR visible in each other's timelines.
+- Merge commits are exempt from the CI check: on pull requests GitHub tests
+  an ephemeral merge ref with an auto-generated subject, and real merge
+  commits cannot land on main (linear history is enforced).
 - Keep it going forward: legacy commits predate the convention and are exempt
   from the CI check, which only validates new commits.
 
