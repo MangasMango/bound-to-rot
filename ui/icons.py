@@ -66,7 +66,7 @@ ICON_MAP = {
     'cold':      'Alchemy_Element_Water.png',
     'lightning': 'Alchemy_Element_Air.png',
     'magic':     'RPG_Spell_Skill_Magic_Arcane_Missiles_Multishot.png',
-    'rot':       'Alchemy_Death_Omega.png',
+    'rot':       'Weather_Nature_Tree_Roots_Entangle_Element.png',
 
     # ── Resistances (unique from damage types) ──────────────────────
     'fire_resist':     'Weather_Wildfire_Flame_Element_Hot_Burn.png',
@@ -123,6 +123,8 @@ ICON_MAP = {
     'graphics':   'Media_Camera_Photo_Shoot_1.png',
     'controls':   'Controller_Gamepad.png',
     'star':       'RPG_Magic_Sparkles_Enchantment.png',
+    'click':      'Software_Hardware_Mouse_Click_Input.png',
+    'mouse_pointer': 'Software_Mouse_Cursor_Pointer_Big.png',
 
     # ── World / gameplay ────────────────────────────────────────────
     'portal':       'RPG_Teleportation_Stone.png',

@@ -17,7 +17,7 @@
 Full menu system for Bound To Rot -- Python/Raylib port.
 
 Screens: intro, cinematic, main, play, characters,
-        char_create, settings, tasks, stash, paused.
+        char_create, settings, stash, paused.
 """
 
 import os
@@ -474,11 +474,6 @@ class MenuSystem:
         # Settings toast notification
         self._settings_toast_timer = 0.0
 
-        # Missing-asset notice (filled by Game.init from systems.asset_guard)
-        self.missing_assets = []
-        self._assets_notice_dismissed = False
-        self._assets_notice_t = 0.0
-
         # UI textures -- set by Game.init() after window is open
         self.panel_tex  = None
         self.header_tex = None
@@ -515,10 +510,6 @@ class MenuSystem:
 
     def update(self, dt: float):
         self._fade_timer = max(0.0, self._fade_timer - dt)
-        if self.missing_assets and not self._assets_notice_dismissed:
-            self._assets_notice_t += dt
-            if self._assets_notice_t > 45.0:
-                self._assets_notice_dismissed = True
         if self._guard > 0:
             self._guard -= 1
             return
@@ -538,32 +529,6 @@ class MenuSystem:
         if self._fade_timer > 0:
             alpha = int(255 * self._fade_timer / self._fade_duration)
             rl.draw_rectangle(0, 0, cw, ch, rl.Color(0, 0, 0, alpha))
-        self._d_assets_notice(cw, ch)
-
-    def _d_assets_notice(self, cw: int, ch: int):
-        """Top-of-screen banner when non-distributed asset packs are absent."""
-        if not self.missing_assets or self._assets_notice_dismissed:
-            return
-        pw = min(980, cw - 40)
-        ph = 118
-        px = cw // 2 - pw // 2
-        py = 12
-        rl.draw_rectangle(px, py, pw, ph, rl.Color(0, 0, 0, 0xCC))
-        rl.draw_rectangle_lines(px, py, pw, ph, C_ACCENT)
-        title = "Some game assets are missing"
-        fonts.draw(title, px + pw // 2 - fonts.measure(title, 22) // 2,
-                   py + 10, 22, C_ACCENT)
-        names = ', '.join(self.missing_assets)
-        fonts.draw(names, px + pw // 2 - fonts.measure(names, 16) // 2,
-                   py + 42, 16, C_GOLD)
-        hint = ("Entities render as placeholders. See THIRD_PARTY_ASSETS.md "
-                "and assets/<folder>/README.md for how to obtain them.")
-        fonts.draw(hint, px + pw // 2 - fonts.measure(hint, 15) // 2,
-                   py + 66, 15, C_DIM)
-        ok_r = rl.Rectangle(px + pw // 2 - 55, py + ph - 36, 110, 28)
-        _btn(ok_r, 'OK', 15)
-        if _click(ok_r):
-            self._assets_notice_dismissed = True
 
     def draw_popup(self, state: str, cw: int, ch: int):
         """Draw a hub popup overlay -- hub renders behind, this draws on top."""
@@ -1031,7 +996,7 @@ class MenuSystem:
         msg = 'Delete all save data?'
         fw = fonts.measure(msg, 20)
         fonts.draw(msg, px + pw // 2 - fw // 2, py + 16, 20, rl.Color(220, 180, 180, 255))
-        warn = 'All characters, unlocks, and delve progress will be lost.'
+        warn = 'All characters, unlocks, and Anima progress will be lost.'
         fw2 = fonts.measure(warn, 14)
         fonts.draw(warn, px + pw // 2 - fw2 // 2, py + 48, 14, rl.Color(200, 100, 100, 220))
         warn2 = 'This cannot be undone!'
@@ -1514,7 +1479,7 @@ class MenuSystem:
             fonts.draw('Erases all characters, account-wide vessel',
                        px + 4, oy, 14, gui_kit.MUTED)
             oy += 20
-            fonts.draw('unlocks, and delve progress. This cannot be undone.',
+            fonts.draw('unlocks, and Anima progress. This cannot be undone.',
                        px + 4, oy, 14, gui_kit.MUTED)
             oy += 30
 
@@ -1582,6 +1547,25 @@ class MenuSystem:
         if not self.popup_mode:
             self._draw_menu_background(cw, ch)
         _text_shadow('Stash', _cx('Stash', 48, cw), 52, 48, rl.WHITE)
+        _divider(cw // 4 + 40, 108, cw // 2 - 80)
+
+        back_r = rl.Rectangle(36, 48, 88, 32)
+        if _btn(back_r, '< Back', 23):
+            self._hub_back()
+
+    # ── BLACKSMITH (dismantle forge) ──────────────────────────────────
+
+    def _u_blacksmith(self, _dt):
+        if _inp.key_pressed(self, rl.KEY_ESCAPE):
+            self._hub_back()
+
+    def _d_blacksmith(self, cw: int, ch: int):
+        """Menu-context forge view -- backdrop only; the interactive
+        InventoryUI forge panel (offerings/results grids) is drawn on top by
+        the hub render."""
+        if not self.popup_mode:
+            self._draw_menu_background(cw, ch)
+        _text_shadow('Blacksmith', _cx('Blacksmith', 48, cw), 52, 48, rl.WHITE)
         _divider(cw // 4 + 40, 108, cw // 2 - 80)
 
         back_r = rl.Rectangle(36, 48, 88, 32)

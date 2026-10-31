@@ -162,7 +162,9 @@ class TestTarotCurrency(unittest.TestCase):
         currency.add_card_to_grid(grid, 0, 1)
         self.assertEqual(grid[0]['count'], 4)
         self.assertTrue(currency.card_complete(grid[0]))
-        self.assertEqual(currency.stack_label(grid[0]), '4/4')
+        # a COMPLETE stack shows its plain quarter count — the old '4/4' cap
+        # hid every spend (identifying from a 45-stack read 4/4 forever)
+        self.assertEqual(currency.stack_label(grid[0]), '4')
 
     def test_starter_set_present_in_new_inventory(self):
         self.assertEqual(currency.STARTER_CARD_QUARTERS, {0: 4, 1: 1, 10: 1})
@@ -269,6 +271,11 @@ class TestWholeCardsExceptFool(unittest.TestCase):
     def test_stack_label_per_arcana(self):
         self.assertEqual(currency.stack_label(currency.make_card_slot(0, 3)), '3/4')
         self.assertEqual(currency.stack_label(currency.make_card_slot(11, 2)), '2')
+
+    def test_stack_label_complete_joker_shows_spend(self):
+        # complete stacks count quarters plainly so spends stay visible
+        self.assertEqual(currency.stack_label(currency.make_card_slot(0, 4)), '4')
+        self.assertEqual(currency.stack_label(currency.make_card_slot(0, 45)), '45')
 
     def test_emperor_makes_mythic(self):
         target = itemgen.roll_for('liver', 1, 10, seed=8)

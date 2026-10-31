@@ -83,10 +83,13 @@ class HubMixin:
                 self.inv.open_stash(self.char.stash)
                 self.inv.on_stash_change = self._on_stash_change
             elif obj_type == 'vendor':
-                # He's back standing in the sanctuary, but idle on purpose:
-                # his shop died with the gold economy (owner ruling
-                # 2026-09-27) and what he does next isn't decided yet.
-                pass
+                # The blacksmith's dismantle forge (BLUEPRINT §24): the same
+                # walk-up-and-open flow as the stash chest.
+                self._hub_popup = 'blacksmith'
+                self.menu_sys.set_state('blacksmith', prev='_hub')
+                self.inv.open = True
+                self.inv.open_forge()
+                self.inv.on_forge_change = self._on_stash_change
 
         def _update_hub(self, dt):
             cw = rl.get_screen_width()
@@ -125,7 +128,7 @@ class HubMixin:
                 return
 
             if self._hub_popup:
-                if self._hub_popup == 'stash':
+                if self._hub_popup in ('stash', 'blacksmith'):
                     self.inv.update(self._get_char_inventory(), self.stats)
                 else:
                     self.menu_sys.update(dt)
@@ -135,6 +138,13 @@ class HubMixin:
                         self.inv.open = False
                         self.inv.close_stash()
                         self.inv.on_stash_change = None
+                    elif self._hub_popup == 'blacksmith':
+                        # offerings ride back to the backpack; on a full
+                        # backpack the panel STAYS open (nothing is lost)
+                        if not self.inv.close_forge(self._get_char_inventory()):
+                            return
+                        self.inv.open = False
+                        self.inv.on_forge_change = None
                     self._hub_popup = None
                 return
 
@@ -257,22 +267,22 @@ class HubMixin:
                 'big_art': True,      # legacy character canvas keeps ENTITY_BASE size
             }
             actors = []
-            # Vendor NPC — the subservient, looping his working animation
-            if self._hub_subservient_spr:
+            # Blacksmith anvil — inert waypoint (the vendor's shop died
+            # with the gold economy); atlas prop art, tile-riding size
+            if self._anvil_spr:
                 actors.append({
                     'col': _VENDOR_POS[0], 'row': _VENDOR_POS[1],
-                    'sprite': self._hub_subservient_spr,
-                    'direction': 'SE', 'time': self.anim_time,
-                    'idle': False, 'scale': 1.1, 'shadow': True,
-                    'big_art': True,
+                    'sprite': self._anvil_spr,
+                    'direction': 'S', 'time': 0.0,
+                    'idle': True, 'scale': 0.7, 'shadow': False,
                 })
-            # Stash crate
-            if self._crate_spr:
+            # Stash chest
+            if self._chest_spr:
                 actors.append({
                     'col': _STASH_POS[0], 'row': _STASH_POS[1],
-                    'sprite': self._crate_spr,
-                    'direction': 'SW', 'time': 0.0,
-                    'idle': True, 'scale': 1.5, 'shadow': False,
+                    'sprite': self._chest_spr,
+                    'direction': 'S', 'time': 0.0,
+                    'idle': True, 'scale': 0.7, 'shadow': False,
                 })
             return player_entity, actors
 

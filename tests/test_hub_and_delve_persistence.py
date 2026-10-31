@@ -233,8 +233,22 @@ class CompactHubTests(unittest.TestCase):
 
     def test_hub_lights_carry_kind_for_flicker(self):
         from core.game import _HUB_LIGHTS
+        # the campfires are gone — the Delve Heart carries the light alone
         kinds = {l['kind'] for l in _HUB_LIGHTS}
-        self.assertEqual(kinds, {'heart', 'torch', 'brazier'})
+        self.assertEqual(kinds, {'heart'})
+
+    def test_hub_light_covers_the_waypoints(self):
+        """The single heart pool's visible edge must swallow the sanctuary:
+        spawn and both waypoints inside the rendered pool edge."""
+        from core.game import (HUB_SPAWN, _HUB_LIGHTS, _HUB_LAYOUT)
+        heart = _HUB_LIGHTS[0]
+        for spot in (HUB_SPAWN,
+                     (_HUB_LAYOUT[1]['x'], _HUB_LAYOUT[1]['y']),
+                     (_HUB_LAYOUT[2]['x'], _HUB_LAYOUT[2]['y'])):
+            dist = ((spot[0] - heart['x']) ** 2
+                    + (spot[1] - heart['y']) ** 2) ** 0.5
+            self.assertLessEqual(dist, heart['r'],
+                                 f'{spot} outside the visible pool edge')
 
 
 if __name__ == '__main__':

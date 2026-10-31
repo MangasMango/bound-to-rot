@@ -32,6 +32,7 @@ from systems import input as inp
 import systems.abilities as _abilities_mod
 import systems.gems as gems_mod
 import systems.currency as currency_mod
+import systems.recipes as recipes_mod
 from entities.descend import ATTR_LABEL as _TILE_LABEL
 from ui.menus import _btn, _ATTR_BLURBS
 from systems.items import (ITEMS, GRID_COLS, GRID_ROWS, INV_COLS, INV_ROWS,
@@ -112,6 +113,34 @@ def stash_cell_xy(screen_h: int, col: int, row: int):
     sb_s = stash_panel_scale(screen_h)
     return (int(round(SBG_AX * sb_s)) + col * stash_cell_px(screen_h),
             int(round(SBG_AY * sb_s)) + row * stash_cell_px(screen_h))
+
+# ── blacksmith forge panel (left side, drawn when forge_open is True) ──
+# The forge is drawn on its own panel art (blacksmith.png, 568×798): money-bag
+# illustration top-right, TWO 8×4 painted grids — offerings on top, dismantle
+# results below — each with a blank label strip left of its grid.
+# Grid rects are native asset pixels; scale fg_s = screen_h / FORGE_BG_H.
+FORGE_BG_W = 568
+FORGE_BG_H = 798
+FBG_AX, FBG_AY, FBG_ACELL = 25, 180, 64     # offerings grid origin + pitch
+FOUT_AX, FOUT_AY, FOUT_ACELL = 25, 511, 64  # results grid origin + pitch
+FORGE_STRIP_TOP = (20, 134, 166, 31)        # blank label strip above offerings
+FORGE_STRIP_OUT = (20, 465, 166, 31)        # blank label strip above results
+FORGE_BTN = (200, 461, 168, 38)             # DISMANTLE button (right of strip)
+
+
+def forge_panel_scale(screen_h: int) -> float:
+    """Scale of the blacksmith art for the given screen height."""
+    return screen_h / FORGE_BG_H
+
+
+def forge_panel_w(screen_h: int) -> int:
+    """On-screen pixel width of the forge panel for the given screen height."""
+    return int(round(FORGE_BG_W * forge_panel_scale(screen_h)))
+
+
+def forge_cell_px(screen_h: int) -> int:
+    """On-screen pixel size of one forge grid cell (covers a full 64px pitch)."""
+    return max(8, int(round(FBG_ACELL * forge_panel_scale(screen_h))))
 
 _ORGAN_LABELS = {
     'lungs':     'Lungs',
@@ -250,7 +279,8 @@ def _rarity_of(entry):
 
 
 def _count_label(entry):
-    """Corner count text; tarot card stacks read 'n/4' quarters."""
+    """Corner count text; a partial Joker stack reads 'n/4', a complete one
+    shows its plain quarter count (so spends stay visible)."""
     count = entry.get('count', 1)
     if currency_mod.is_card_item(entry.get('item', '')):
         return currency_mod.stack_label(entry)
@@ -269,6 +299,12 @@ class InventoryUI:
         self.stash_open      = False
         self._stash_grid     = None   # reference to char.stash (single 8x8 bank grid)
         self.on_stash_change = None   # called after any stash mutation (triggers save)
+        self.forge_open      = False
+        self._forge_grid     = None   # offerings (8x4) — transient, back to backpack on close
+        self._forge_out      = None   # dismantle results (8x4) — transient until taken
+        self._forge_cache    = (None, None)  # (forge_signature, match_forge result)
+        self._confirm_dismantle = None   # legendary/mythic sell confirmation pending
+        self.on_forge_change = None   # called after any forge mutation (triggers save)
         self._ui_frames      = {}     # slot frame spritesheets keyed by slot type
         self._ui_header      = None   # header banner
         self._pickup_flashes = {}     # id(entry) → timer for new-item glow
@@ -277,6 +313,7 @@ class InventoryUI:
         self.on_apply_card   = None   # (card_entry, src, idx, t_src, t_idx)
         self._bg             = None   # itsmars_Inventory panel art
         self._stash_bg       = None   # BankStash panel art (left side)
+        self._forge_bg       = None   # blacksmith panel art (left side)
         self.char_provider   = None   # () -> Character, for attribute tiles
         self.on_gear_change   = None   # called after any equip/dequip/identify
                                          # mutation so the owner can invalidate
@@ -337,6 +374,10 @@ class InventoryUI:
         if os.path.exists(stash_bg_path):
             self._stash_bg = rl.load_texture(stash_bg_path)   # linear: photo art
 
+        forge_bg_path = os.path.join(_UI_ASSETS, 'blacksmith.png')
+        if os.path.exists(forge_bg_path):
+            self._forge_bg = rl.load_texture(forge_bg_path)   # linear: photo art
+
     def unload(self):
         for t in self._icons.values():
             rl.unload_texture(t)
@@ -351,7 +392,7 @@ class InventoryUI:
         if b and b.id > 0 and b.id not in seen:
             rl.unload_texture(b)
             seen.add(b.id)
-        for t in (self._bg, self._stash_bg):
+        for t in (self._bg, self._stash_bg, self._forge_bg):
             if t and t.id > 0 and t.id not in seen:
                 rl.unload_texture(t)
                 seen.add(t.id)
@@ -375,6 +416,69 @@ class InventoryUI:
     def close_stash(self):
         self.stash_open  = False
         self._stash_grid = None
+
+    def open_forge(self):
+        """Open the blacksmith forge: fresh empty offerings + results grids."""
+        self.forge_open   = True
+        self._forge_grid  = []
+        self._forge_out   = []
+        self._forge_cache = (None, None)
+        self._confirm_dismantle = None
+
+    def return_forge_items(self, inventory):
+        """Return every offering back to the backpack grid.
+
+        The results grid is a display-only receipt (its items already live
+        in the backpack), so it is never returned. Returns True when the
+        offerings grid is now empty (or the forge was never open). Items
+        that no longer fit stay offered — never destroyed — and the caller
+        should keep the panel open."""
+        if not self.forge_open:
+            return True
+        leftovers = []
+        for entry in (self._forge_grid or []):
+            if not self._place_smart(inventory['grid'], entry,
+                                     INV_COLS, INV_ROWS):
+                leftovers.append({k: v for k, v in entry.items()
+                                  if k not in ('col', 'row')})
+        self._forge_grid = leftovers
+        self._forge_cache = (None, None)
+        return not leftovers
+
+    def close_forge(self, inventory):
+        """Return all offerings to the backpack and close.
+
+        Returns False (stays open, notice shown) when the backpack is full —
+        offerings are never lost."""
+        if not self.forge_open:
+            return True
+        if inventory is None or not isinstance(inventory.get('grid'), list):
+            self.forge_open   = False
+            self._forge_grid  = None
+            self._forge_out   = None
+            self._forge_cache = (None, None)
+            self._confirm_dismantle = None
+            return True
+        if not self.return_forge_items(inventory):
+            self.notify('Backpack full!')
+            return False
+        self.forge_open   = False
+        self._forge_grid  = None
+        self._forge_out   = None
+        self._forge_cache = (None, None)
+        self._confirm_dismantle = None
+        # the offered items just re-entered the backpack — persist that
+        # immediately (the to_forge mutation saved their absence)
+        self._forge_changed()
+        return True
+
+    def _forge_changed(self):
+        """Notify the owner that the forge or the backpack mutated (save)."""
+        if self.on_forge_change:
+            try:
+                self.on_forge_change()
+            except Exception:
+                pass
 
     # ── panel geometry ────────────────────────────────────────────────
 
@@ -413,6 +517,16 @@ class InventoryUI:
     def _place_inv(grid, item_id, count):
         return grid_auto_place(grid, item_id, count, cols=INV_COLS, rows=INV_ROWS)
 
+    @staticmethod
+    def _place_smart(grid, entry, cols, rows):
+        """Auto-place a slot dict: stackables (cards!) merge their counts,
+        instanced gear keeps its instance data via first-fit placement."""
+        clean = {k: v for k, v in entry.items() if k not in ('col', 'row')}
+        if items_mod.ITEMS.get(clean.get('item', ''), {}).get('stackable'):
+            return grid_auto_place(grid, clean['item'], clean.get('count', 1),
+                                   cols=cols, rows=rows)
+        return grid_auto_place_instance(grid, clean, cols=cols, rows=rows)
+
     # ── update / input ────────────────────────────────────────────────
 
     def update(self, inventory, stats):
@@ -445,6 +559,11 @@ class InventoryUI:
             self._handle_confirm_drop(mx, my, lmb)
             return
 
+        # Pending dismantle confirmation (legendary/mythic sell) — yes/no
+        if self._confirm_dismantle:
+            self._handle_confirm_dismantle(mx, my, lmb)
+            return
+
         self._inventory_for_menu = inventory.get('grid', []) if isinstance(inventory, dict) else inventory
         # the whole inventory — the context menu needs the gem sockets to know
         # whether SOCKET is currently available (issue #94)
@@ -453,32 +572,58 @@ class InventoryUI:
         in_inv   = px <= mx < cw and 0 <= my < ch
         in_stash = (self.stash_open and self._stash_grid is not None
                     and 0 <= mx < panel_w and 0 <= my < ch)
+        in_forge = (self.forge_open and self._forge_grid is not None
+                    and 0 <= mx < forge_panel_w(ch) and 0 <= my < ch)
 
         # Context menu has priority
         if self._ctx is not None:
             if lmb:
-                action = self._ctx_hit(mx, my)
-                if action:
-                    self._exec(action, inventory, stats)
-                self._ctx = None
+                action, inside = self._ctx_hit(mx, my)
+                if action is not None:
+                    if action.get('enabled', True):
+                        self._exec(action, inventory, stats)
+                        self._ctx = None
+                    else:
+                        # a DISABLED option keeps the menu open AND says why
+                        # (a silent click read as dead/stubborn)
+                        self.notify(action.get('why') or action['label'])
+                elif not inside:
+                    self._ctx = None
             elif rmb:
-                self._ctx = None
+                # one-click swap: right-clicking another item moves the
+                # menu straight to it (close-then-reopen cost 2 clicks)
+                self._ctx = self._rmb_hit(mx, my, inventory, px, s,
+                                          in_inv, in_stash, in_forge)
             return
 
-        # Ignore clicks outside both active panels
-        if (lmb or rmb) and not in_inv and not in_stash:
+        # Ignore clicks outside all active panels
+        if (lmb or rmb) and not in_inv and not in_stash and not in_forge:
             return
 
         # Left-click item move and drag-and-drop were removed (issue #94);
         # interactions are right-click context-menu driven.
-        if rmb and in_inv:
+        if rmb:
+            self._ctx = self._rmb_hit(mx, my, inventory, px, s,
+                                      in_inv, in_stash, in_forge)
+
+    def _rmb_hit(self, mx, my, inventory, px, s, in_inv, in_stash, in_forge):
+        """Right-click hit-test for the context menu — panel priority is
+        backpack > bank > forge offerings. Returns the ctx dict or None."""
+        if in_inv:
             hit = self._slot_at(mx, my, inventory, px, s)
             if hit and hit['slot']:
-                self._ctx = {'x': mx, 'y': my, **hit}
-        elif rmb and in_stash and self._stash_grid is not None:
+                return {'x': mx, 'y': my, **hit}
+        elif in_stash and self._stash_grid is not None:
             hit = self._slot_at_stash(mx, my)
             if hit and hit['slot']:
-                self._ctx = {'x': mx, 'y': my, **hit}
+                return {'x': mx, 'y': my, **hit}
+        elif in_forge:
+            hit = self._slot_at_forge(mx, my)
+            # only OFFERINGS get a context menu — the results grid is a
+            # receipt (its items already live in the backpack)
+            if hit and hit['slot'] and hit['source'] == 'forge':
+                return {'x': mx, 'y': my, **hit}
+        return None
 
     # ── actions ───────────────────────────────────────────────────────
 
@@ -606,6 +751,38 @@ class InventoryUI:
                 if self.on_stash_change:
                     self.on_stash_change()
 
+        elif atype == 'to_forge':
+            # DISMANTLE (right-click): move a backpack item into the forge
+            # offerings grid. Sellable-only — recipes.match_forge decides the
+            # worth once it sits in the top grid.
+            if src != 'grid' or not self.forge_open or self._forge_grid is None:
+                return
+            entry = self._get_entry(inventory, src, idx)
+            if not entry or recipes_mod.sell_quarters_for(entry) is None:
+                return
+            if not self._place_smart(self._forge_grid, entry,
+                                     recipes_mod.FORGE_COLS,
+                                     recipes_mod.FORGE_ROWS):
+                self.notify('Forge full!')
+                return
+            self._clear_entry(inventory, src, idx)
+            # new offering set — the old receipt no longer describes it
+            self._forge_out = []
+            self._forge_changed()
+
+        elif atype == 'from_forge':
+            # TAKE BACK: move a forge offering into the backpack grid. The
+            # results grid is a receipt (already in the backpack) — no TAKE.
+            if src != 'forge' or not self.forge_open:
+                return
+            entry = self._get_entry(inventory, src, idx)
+            if not entry:
+                return
+            if self._place_smart(inventory['grid'], entry, INV_COLS, INV_ROWS):
+                self._forge_grid.pop(idx)
+                self._forge_out = []
+                self._forge_changed()
+
     def _handle_confirm_drop(self, mx, my, lmb):
         """Handle yes/no on the drop confirmation popup."""
         if not self._confirm_drop:
@@ -683,11 +860,125 @@ class InventoryUI:
             return {'source': 'stash', 'index': item_idx, 'slot': stash_grid[item_idx]}
         return None
 
+    def _slot_at_forge(self, mx, my):
+        """Return hit dict for a forge offering/result item under the cursor."""
+        if not self.forge_open:
+            return None
+        ch = rl.get_screen_height()
+        s    = forge_panel_scale(ch)
+        cell = forge_cell_px(ch)
+        for ax, ay, src, grid in (
+                (FBG_AX, FBG_AY, 'forge', self._forge_grid),
+                (FOUT_AX, FOUT_AY, 'forge_out', self._forge_out)):
+            if grid is None:
+                continue
+            rel_x = mx - ax * s
+            rel_y = my - ay * s
+            if rel_x < 0 or rel_y < 0:
+                continue
+            col = int(rel_x // cell)
+            row = int(rel_y // cell)
+            if col >= recipes_mod.FORGE_COLS or row >= recipes_mod.FORGE_ROWS:
+                continue
+            gmap     = grid_build_map(grid, cols=recipes_mod.FORGE_COLS,
+                                      rows=recipes_mod.FORGE_ROWS)
+            item_idx = gmap[row][col]
+            if item_idx is not None:
+                return {'source': src, 'index': item_idx, 'slot': grid[item_idx]}
+        return None
+
+    # ── forge matching / dismantle ────────────────────────────────────
+
+    def _forge_match(self):
+        """Cached recipes.match_forge over the current offerings grid.
+
+        The cache is keyed by the grid's item multiset so the DISMANTLE
+        button's group count never flickers while offerings rest."""
+        if self._forge_grid is None:
+            return None
+        sig = recipes_mod.forge_signature(self._forge_grid)
+        if self._forge_cache[0] != sig:
+            self._forge_cache = (sig, recipes_mod.match_forge(self._forge_grid))
+        return self._forge_cache[1]
+
+    def _forge_preview_slots(self):
+        """Deterministically-placed preview of the current match's outputs.
+
+        The cached match freezes the random output rolls (organ slot etc.)
+        per offering set, so resting offerings preview the exact same slots
+        a dismantle will produce. None when nothing matches."""
+        match = self._forge_match()
+        if not match or not match['groups']:
+            return None
+        preview = []
+        for group in match['groups']:
+            for out in group['outputs']:
+                self._place_smart(preview, out,
+                                  recipes_mod.FORGE_COLS,
+                                  recipes_mod.FORGE_ROWS)
+        return preview
+
+    def dismantle(self, inventory):
+        """Execute the cached match: burn the consumed offerings and place
+        their outputs STRAIGHT into the backpack grid. Returns True on
+        success; on a full backpack nothing is consumed."""
+        match = self._forge_match()
+        if not match or not match['groups']:
+            return False
+        if inventory is None or not isinstance(inventory.get('grid'), list):
+            return False
+        out_slots = [out for group in match['groups']
+                     for out in group['outputs']]
+        # two-phase: verify everything fits BEFORE burning any offering
+        probe = list(inventory['grid'])
+        for out in out_slots:
+            if not self._place_smart(probe, out, INV_COLS, INV_ROWS):
+                self.notify('Backpack full!')
+                return False
+        inventory['grid'] = probe
+        consumed = sorted({i for group in match['groups']
+                           for i in group['consumed']}, reverse=True)
+        for i in consumed:
+            if i < len(self._forge_grid):
+                self._forge_grid.pop(i)
+        # receipt: mirror the received items into the results grid (display
+        # only — copies; the real items are already in the backpack)
+        receipt = list(self._forge_out or [])
+        for out in out_slots:
+            self._place_smart(receipt, out,
+                              recipes_mod.FORGE_COLS, recipes_mod.FORGE_ROWS)
+        self._forge_out = receipt
+        self._forge_cache = (None, None)
+        self._forge_changed()
+        return True
+
+    def _handle_confirm_dismantle(self, mx, my, lmb):
+        """Handle yes/no on the legendary/mythic dismantle confirmation."""
+        if not self._confirm_dismantle:
+            return
+        cw, ch = rl.get_screen_width(), rl.get_screen_height()
+        pw, ph = 300, 130
+        px = cw // 2 - pw // 2
+        py = ch // 2 - ph // 2
+        yes_r = rl.Rectangle(px + 20, py + ph - 50, 90, 32)
+        no_r  = rl.Rectangle(px + pw - 110, py + ph - 50, 90, 32)
+        if lmb:
+            if rl.check_collision_point_rec(rl.Vector2(float(mx), float(my)), no_r):
+                self._confirm_dismantle = None
+            elif rl.check_collision_point_rec(rl.Vector2(float(mx), float(my)), yes_r):
+                pending = self._confirm_dismantle
+                self.dismantle(pending.get('inventory'))
+                self._confirm_dismantle = None
+
     def _get_entry(self, inventory, src, idx):
         if src == 'grid':
             return inventory['grid'][idx] if idx < len(inventory['grid']) else None
         if src == 'stash' and self._stash_grid is not None:
             return self._stash_grid[idx] if idx < len(self._stash_grid) else None
+        if src == 'forge' and self._forge_grid is not None:
+            return self._forge_grid[idx] if idx < len(self._forge_grid) else None
+        if src == 'forge_out' and self._forge_out is not None:
+            return self._forge_out[idx] if idx < len(self._forge_out) else None
         if src == 'equipped':
             return inventory['equipped'].get(idx)
         if src == 'gems':
@@ -707,6 +998,12 @@ class InventoryUI:
                 inventory['gem_sockets'][idx] = None
         elif src == 'flask':
             inventory['flask_slot'] = None
+        elif src == 'forge':
+            if self._forge_grid is not None and idx < len(self._forge_grid):
+                self._forge_grid.pop(idx)
+        elif src == 'forge_out':
+            if self._forge_out is not None and idx < len(self._forge_out):
+                self._forge_out.pop(idx)
 
     # ── hit testing ───────────────────────────────────────────────────
 
@@ -771,8 +1068,12 @@ class InventoryUI:
                            and currency_mod.card_complete(e)
                            for e in (_entry_dict(x) for x in getattr(self, '_inventory_for_menu', []))
                            if e is not None)
-            opts.append({'type': 'identify', 'enabled': has_fool,
-                         'label': 'IDENTIFY' if has_fool else 'IDENTIFY (need Fool 4/4)'})
+            opts.append({'type': 'identify',
+                         'enabled': has_fool,
+                         'label': 'IDENTIFY' if has_fool
+                                  else 'IDENTIFY (need Fool 4/4)',
+                         'why': 'Identify needs a complete Fool '
+                                '(4/4 quarters) in the backpack'})
         if src in ('grid', 'stash'):
             if defn.get('use'):
                 opts.append({'type': 'use',       'label': 'USE'})
@@ -786,7 +1087,9 @@ class InventoryUI:
                     opts.append({'type': 'equip', 'label': 'IMPLANT'})
                 else:
                     opts.append({'type': 'equip', 'enabled': False,
-                                 'label': 'IMPLANT (unidentified)'})
+                                 'label': 'IMPLANT (unidentified)',
+                                 'why': 'Identify the item with The Joker '
+                                        'first'})
             if defn.get('stackable') and slot.get('count', 1) > 1:
                 opts.append({'type': 'split',     'label': f'SPLIT ({slot["count"]})'})
             # A gem in the GRID is socketable with the right-click menu alone:
@@ -800,7 +1103,9 @@ class InventoryUI:
                     opts.append({'type': 'socket',
                                  'enabled': not taken,
                                  'label': (f'SOCKET ({key} occupied)' if taken
-                                           else f'SOCKET ({key})')})
+                                           else f'SOCKET ({key})'),
+                                 'why': f'The {key} socket already holds '
+                                        f'a gem'})
             elif src == 'stash':
                 opts.append({'type': 'to_inventory', 'label': 'PUT IN BACKPACK'})
         elif src == 'equipped':
@@ -809,26 +1114,65 @@ class InventoryUI:
             opts.append({'type': 'remove_gem',    'label': 'REMOVE'})
         elif src == 'flask':
             opts.append({'type': 'remove_flask',  'label': 'REMOVE'})
+        elif src == 'forge':
+            opts.append({'type': 'from_forge',    'label': 'TAKE BACK'})
+        # (no 'forge_out' options — the results grid is a receipt; its items
+        # already live in the backpack)
         # With the bank open, a backpack item can be stored directly.
         if src == 'grid' and self.stash_open and self._stash_grid is not None:
             opts.append({'type': 'to_bank', 'label': 'PUT IN BANK'})
+        # With the forge open, a backpack item can be offered up. Everything
+        # sellable gets a live DISMANTLE (§24.225 revised: identified organs,
+        # cards and potions too); zero-value junk gets a DISABLED option
+        # whose click keeps the menu open and says why.
+        if src == 'grid' and self.forge_open and self._forge_grid is not None:
+            if recipes_mod.sell_quarters_for(slot) is not None:
+                opts.append({'type': 'to_forge', 'label': 'DISMANTLE'})
+            else:
+                opts.append({'type': 'to_forge', 'enabled': False,
+                             'label': 'DISMANTLE (no value)',
+                             'why': 'This item has no dismantle value'})
         opts.append({'type': 'drop', 'label': 'DROP'})
         return opts
 
-    def _ctx_hit(self, mx, my):
-        if not self._ctx:
-            return None
+    def _ctx_rect(self):
+        """The context menu's geometry AFTER clamping to the screen.
+
+        The ONE source of the menu's rect: `_draw_ctx` renders it and
+        `_ctx_hit` tests against it, so the click zones always sit exactly
+        where the menu is drawn. (The backpack panel is anchored to the
+        right screen edge — the hit-test used to run on the RAW cursor
+        position while the draw clamped, leaving dead click zones.)"""
         cx, cy  = self._ctx['x'], self._ctx['y']
         opts    = self._ctx_options()
         item_h  = 26
         menu_w  = 220
+        menu_h  = len(opts) * item_h + 4
+        sw = rl.get_screen_width()
+        sh = rl.get_screen_height()
+        cx = max(0, min(cx, sw - menu_w))
+        cy = max(0, min(cy, sh - menu_h))
+        return cx, cy, menu_w, menu_h, item_h, opts
+
+    def _ctx_hit(self, mx, my):
+        """Resolve a left-click against the DRAWN menu rect.
+
+        Returns ``(action, inside)``. ``action`` is the option under the
+        click — DISABLED OPTIONS ARE RETURNED TOO (with 'enabled': False)
+        so the caller can keep the menu open; None for the menu's 2px
+        padding. ``inside`` is False only when the click missed the menu
+        entirely (the caller closes it)."""
+        if not self._ctx:
+            return None, False
+        cx, cy, menu_w, menu_h, item_h, opts = self._ctx_rect()
+        if not (cx <= mx < cx + menu_w and cy <= my < cy + menu_h):
+            return None, False
         for i, opt in enumerate(opts):
             ry = cy + 2 + i * item_h
-            if cx <= mx < cx + menu_w and ry <= my < ry + item_h:
-                if not opt.get('enabled', True):
-                    return None
-                return {**opt, 'source': self._ctx['source'], 'index': self._ctx['index']}
-        return None
+            if ry <= my < ry + item_h:
+                return {**opt, 'source': self._ctx['source'],
+                        'index': self._ctx['index']}, True
+        return None, True
 
     # ── sprite-sheet frame helper ─────────────────────────────────────
 
@@ -884,11 +1228,19 @@ class InventoryUI:
         my  = rl.get_mouse_y()
         self._hovered = None
 
-        # Stash panel (left side) — draw first so inventory panel renders on top
+        # Stash / forge panel (left side) — draw first so the inventory panel
+        # renders on top
         if self.stash_open and self._stash_grid is not None:
             self._draw_stash_panel(screen_w, screen_h, mx, my)
             # Dim only the center area between the two panels
             panel_w = stash_panel_w(screen_h)
+            center_w = px - panel_w
+            if center_w > 0:
+                rl.draw_rectangle(panel_w, 0, int(center_w), screen_h, C_DIM)
+        elif self.forge_open and self._forge_grid is not None:
+            self._draw_forge_panel(inventory, screen_w, screen_h, mx, my)
+            # Dim only the center area between the two panels
+            panel_w = forge_panel_w(screen_h)
             center_w = px - panel_w
             if center_w > 0:
                 rl.draw_rectangle(panel_w, 0, int(center_w), screen_h, C_DIM)
@@ -935,9 +1287,12 @@ class InventoryUI:
 
         # Tooltip — anchored to whichever panel the cursor is in
         if self._hovered:
-            tooltip_anchor = (stash_panel_w(screen_h)
-                              if (self.stash_open and mx < stash_panel_w(screen_h))
-                              else px)
+            if self.forge_open and mx < forge_panel_w(screen_h):
+                tooltip_anchor = forge_panel_w(screen_h)
+            elif self.stash_open and mx < stash_panel_w(screen_h):
+                tooltip_anchor = stash_panel_w(screen_h)
+            else:
+                tooltip_anchor = px
             self._draw_tooltip(self._hovered, tooltip_anchor, inventory)
 
         # Context menu on top
@@ -947,6 +1302,10 @@ class InventoryUI:
         # Drop confirmation popup
         if self._confirm_drop:
             self._draw_confirm_drop(screen_w, screen_h, mx, my)
+
+        # Dismantle confirmation popup (legendary/mythic sell)
+        if self._confirm_dismantle:
+            self._draw_confirm_dismantle(screen_w, screen_h, mx, my)
 
     # ── bank panel draw ──────────────────────────────────────────────
 
@@ -1019,6 +1378,136 @@ class InventoryUI:
                 fonts.draw(cnt,
                              sx + iw - fonts.measure(cnt, fsz) - 2,
                              sy + ih - fsz - 3, fsz, C_COUNT)
+
+    # ── forge (blacksmith) panel draw ────────────────────────────────
+
+    def _draw_forge_panel(self, inventory, screen_w, screen_h, mx, my):
+        """Draw the left-side blacksmith forge on its panel art: offerings
+        grid on top, DISMANTLE button + receipt of the last dismantle below.
+        Results appear ONLY after the button is pressed — never before."""
+        fg_s    = forge_panel_scale(screen_h)
+        panel_w = forge_panel_w(screen_h)
+
+        # Panel background art
+        if self._forge_bg and self._forge_bg.id > 0:
+            rl.draw_texture_pro(self._forge_bg,
+                rl.Rectangle(0, 0, float(self._forge_bg.width), float(self._forge_bg.height)),
+                rl.Rectangle(0, 0, float(panel_w), float(screen_h)),
+                rl.Vector2(0, 0), 0.0, rl.WHITE)
+        else:
+            _stone_side_panel(0, 0, panel_w, screen_h, corner_side='left')
+
+        # Label strips (icon mandate) painted over the art's blank plates
+        for (ax, ay, aw, ah), text, icon_name in (
+                (FORGE_STRIP_TOP, 'OFFERINGS', 'loot'),
+                (FORGE_STRIP_OUT, 'RESULTS', 'delete')):
+            rx, ry = int(ax * fg_s), int(ay * fg_s)
+            rw, rh = int(aw * fg_s), int(ah * fg_s)
+            fs  = max(12, int(rh * 0.52))
+            tw  = fonts.measure(text, fs)
+            isz = fs + 2
+            x0  = rx + (rw - (isz + 6 + tw)) // 2
+            icons.draw(icon_name, x0, ry + (rh - isz) // 2, isz, C_LABEL)
+            fonts.draw(text, x0 + isz + 6, ry + (rh - fs) // 2, fs, C_LABEL)
+
+        # Offerings (top) grid + results (bottom) grid. The results grid is
+        # a LIVE receipt: it previews the exact outputs a dismantle will
+        # produce while offerings rest, then keeps showing what was just
+        # received (receipt) until the offering set changes again.
+        self._draw_forge_grid(self._forge_grid or [], FBG_AX, FBG_AY,
+                              fg_s, mx, my)
+        preview = self._forge_preview_slots()
+        if preview:
+            self._draw_forge_grid(preview, FOUT_AX, FOUT_AY, fg_s, mx, my)
+        else:
+            self._draw_forge_grid(self._forge_out or [], FOUT_AX, FOUT_AY,
+                                  fg_s, mx, my)
+
+        # DISMANTLE button — acts on the cached match (draw-time click, same
+        # pattern as the stash panel's X button)
+        bx, by, bw, bh = FORGE_BTN
+        rect   = rl.Rectangle(bx * fg_s, by * fg_s, bw * fg_s, bh * fg_s)
+        match  = self._forge_match()
+        groups = match['groups'] if match else []
+        label  = (f'DISMANTLE ({len(groups)})' if groups else 'DISMANTLE')
+        if _btn(rect, label, 16, accent=bool(groups), disabled=not groups):
+            if groups:
+                if match['confirm']:
+                    self._confirm_dismantle = {'inventory': inventory}
+                else:
+                    self.dismantle(inventory)
+
+    def _draw_forge_grid(self, forge_grid, ax, ay, fg_s, mx, my):
+        """Draw one forge grid's hover highlights and placed items."""
+        cell = forge_cell_px(int(fg_s * FORGE_BG_H))
+        gx   = int(round(ax * fg_s))
+        gy   = int(round(ay * fg_s))
+
+        # Empty cell hover highlight only — the art provides the frames
+        cell_map = grid_build_map(forge_grid, cols=recipes_mod.FORGE_COLS,
+                                  rows=recipes_mod.FORGE_ROWS)
+        for row in range(recipes_mod.FORGE_ROWS):
+            for col in range(recipes_mod.FORGE_COLS):
+                sx = gx + col * cell
+                sy = gy + row * cell
+                if cell_map[row][col] is None and sx <= mx < sx + cell and sy <= my < sy + cell:
+                    rl.draw_rectangle(sx, sy, cell, cell, _c(255, 255, 255, 18))
+
+        for item_idx, entry in enumerate(forge_grid):
+            if not isinstance(entry, dict):
+                continue
+            idef     = ITEMS.get(entry['item'], {})
+            w, h     = idef.get('size', (1, 1))
+            col, row = entry['col'], entry['row']
+            sx = gx + col * cell
+            sy = gy + row * cell
+            iw = w * cell - 2
+            ih = h * cell - 2
+
+            hov    = sx <= mx < sx + iw and sy <= my < sy + ih
+            rarity = _rarity_of(entry)
+            if hov:
+                self._hovered = entry
+
+            rl.draw_rectangle(sx, sy, iw, ih, C_SLOT_FL)
+            rl.draw_rectangle_lines(sx, sy, iw, ih,
+                                    _RARITY_BORDER.get(rarity, C_BORDER))
+
+            icon = self._icons.get(entry['item']) or self._err
+            if icon:
+                pad = 3
+                rl.draw_texture_pro(icon,
+                    rl.Rectangle(0, 0, float(icon.width), float(icon.height)),
+                    self._icon_dst(icon, rl.Rectangle(float(sx), float(sy),
+                                                      float(iw), float(ih)), pad),
+                    rl.Vector2(0, 0), 0.0, rl.WHITE)
+
+            cnt = _count_label(entry)
+            if cnt:
+                fsz = max(11, int(cell * 0.25))
+                fonts.draw(cnt,
+                             sx + iw - fonts.measure(cnt, fsz) - 2,
+                             sy + ih - fsz - 3, fsz, C_COUNT)
+
+    def _draw_confirm_dismantle(self, cw, ch, mx, my):
+        """Draw the legendary/mythic dismantle confirmation popup."""
+        pw, ph = 300, 130
+        px = cw // 2 - pw // 2
+        py = ch // 2 - ph // 2
+        rl.draw_rectangle(px, py, pw, ph, rl.Color(0, 0, 0, 0x99))
+        rl.draw_rectangle_lines(px, py, pw, ph, rl.Color(0xE0, 0xE0, 0xE0, 255))
+        msg = "Dismantle these items?"
+        fw = fonts.measure(msg, 18)
+        fonts.draw(msg, px + pw // 2 - fw // 2, py + 16, 18,
+                   rl.Color(220, 220, 200, 255))
+        warn = "Includes a legendary / mythic item!"
+        fw2 = fonts.measure(warn, 14)
+        fonts.draw(warn, px + pw // 2 - fw2 // 2, py + 44, 14,
+                   rl.Color(255, 150, 90, 230))
+        yes_r = rl.Rectangle(px + 20, py + ph - 50, 90, 32)
+        no_r  = rl.Rectangle(px + pw - 110, py + ph - 50, 90, 32)
+        _btn(yes_r, 'Yes', 16, accent=True)
+        _btn(no_r, 'No', 16)
 
     # ── section draw helpers ─────────────────────────────────────────
 
@@ -1292,8 +1781,8 @@ class InventoryUI:
             cinfo = currency_mod.CURRENCY_CARDS.get(card_arc, {})
             if card_arc == 0:
                 # the Fool is the only quarter-stacked card
-                lines.append((f"Stack: {currency_mod.stack_label(entry)} "
-                              f"(4/4 = usable card)", C_LABEL))
+                lines.append((f"Quarters: {currency_mod.stack_label(entry)} "
+                              f"(4 = one usable card)", C_LABEL))
             else:
                 lines.append((f"Count: {entry.get('count', 1)} card(s)", C_LABEL))
             desc = cinfo.get('description', '')
@@ -1442,16 +1931,7 @@ class InventoryUI:
     # ── context menu draw ────────────────────────────────────────────
 
     def _draw_ctx(self, mx, my):
-        cx, cy  = self._ctx['x'], self._ctx['y']
-        opts    = self._ctx_options()
-        item_h  = 26
-        menu_w  = 220
-        menu_h  = len(opts) * item_h + 4
-
-        sw = rl.get_screen_width()
-        sh = rl.get_screen_height()
-        cx = max(0, min(cx, sw - menu_w))
-        cy = max(0, min(cy, sh - menu_h))
+        cx, cy, menu_w, menu_h, item_h, opts = self._ctx_rect()
 
         rl.draw_rectangle(cx, cy, menu_w, menu_h, C_CTX_BG)
         rl.draw_rectangle_lines(cx, cy, menu_w, menu_h, C_BORDER)

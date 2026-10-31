@@ -8,7 +8,7 @@ Run per target OS (PyInstaller cannot cross-compile):
         # build; use this for zips you intend to UPLOAD (itch.io, GitHub, ...)
 
 Output: dist/BoundToRot-<version>-<os>-<arch>.zip
-The zip holds the renamed executable plus LICENSE / README / THIRD_PARTY_ASSETS.
+The zip holds the renamed executable plus LICENSE / README / credits.
 """
 
 import argparse
@@ -22,12 +22,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 PRIVATE_PACKS = (
-    'boss', 'enemy', 'none-playable character', 'playable character', 'prop',
+    'boss', 'enemy', 'none-playable character', 'playable character',
 )
-
-# prop/ is a mixed folder: desert/ is tracked open-source art, every other
-# child directory is Lords-of-Pain content that must not ship.
-PROP_OPEN_DIRS = {'desert'}
 
 
 def project_version() -> str:
@@ -50,14 +46,6 @@ def has_private_packs() -> list:
         d = ROOT / 'assets' / name
         if not d.is_dir():
             continue
-        if name == 'prop':
-            # mixed folder: LoP content is any child outside the open set
-            private = [p for p in d.iterdir()
-                       if p.is_dir() and p.name not in PROP_OPEN_DIRS]
-            if private or any(p.is_file() and p.name.lower() != 'readme.md'
-                              for p in d.iterdir()):
-                found.append(name)
-            continue
         if any(p.is_file() and p.name.lower() != 'readme.md'
                for p in d.rglob('*')):
             found.append(name)
@@ -72,26 +60,6 @@ def hide_packs(packs) -> list:
     moved = []
     for name in packs:
         src = ROOT / 'assets' / name
-        if name == 'prop':
-            # hide only the private children, keep desert/ and README in place
-            child_moves = []
-            for child in src.iterdir():
-                if child.is_dir() and child.name not in PROP_OPEN_DIRS:
-                    tmp = stash / name / child.name
-                    tmp.parent.mkdir(parents=True, exist_ok=True)
-                    if tmp.exists():
-                        shutil.rmtree(tmp)
-                    child.rename(tmp)
-                    child_moves.append((tmp, child))
-            moved.extend(child_moves)
-            # leftover loose private files
-            for child in src.iterdir():
-                if child.is_file() and child.name.lower() != 'readme.md':
-                    tmp = stash / name / child.name
-                    tmp.parent.mkdir(parents=True, exist_ok=True)
-                    child.rename(tmp)
-                    moved.append((tmp, child))
-            continue
         tmp = stash / name
         if tmp.exists():
             shutil.rmtree(tmp)
@@ -155,9 +123,11 @@ def main() -> None:
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
     shutil.copy2(exe_src, stage / exe_name)
-    for extra in ('LICENSE', 'README.md', 'THIRD_PARTY_ASSETS.md'):
+    for extra in ('LICENSE', 'README.md'):
         if (ROOT / extra).exists():
             shutil.copy2(ROOT / extra, stage / extra)
+    if (ROOT / 'credits').is_dir():
+        shutil.copytree(ROOT / 'credits', stage / 'credits')
 
     zip_base = ROOT / 'dist' / f'BoundToRot-{version}-{tag}'
     shutil.make_archive(str(zip_base), 'zip',

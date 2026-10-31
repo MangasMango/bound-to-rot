@@ -36,7 +36,6 @@ def _character_payload(**overrides) -> dict:
         'id': 'char-migrate-1',
         'name': 'Operative',
         'looks': 'knight',
-        'tasks': [{'id': 'kill_3', 'done': True}],
         'descend': {'strength': 4, 'endurance': 2},
         'perks': {'p1': 2},
         'available_points': 3,
@@ -121,7 +120,7 @@ class MigrateOlderVersionsTests(unittest.TestCase):
     def test_migrated_character_data_is_preserved(self):
         migrated = prog.migrate_save(_v1_save())
         entry = migrated['characters'][0]
-        for key in ('id', 'name', 'looks', 'currency', 'tasks', 'descend',
+        for key in ('id', 'name', 'looks', 'currency', 'descend',
                     'perks', 'available_points', 'inventory', 'stash'):
             self.assertIn(key, entry)
         self.assertEqual(entry['currency'], 4321)

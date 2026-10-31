@@ -22,9 +22,8 @@ from core.game import (
     HOVER_GLOW_ALPHA,
     HUB_CLICK_RADIUS,
     HUB_INTERACT_RANGE,
-    _BRAZIER_POS,
     _HEART_POS,
-    _TORCH_POS,
+    _HUB_PROP_SPOTS,
 )
 from systems import frames
 from ui import fonts
@@ -50,25 +49,19 @@ class HubRenderMixin:
                 'big_art': True,   # ENTITY canvas, same size as _draw_hub_bright
             })
 
-        # Torch columns flanking the heart
-        if self._column_spr:
-            for col, row in _TORCH_POS:
-                hub_entities.append({
-                    'col': col, 'row': row,
-                    'sprite': self._column_spr,
-                    'direction': 'S', 'time': 0.0,
-                    'idle': True, 'scale': 1.2, 'shadow': False,
-                })
-
-        # Braziers flanking the spawn
-        if self._brazier_spr:
-            for col, row in _BRAZIER_POS:
-                hub_entities.append({
-                    'col': col, 'row': row,
-                    'sprite': self._brazier_spr,
-                    'direction': 'S', 'time': self.anim_time,
-                    'idle': False, 'scale': 1.2, 'shadow': False,
-                })
+        # Static hub dressing — tents, flowers, graveyard corner, clutter
+        # (_HUB_PROP_SPOTS in game.py). Not interactable; depth-sorts and
+        # reflects in puddles like every entity.
+        for name, px_, py_, pscale, pdir in _HUB_PROP_SPOTS:
+            spr = self._hub_prop_sprs.get(name)
+            if spr is None:
+                continue
+            hub_entities.append({
+                'col': px_, 'row': py_,
+                'sprite': spr,
+                'direction': pdir, 'time': 0.0,
+                'idle': True, 'scale': pscale, 'shadow': False,
+            })
 
         self.iso.draw_map(self.map, hub_entities, cw, ch, overlay_entities=[player_entity])
         # Planar reflections inside visible puddles (no-op when dry).
@@ -104,9 +97,8 @@ class HubRenderMixin:
         for obj in self._hub_objects:
             sx, sy = self.iso.world_to_screen(obj['x'], obj['y'], cw, ch)
             center_x = sx + tile_size // 2
-            # tileset waypoint art rides the tile cell; the vendor npc keeps
-            # the legacy character canvas size
-            art_base = ENTITY_BASE * self.iso.scale if obj['type'] == 'vendor' else tile_size
+            # every waypoint is tileset art riding the tile cell
+            art_base = tile_size
             art_h = art_base * obj.get('scale', 1.0)
             ly = int(sy + tile_size / 2 - art_h / 2 + obj.get('label_dy', 0)) - 22
             lbl = obj['label']
@@ -157,6 +149,18 @@ class HubRenderMixin:
                     self.inv.open = False
                     self.inv.close_stash()
                     self.inv.on_stash_change = None
+            elif self._hub_popup == 'blacksmith':
+                rl.draw_rectangle(0, 0, cw, ch, rl.Color(0, 0, 0, 160))
+                self.inv.draw(self._get_char_inventory(), cw, ch)
+                # X close button for the forge — offerings ride back to the
+                # backpack; a full backpack keeps the panel open
+                x_sz = 34
+                x_r = rl.Rectangle(cw - x_sz - 12, 12, x_sz, x_sz)
+                if _btn(x_r, 'X', 22):
+                    if self.inv.close_forge(self._get_char_inventory()):
+                        self._hub_popup = None
+                        self.inv.open = False
+                        self.inv.on_forge_change = None
             else:
                 self.menu_sys.draw_popup(self._hub_popup, cw, ch)
         else:
@@ -193,16 +197,8 @@ class HubRenderMixin:
             breath = 1.0 + 0.06 * math.sin(self.anim_time * 2.2)
             draw_tex(_HEART_POS[0], _HEART_POS[1], self._pulse_tex, 1.2 * breath, ent=True)
 
-        # Torch fire bowls mounted on the pillar tops (tileset art)
-        if self._torch_spr:
-            for col, row in _TORCH_POS:
-                draw_tex(col, row, self._torch_spr.get('S', self.anim_time),
-                         1.0, dy=-tile_size * 0.55)
-
-        # Brazier campfires
-        if self._brazier_spr:
-            for col, row in _BRAZIER_POS:
-                draw_tex(col, row, self._brazier_spr.get('S', self.anim_time), 1.2)
+        # (the campfire sprites — pillar bowls and braziers — are gone;
+        # the Delve Heart carries the sanctuary's light alone)
 
         # ── actors above the darkness ────────────────────────────────────
         # Player / stash are redrawn with a per-sprite light tint
