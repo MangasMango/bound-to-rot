@@ -16,22 +16,17 @@
 """
 Slice the open-source desert tileset (Amstrad, CC-BY-SA 3.0) into:
 
-  * floor tile canvases  -> assets/environment/floor_*.png (plain_/brush_)
-  * prop sprite clips    -> assets/prop/desert/<name>/<dir>/<name>_<dir>_<angle>_<frame>.png
-  * portal magic circles -> assets/portal/portal1_frame_<i>.png
+  * floor tile canvases  -> assets/environment/plain_*.png / brush_*.png
+  * magic circles        -> assets/portal/portal1_frame_<i>.png
+  * path stone (derived) -> assets/environment/path_tiles.png
 
-The engine expects every prop/actor sprite as a 256x256 canvas whose
-art content is centred on the canvas (the isometric tile diamond sits at
-DIAMOND_X/Y/W/H from core/iso_engine.py).  Desert props are single-angle
-single-frame art, so each dir listed in a spec gets an identical copy.
-
-Desert props live under prop/desert/ so they stay tracked in git while the
-non-redistributable Lords-of-Pain pack keeps its own ignored directories.
+Prop sprites are NOT sliced anymore: the engine crops them directly from
+the master atlas at load (core/iso_engine.py `_PROP_WINDOWS` — that table
+is the single source of truth for prop windows/upScale now).
 
 The engine draws floors from the tileset's NATIVE cells: each atlas
 diamond is trimmed and pasted un-scaled into a 64×64 tile cell whose
 diamond bounding box is (0, 16, 64, 32) — matching core/iso_engine.py.
-Entity/prop canvases keep the 256×256 engine world-sprite convention.
 
 Run from the project root:  python scripts/slice_environment.py
 Deterministic — re-running only overwrites with identical output.
@@ -58,51 +53,9 @@ ALPHA_MIN = 8                # trim threshold
 ALPHA_TIP = 120              # 'content' threshold for tight trimming
 
 # ── window specs: (window, upscale, dirs) ───────────────────────────
-# Each window is rough; the script snaps to the opaque content bbox inside it.
-# dirs may contain engine direction names; SE315.0 / SW225.0 / S270.0 angles.
-PROPS = [
-    # ── interactables (crate / barrel / brazier / loot marker) ──
-    # 'S' is the delve draw dir, 'SE'/'SW' the hub/decor draws
-    ('crate',         (122, 278, 182, 332), 4, ('S', 'SE', 'SW')),
-    ('crate_break',   (54, 282, 116, 330),  4, ('S', 'SE', 'SW')),
-    ('barrel',        (514, 436, 582, 484), 4, ('S', 'SE', 'SW')),
-    ('barrel_break',  (580, 430, 668, 484), 4, ('S', 'SE', 'SW')),
-    ('brazier_lit',   (380, 262, 452, 336), 2, ('S', 'SE', 'SW')),
-    ('brazier_break', (298, 280, 360, 334), 3, ('S', 'SE', 'SW')),
-    ('gold_drop',     (10, 282, 52, 330),   4, ('S', 'SE', 'SW')),
-    # ── decor (bones -> Anima graveyard pillars) ──
-    ('bones1',        (900, 406, 958, 480), 4, ('S', 'SE')),
-    ('bones2',        (778, 426, 826, 480), 4, ('S', 'SE')),
-    ('bones3',        (964, 406, 1022, 480), 4, ('S', 'SE')),
-    # ── hub stand-ins ──
-    ('column1',       (260, 394, 318, 484), 4, ('S', 'SE')),
-    # torch = campfire art: hub pillars get a fire bowl on top, and the
-    # delve 'torch' decor becomes a small campfire — telegraph pole kept
-    # as its own decor id for a future use.
-    ('torch',         (380, 262, 452, 336), 2, ('S', 'SE')),
-    ('pole',          (706, 374, 774, 476), 4, ('S', 'SE')),
-    # ── floor scatter props (loaded with SE/SW by core/iso_engine.py) ──
-    ('rocks',         (392, 432, 486, 480), 4, ('SE', 'SW')),
-    ('mushrooms',     (976, 356, 1014, 390), 3, ('SE', 'SW')),
-    # ── new desert decor ──
-    ('bush1',         (26, 348, 90, 396), 4, ('SE', 'SW')),
-    ('bush2',         (140, 344, 206, 400), 4, ('SE', 'SW')),
-    ('reed1',         (236, 344, 306, 398), 4, ('SE', 'SW')),
-    ('reed2',         (388, 344, 456, 398), 4, ('SE', 'SW')),
-    ('bush_purple',   (522, 342, 570, 398), 4, ('SE', 'SW')),
-    ('bush_purple2',  (590, 342, 632, 398), 4, ('SE', 'SW')),
-    ('bush_red',      (692, 338, 780, 404), 4, ('SE', 'SW')),
-    ('bush_red2',     (786, 338, 874, 404), 4, ('SE', 'SW')),
-    ('grass1',        (8,  350, 58, 392), 3, ('SE', 'SW')),
-    ('grass2',        (841, 353, 880, 392), 4, ('SE', 'SW')),
-    ('grass3',        (976, 353, 1016, 392), 4, ('SE', 'SW')),
-    ('stone_s1',      (0,  434, 64, 480), 4, ('SE', 'SW')),
-    ('stone_s2',      (138, 436, 192, 480), 4, ('SE', 'SW')),
-    ('stone_s3',      (278, 432, 370, 480), 4, ('SE', 'SW')),
-    ('stone_s4',      (392, 432, 484, 480), 4, ('SE', 'SW')),
-    ('cactus1',       (514, 936, 564, 1038), 4, ('SE', 'SW')),
-    ('cactus2',       (576, 936, 634, 1038), 4, ('SE', 'SW')),
-]
+# Prop windows/upScale moved to core/iso_engine.py `_PROP_WINDOWS` (the
+# engine crops props from the atlas at load) — do NOT re-add per-prop
+# PNG slicing here.
 
 # Roaming floor tiles: (row y band, column offset)
 FLOOR_ROWS = [
@@ -273,23 +226,8 @@ def main():
             counters['floor'] += 1
         print(f'floor row {fname}: cells={len(slug)} unique in row')
 
-    # ── props ─────────────────────────────────────────────────────────
-    for name, win, upscale, dirs in PROPS:
-        x0, y0, x1, y1 = win
-        spec_crop = atlas.crop((x0, y0, x1, y1))
-        bbox = largest_component_bbox(spec_crop, ALPHA_TIP)
-        if bbox is None:
-            print(f'WARN no content for {name} in {win}')
-            continue
-        art = spec_crop.crop(bbox)
-        canvas = make_prop_canvas(art, upscale)
-        for d in dirs:
-            angle = DIR_ANGLE[d]
-            outdir = os.path.join(OUT_ROOT, 'prop', 'desert', name, d)
-            os.makedirs(outdir, exist_ok=True)
-            fname = f'{name}_{d}_{angle}_0.png'
-            canvas.save(os.path.join(outdir, fname))
-            counters['prop'] += 1
+    # ── props: removed — the engine crops props from the atlas
+    #    (core/iso_engine.py `_PROP_WINDOWS`); no per-prop PNGs are baked.
 
     # ── portal magic circles (256×256 canvases, engine draws square) ───
     cy0, cy1, pitch = CIRCLE_ROW
@@ -334,14 +272,11 @@ def main():
     small = _mask_and_extrude(tinted)   # 34×18 extruded small diamond
     canvas = Image.new('RGBA', (TILE_CANVAS, TILE_CANVAS), (0, 0, 0, 0))
     canvas.paste(small, (x0 - 1, y0 - 1))
-    for d in ('SE', 'SW'):
-        angle = DIR_ANGLE[d]
-        outdir = os.path.join(OUT_ROOT, 'prop', 'desert', 'tiles', d)
-        os.makedirs(outdir, exist_ok=True)
-        canvas.save(os.path.join(outdir, f'tiles_{d}_{angle}_0.png'))
-        counters['prop'] += 1
-    print(f'sliced: {counters["floor"]} floors, {counters["prop"]} prop frames, '
-          f'{counters["portal"]} portal frames')
+    canvas.save(os.path.join(PROJECT_ROOT, 'assets', 'environment',
+                             'path_tiles.png'))
+    counters['path_tile'] = 1
+    print(f'sliced: {counters["floor"]} floors, '
+          f'{counters["portal"]} portal frames, path_tile baked')
     return 0
 
 

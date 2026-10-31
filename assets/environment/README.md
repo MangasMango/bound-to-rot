@@ -1,7 +1,15 @@
 # Desert tileset (tracked)
 
-The floor art this folder ships is sliced from the open-source desert
-tileset; the master atlas is kept in `tileset_desert.png`.
+The world floor and every prop are served from the master atlas kept in
+`tileset_desert.png`:
+
+- **Floors** are baked as 64×64 tile cells by
+  `scripts/slice_environment.py` (`plain_*.png` / `brush_*.png`).
+- **Props** have no PNG slices at all — `core/iso_engine.py`
+  (`_PROP_WINDOWS`, `make_atlas_prop`) crops them from the atlas at load
+  time into the engine's 256×256 sprite canvases.
+- `path_tiles.png` is a derived path-stone bake (tinted + extruded from
+  `plain_1.png`; see the slicer).
 
 > Desert tileset by Amstrad (desert-tileset.png) — **CC-BY-SA 3.0**
 > <https://opengameart.org/content/desert-tileset>
@@ -10,13 +18,11 @@ tileset; the master atlas is kept in `tileset_desert.png`.
 > Flare game assets are CC-BY-SA 3.0:
 > <https://opengameart.org/content/grassland-tileset>
 
-Re-slice after editing the atlas:
+Re-bake floors/portal circles/path stone after editing the atlas:
 
     python scripts/slice_environment.py
 
-Files produced (do not edit by hand):
+Prop changes go through `_PROP_WINDOWS` in `core/iso_engine.py` (window
+rectangle + NEAREST upscale factor).
 
-- `plain_*.png`, `brush_*.png` — normalized 256×256 floor canvases whose
-  diamond matches the engine projection (`core/iso_engine.py`).
-- `assets/prop/desert/**` — prop sprite canvases (see the script).
 - `ofdn_backup/` — candidate tiles from an unknown author; kept local only.

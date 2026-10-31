@@ -341,6 +341,8 @@ class FrameRenderMixin:
 
         self._draw_glow_effects(cw, ch)
         self._draw_tracer_effects(cw, ch)
+        self._draw_hit_effects(cw, ch)
+        self._draw_muzzle_flashes(cw, ch)
         self._draw_swoosh_effects(cw, ch)
         self._draw_flame_effects(cw, ch)
         self._draw_glint_effects(cw, ch)

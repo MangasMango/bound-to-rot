@@ -140,7 +140,6 @@ class IsoSprite:
         self._frame_count        = n_frames
         self._fps      = fps
         self._textures: dict = {}   # dir → [Texture2D]
-        self._placeholder = False  # frames are a shared asset_guard texture
 
     def load(self, dirs=None):
         for direction in (dirs or DIRS):
@@ -156,20 +155,8 @@ class IsoSprite:
             # desert prop canvases are pixel art (nearest-baked) — crisp
             for tex in frames:
                 rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
-        if not any(self._textures.values()):
-            # Pack missing (non-distributed assets): one shared placeholder
-            # silhouette per direction so the entity stays visible.
-            from systems import asset_guard
-            ph = asset_guard.entity_placeholder(self._name)
-            if ph is not None:
-                self._placeholder = True
-                for direction in (dirs or DIRS):
-                    self._textures[direction] = [ph]
 
     def unload(self):
-        if self._placeholder:
-            self._textures.clear()   # shared cache owns the texture
-            return
         for frames in self._textures.values():
             for t in frames:
                 if t.id > 0:
@@ -191,6 +178,201 @@ class IsoSprite:
         frames = self._textures.get(direction) or next(iter(self._textures.values()), [])
         return frames[-1] if frames else None
 
+
+# ── Prop canvases from the master atlas ──────────────────────────────
+# The engine ships NO per-prop PNGs (assets/prop/ was removed): every prop
+# is cropped at load time from the tracked master atlas
+# assets/environment/tileset_desert.png. Windows + upscale factors are the
+# slicer's tuned values (scripts/slice_environment.py), reproduced here as
+# the single source of truth. `tiles` (path stones) is the one derived
+# sprite — a tinted/extruded bake shipped as environment/path_tiles.png.
+_ATLAS_PATH      = os.path.join(_ASSETS, 'environment', 'tileset_desert.png')
+_PATH_TILES_PATH = os.path.join(_ASSETS, 'environment', 'path_tiles.png')
+_PROP_CANVAS     = 256          # engine world-sprite canvas convention
+_PROP_ALPHA_TIP  = 120 / 255.0  # 'content' threshold (slicer ALPHA_TIP)
+
+_PROP_WINDOWS = {
+    # name:        (x0, y0, x1, y1, upscale)   into tileset_desert.png
+    'crate':         (122, 278, 182, 332, 4),
+    'crate_break':   (54, 282, 116, 330, 4),
+    'barrel':        (514, 436, 582, 484, 4),
+    'barrel_break':  (580, 430, 668, 484, 4),
+    'brazier_lit':   (380, 262, 452, 336, 2),
+    'brazier_break': (298, 280, 360, 334, 3),
+    'gold_drop':     (10, 282, 52, 330, 4),
+    'bones1':        (900, 406, 958, 480, 4),
+    'bones2':        (778, 426, 826, 480, 4),
+    'bones3':        (964, 406, 1022, 480, 4),
+    'column1':       (260, 394, 318, 484, 4),
+    'torch':         (380, 262, 452, 336, 2),
+    'pole':          (706, 374, 774, 476, 4),
+    'rocks':         (392, 432, 486, 480, 4),
+    'mushrooms':     (976, 356, 1014, 390, 3),
+    'bush1':         (26, 348, 90, 396, 4),
+    'bush2':         (140, 344, 206, 400, 4),
+    'reed1':         (236, 344, 306, 398, 4),
+    'reed2':         (388, 344, 456, 398, 4),
+    'bush_purple':   (522, 342, 570, 398, 4),
+    'bush_purple2':  (590, 342, 632, 398, 4),
+    'bush_red':      (692, 338, 780, 404, 4),
+    'bush_red2':     (786, 338, 874, 404, 4),
+    'grass1':        (8, 350, 58, 392, 3),
+    'grass2':        (841, 353, 880, 392, 4),
+    'grass3':        (976, 353, 1016, 392, 4),
+    'stone_s1':      (0, 434, 64, 480, 4),
+    'stone_s2':      (138, 436, 192, 480, 4),
+    'stone_s3':      (278, 432, 370, 480, 4),
+    'stone_s4':      (392, 432, 484, 480, 4),
+    'cactus1':       (514, 936, 564, 1038, 4),
+    'cactus2':       (576, 936, 634, 1038, 4),
+    # ── hub dressing & waypoints (tents / chest / anvil / flowers / graveyard)
+    'tent1':         (492, 178, 607, 258, 2),
+    'tent2':         (662, 178, 773, 258, 2),
+    'chest':         (770, 180, 842, 244, 4),
+    'anvil':         (456, 262, 506, 340, 4),
+    'flower1':       (398, 340, 436, 402, 4),
+    'grave1':        (776, 405, 850, 490, 4),
+    'stone_cross':   (900, 404, 950, 480, 4),
+    'stump':         (521, 404, 562, 492, 4),
+}
+
+# Legacy PNG-path loaders (Lords-of-Pain character/enemy art, not props)
+# still use the file-probe IsoSprite.load() at their own folders.
+
+
+def _largest_component_bbox(art, tip=_PROP_ALPHA_TIP):
+    """Bbox of the largest 4-connected opaque region (alpha ≥ tip) inside
+    `art` — the exact algorithm the old slicer used for prop parity
+    (falls back to the plain alpha border when the window holds one merged
+    cluster). Operates on pixel data, independent of GL state."""
+    try:
+        colors = rl.load_image_colors(art)
+    except Exception:
+        return rl.get_image_alpha_border(art, tip)
+    w, h = int(art.width), int(art.height)
+    try:
+        opaque = bytearray(w * h)
+        for i in range(w * h):
+            c = colors[i]
+            if c.a >= _PROP_ALPHA_TIP * 255.0:
+                opaque[i] = 1
+    finally:
+        try:
+            rl.unload_image_colors(colors)
+        except Exception:
+            pass
+    all_bbox = rl.get_image_alpha_border(art, tip)
+    if all_bbox is None or all_bbox.width <= 0:
+        return None
+    total = 0
+    for v in opaque:
+        total += v
+    if not total:
+        return None
+    seen = bytearray(w * h)
+    best = None   # (count, x0, y0, x1, y1)
+    stack = []
+    for sy in range(h):
+        base = sy * w
+        for sx in range(w):
+            if not opaque[base + sx] or seen[base + sx]:
+                continue
+            stack = [(sx, sy)]
+            seen[base + sx] = 1
+            n = 0
+            bx0 = bx1 = sx
+            by0 = by1 = sy
+            while stack:
+                x, y = stack.pop()
+                n += 1
+                if x < bx0: bx0 = x
+                if x > bx1: bx1 = x
+                if y < by0: by0 = y
+                if y > by1: by1 = y
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h:
+                        ni = ny * w + nx
+                        if opaque[ni] and not seen[ni]:
+                            seen[ni] = 1
+                            stack.append((nx, ny))
+            if best is None or n > best[0]:
+                best = (n, bx0, by0, bx1, by1)
+    if best[0] < 0.3 * max(1, w * h):
+        return all_bbox
+    _n, bx0, by0, bx1, by1 = best
+    return rl.Rectangle(float(bx0), float(by0),
+                        float(bx1 - bx0 + 1), float(by1 - by0 + 1))
+
+
+def _synth_prop_canvas(atlas_img, name):
+    """Crop `name`'s atlas window, snap to the opaque content bbox, apply
+    the pixel-art NEAREST upscale (clamped to the 256 canvas) and paste
+    content-centred on a transparent 256×256 canvas — exactly what the old
+    baked prop PNGs contained."""
+    x0, y0, x1, y1, upscale = _PROP_WINDOWS[name]
+    art = rl.image_from_image(
+        atlas_img, rl.Rectangle(float(x0), float(y0),
+                                float(x1 - x0), float(y1 - y0)))
+    if art.width <= 0 or art.height <= 0:
+        return None
+    # snap to the opaque footprint (parity with the baked canvases' trim)
+    border = _largest_component_bbox(art)
+    if border is not None and border.width > 1 and border.height > 1:
+        art = rl.image_from_image(art, border)
+    if upscale and upscale > 1:
+        rl.image_resize_nn(art, int(art.width * upscale), int(art.height * upscale))
+    if art.width > _PROP_CANVAS or art.height > _PROP_CANVAS:
+        factor = min(_PROP_CANVAS / art.width, _PROP_CANVAS / art.height)
+        rl.image_resize_nn(art, max(1, int(art.width * factor)),
+                           max(1, int(art.height * factor)))
+    canvas = rl.gen_image_color(_PROP_CANVAS, _PROP_CANVAS, rl.BLANK)
+    ox = (_PROP_CANVAS - art.width) // 2
+    oy = (_PROP_CANVAS - art.height) // 2
+    rl.image_draw(canvas, art,
+                  rl.Rectangle(0.0, 0.0, float(art.width), float(art.height)),
+                  rl.Rectangle(float(ox), float(oy),
+                               float(art.width), float(art.height)),
+                  rl.WHITE)
+    rl.unload_image(art)
+    return canvas
+
+
+def make_atlas_prop(name, dirs=None):
+    """Build a prop IsoSprite from the master atlas. Unique Texture2D per
+    requested direction (clean IsoSprite.unload ownership); falls back to
+    the file-probe load when the atlas is gone."""
+    sprite = IsoSprite(name, name, 1, 1.0)
+    built  = False
+    if name in _PROP_WINDOWS and os.path.exists(_ATLAS_PATH):
+        atlas = rl.load_image(_ATLAS_PATH)
+        if atlas is not None and atlas.width > 0:
+            canvas = _synth_prop_canvas(atlas, name)
+            if canvas is not None:
+                for d in (dirs or DIRS):
+                    tex = rl.load_texture_from_image(canvas)
+                    rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
+                    sprite._textures[d] = [tex]
+                built = True
+                rl.unload_image(canvas)
+        rl.unload_image(atlas)
+    if not built:
+        sprite.load(dirs)
+    return sprite
+
+
+def make_baked_path_tiles(dirs=('SE', 'SW')):
+    """The derived path-stone sprite ('tiles') — one baked file produced by
+    scripts/slice_environment.py (tinted + extruded; not an atlas crop)."""
+    sprite = IsoSprite('tiles', 'tiles', 1, 1.0)
+    if os.path.exists(_PATH_TILES_PATH):
+        for _d in (dirs or DIRS):
+            tex = rl.load_texture(_PATH_TILES_PATH)
+            rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
+            sprite._textures[_d] = [tex]
+    else:
+        sprite.load(dirs)
+    return sprite
 
 # ── Renderer ──────────────────────────────────────────────────────────
 
@@ -243,14 +425,18 @@ class IsoRenderer:
                         + [_load_tex(f'environment/brush_{n}.png')
                            for n in range(17, 33)]) if t is not None
         ]
-        prop_dir = os.path.join(_ASSETS, 'prop', 'desert')
+        # Scatter props — cropped from the master atlas at load (no per-prop
+        # PNGs ship anymore; scripts/slice_environment.py bakes only the
+        # derived path-stone sprite).
         for name in ('rocks', 'mushrooms', 'tiles',
                      'bush1', 'bush_purple', 'reed1', 'reed2',
                      'grass1', 'grass2', 'grass3',
                      'stone_s1', 'stone_s2', 'stone_s3', 'stone_s4',
                      'cactus1', 'cactus2'):
-            sprite = IsoSprite(os.path.join(prop_dir, name), name, 1, 1.0)
-            sprite.load(['SE', 'SW'])
+            if name == 'tiles':
+                sprite = make_baked_path_tiles(('SE', 'SW'))
+            else:
+                sprite = make_atlas_prop(name, ('SE', 'SW'))
             self._prop_sprites[name] = sprite
 
     def unload(self):

@@ -181,7 +181,7 @@ _PERK_AFFIXES = [
      'label': '+{v} Accuracy', 'perk': 'accuracy_flat'},
     {'id': 'pk_delve_light',     'kind': 'suffix', 'slots': {'lungs', 'liver'},
      'base': 0.5, 'round': 1, 'pct': False, 'word': 'of Luminance',
-     'label': '+{v} Delve Light Radius', 'perk': 'delve_light_radius'},
+     'label': '+{v} Anima Light Radius', 'perk': 'delve_light_radius'},
 
     # Entropy grace
     {'id': 'pk_entropy_grace',   'kind': 'suffix', 'slots': {'heart', 'intestine'},

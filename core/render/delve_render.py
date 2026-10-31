@@ -20,7 +20,11 @@ import pyray as rl
 from core.game import (
     DARKNESS_AMBIENT,
     DELVE_PERSONAL_LIGHT,
+    HIT_VFX_DUR,
+    HIT_VFX_SCALE,
     HOVER_GLOW_ALPHA,
+    MUZZLE_VFX_DUR,
+    MUZZLE_VFX_SCALE,
     PULSE_OFFSET_X,
     PULSE_OFFSET_Y,
     _LIGHT_KIND_STRENGTH,
@@ -609,8 +613,11 @@ class DelveRenderMixin:
             base_col  = e.get('color', rl.WHITE)
             tint      = rl.Color(base_col.r, base_col.g, base_col.b, alpha)
             sx, sy    = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
+            # optional screen-space lift for individual effects ('lift' key
+            # carries a fraction of the entity sprite height)
+            lift = int(ENTITY_BASE * self.iso.scale * e.get('lift', 0.0))
             self._vfx_quad('vfx_glow',
-                           sx + tile_size // 2, sy + tile_size // 2,
+                           sx + tile_size // 2, sy + tile_size // 2 - lift,
                            int(ENTITY_BASE * self.iso.scale * 2.2 * e.get('scale', 1.0)), 0.0, tint)
 
         # Angel form — persistent pulsing halo on the player
@@ -651,6 +658,56 @@ class DelveRenderMixin:
                 rl.draw_line_ex((bx - dx * k * 0.45, by - dy * k * 0.45), (bx, by),
                                 1.0, rl.Color(255, 255, 235, 210))
         rl.end_blend_mode()
+
+    def _draw_hit_effects(self, cw: int, ch: int):
+        """Bullet-impact bursts — one frame-texture list per red pack,
+        cut into individual textures at load (see _build_load_steps);
+        skips silently when the packs are missing."""
+        if not self._hit_effects or not any(self._hit_packs):
+            return
+        tile_size = int(ISO_W * self.iso.scale)
+        base = int(ENTITY_BASE * self.iso.scale * HIT_VFX_SCALE)
+        for e in self._hit_effects:
+            pack = self._hit_packs[e.get('pack', 0)] \
+                if e.get('pack', 0) < len(self._hit_packs) else []
+            if not pack:
+                continue
+            idx = min(len(pack) - 1,
+                      int(e['timer'] / HIT_VFX_DUR * len(pack)))
+            tex = pack[idx]
+            if tex.id <= 0:
+                continue
+            sx, sy = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
+            size = base
+            rl.draw_texture_pro(
+                tex,
+                rl.Rectangle(0.0, 0.0, float(tex.width), float(tex.height)),
+                rl.Rectangle(float(sx + tile_size // 2 - size / 2),
+                             float(sy + tile_size // 2 - size / 2),
+                             float(size), float(size)),
+                rl.Vector2(0, 0), 0.0, rl.WHITE)
+
+    def _draw_muzzle_flashes(self, cw: int, ch: int):
+        """The tiny Hit-Yellow burst at the revolver's muzzle (the yellow
+        pack doubles as the muzzle art; the red packs own the impacts)."""
+        if not self._flash_effects or not self._muzzle_frames:
+            return
+        tile_size = int(ISO_W * self.iso.scale)
+        size = int(ENTITY_BASE * self.iso.scale * MUZZLE_VFX_SCALE)
+        n = len(self._muzzle_frames)
+        for e in self._flash_effects:
+            idx = min(n - 1, int(e['timer'] / MUZZLE_VFX_DUR * n))
+            tex = self._muzzle_frames[idx]
+            if tex.id <= 0:
+                continue
+            sx, sy = self.iso.world_to_screen(e['x'], e['y'], cw, ch)
+            rl.draw_texture_pro(
+                tex,
+                rl.Rectangle(0.0, 0.0, float(tex.width), float(tex.height)),
+                rl.Rectangle(float(sx + tile_size // 2 - size / 2),
+                             float(sy + tile_size // 2 - size / 2),
+                             float(size), float(size)),
+                rl.Vector2(0, 0), 0.0, rl.WHITE)
     def _draw_ground_tooltip(self, gi, cw, ch):
         slot = gi.get('items', [None])[0]
         if not slot:

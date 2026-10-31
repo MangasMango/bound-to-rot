@@ -519,8 +519,11 @@ def test_live_click_pipeline_sockets_green_gem_into_W(monkeypatch):
 
     sidx = next(i for i, o in enumerate(ui._ctx_options())
                 if o['type'] == 'socket' and o['enabled'] and 'W' in o['label'])
-    mouse.x = ui._ctx['x'] + 110
-    mouse.y = ui._ctx['y'] + 2 + sidx * 26 + 13
+    # click the DRAWN menu rect (_ctx_rect clamps to the screen — the old
+    # raw-origin click math validated the dead-click-zone bug)
+    cx, cy, _, _, item_h, _ = ui._ctx_rect()
+    mouse.x = cx + 110
+    mouse.y = cy + 2 + sidx * item_h + 13
     clicks.feed(rl.MOUSE_BUTTON_LEFT)
     ui.update(inv, {})
 
@@ -549,8 +552,9 @@ def test_live_click_pipeline_removes_a_socketed_gem(monkeypatch):
 
     ridx = next(i for i, o in enumerate(ui._ctx_options())
                 if o['type'] == 'remove_gem')
-    mouse.x = ui._ctx['x'] + 110
-    mouse.y = ui._ctx['y'] + 2 + ridx * 26 + 13
+    cx, cy, _, _, item_h, _ = ui._ctx_rect()
+    mouse.x = cx + 110
+    mouse.y = cy + 2 + ridx * item_h + 13
     clicks.feed(rl.MOUSE_BUTTON_LEFT)
     ui.update(inv, {})
 

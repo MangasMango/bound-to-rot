@@ -57,7 +57,7 @@ skin_*.png
 # rendered PNGs are tracked
 /assets/gui/*.xcf
 
-# VFX sheets with unconfirmed licence — keep local only (see THIRD_PARTY_ASSETS.md)
+# VFX sheets with unconfirmed licence — keep local only (see README.md, Assets)
 /assets/vfx/*
 
 # Source WAVs stay local � OGG conversions are tracked (see assets/ost/credits.txt)

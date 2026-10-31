@@ -48,6 +48,11 @@ def _game_stub():
     game._gem_cds = {}
     game._hud_action_rects = {}
     game._hud_flash = {}
+    game._hit_effects = []
+    game._hit_packs = []
+    game._muzzle_frames = []
+    game._flash_effects = []
+    game._pending_shot = None
     game._flask_cd = 0.0
     game._lifesteal_timer = 0.0
     game._fire_aura_timer = 0.0
@@ -70,13 +75,11 @@ def _game_stub():
     game.py = 0.0
     game.map = [["0"]]
     game.iso = SimpleNamespace(draw_minimap=lambda *args, **kwargs: None)
-    game.tracker = SimpleNamespace(get_progress=lambda _ref: (0, 1))
     game._drop_rarity = lambda _item: "common"
     game._rarity_color = lambda rarity: rl.Color(255, 255, 255, 255)
     game._draw_delve_hud = lambda *args: HudRenderMixin._draw_delve_hud(game, *args)
     game._draw_character_level = lambda *args: HudRenderMixin._draw_character_level(game, *args)
     game._draw_enemy_hover_info = lambda *args: None
-    game._draw_tasks = lambda *args: HudRenderMixin._draw_tasks(game, *args)
     game._draw_kill_streak = lambda *args: None
     game._draw_hud_flash = lambda *args: None
     game.menu_sys = SimpleNamespace(

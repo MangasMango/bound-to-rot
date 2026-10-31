@@ -18,6 +18,7 @@ import math
 import pyray as rl
 
 from core.game import (
+    AMMO_MAX,
     ANGEL_STREAK_WINDOW,
     DARKNESS_AMBIENT,
     DELVE_PERSONAL_LIGHT,
@@ -45,7 +46,6 @@ from systems import itemgen
 from ui import fonts, icons
 from ui.inventory_ui import _rot_col
 from ui.menus import _btn
-from entities.progression import task_def
 from systems.items import ITEMS, EQUIP_SLOT_LABELS
 
 # Ability id → ui.icons logical name for the HUD Q/W/E/R slots. The real
@@ -912,6 +912,9 @@ class HudRenderMixin:
         BAR_INSET_L = bpx(20)             # PANEL only: bar start, px right of the container's left edge
         BAR_INSET_R = bpx(20)             # PANEL only: bar end, px left of the container's right edge
         STATUE_SCALE = 1.0               # STATUE only: size multiplier (1.0 = native 254x228 fit)
+        STATUE_NUDGE_R_PX = 10           # STATUE only: extra literal screen px the
+                                         # RIGHT statue slides toward the screen edge
+                                         # (tweak this yourself)
         bar_y = ch - BAR_H
         orb_top = ch - ORB - ORB_RAISE   # orb vertical position (ORB_RAISE lifts it)
 
@@ -1035,9 +1038,9 @@ class HudRenderMixin:
                     rl.Rectangle(float(ax), float(ang_y), float(ang_w), float(ang_h)),
                     rl.Vector2(0, 0), 0.0, rl.WHITE)
             if label:
-                lfs = bfont(34)
+                lfs = bfont(46)
                 lx = cx + size + bpx(16)
-                ly = top_y + int(size * 0.30)
+                ly = top_y + int(size * 0.30) - 10
                 fonts.draw(label, lx, ly, lfs,
                            rl.Color(235, 235, 235, 240))
 
@@ -1046,18 +1049,22 @@ class HudRenderMixin:
         _draw_orb(hx, orb_top, ORB, hp_pct, 'orb_fill0', 200, 30, 30,
                   label=f"Life : {int(self.stats['health'])} / {int(self.stats['max_health'])}")
 
-        # 2b) freed right slot: the mana orb is removed (mana retired from
-        #     the game, owner ruling 2026-10-29) — a decorative orb_mag
-        #     ring sits on the same ornate backdrop in its place.
+        # 2b) right side: the mana orb is removed (mana retired from the
+        #     game, owner ruling 2026-10-29) — in its place the decorative
+        #     orb_mag ring on the same ornate backdrop, the mirrored angel
+        #     statue (restored 2026-10-29) and the revolver AMMO readout.
         mag_x = hud_x + hud_w - ORB_MARGIN - ORB
         mag_t = _tex('orb_mag')
         if mag_t and mag_t.id > 0:
             panel_t2 = ui.get('orb_panel')
             if panel_t2 and panel_t2.id > 0:
                 pw2, ph2 = bpx(246), bpx(216)
-                src = rl.Rectangle(0, 0, float(panel_t2.width), float(panel_t2.height))
+                # the right ornament mirrors the left one: flipped src and
+                # the backdrop shifts toward the screen centre
+                src = rl.Rectangle(float(panel_t2.width), 0.0,
+                                   -float(panel_t2.width), float(panel_t2.height))
                 rl.draw_texture_pro(panel_t2, src,
-                    rl.Rectangle(float(mag_x + ORB / 2 - pw2 // 2 + PANEL_SHIFT),
+                    rl.Rectangle(float(mag_x + ORB / 2 - pw2 // 2 - PANEL_SHIFT),
                                  float(orb_top + ORB / 2 - ph2 // 2 + PANEL_DROP),
                                  float(pw2), float(ph2)),
                     rl.Vector2(0, 0), 0.0, rl.WHITE)
@@ -1065,6 +1072,31 @@ class HudRenderMixin:
                 rl.Rectangle(0, 0, float(mag_t.width), float(mag_t.height)),
                 rl.Rectangle(float(mag_x), float(orb_top), float(ORB), float(ORB)),
                 rl.Vector2(0, 0), 0.0, rl.WHITE)
+        # mirrored angel statue pinned to the container's right edge —
+        # its arm overlays the ring, exactly like the left statue does
+        # on the Life orb. +20 screen px nudges it toward the screen edge.
+        angel_t2 = ui.get('orb_angel')
+        if angel_t2 and angel_t2.id > 0:
+            ang_w2 = int(bpx(254) * STATUE_SCALE)
+            ang_h2 = int(bpx(228) * STATUE_SCALE)
+            ang_y2 = ch - ang_h2 - ANG_LIFT
+            src2 = rl.Rectangle(float(angel_t2.width), 0.0,
+                                -float(angel_t2.width), float(angel_t2.height))
+            ax2 = hud_x + hud_w - ang_w2 + ANG_CROP + STATUE_NUDGE_R_PX
+            rl.draw_texture_pro(angel_t2, src2,
+                rl.Rectangle(float(ax2), float(ang_y2), float(ang_w2), float(ang_h2)),
+                rl.Vector2(0, 0), 0.0, rl.WHITE)
+        # revolver ammo readout — same size/placement family as the Life
+        # text; the future bullets system mutates self._ammo
+        ammo_cur = int(getattr(self, '_ammo', AMMO_MAX))
+        ammo_max = int(getattr(self, '_ammo_max', AMMO_MAX))
+        ammo = f'Ammo : {ammo_cur} / {ammo_max}'
+        ammo_fs = bfont(46)
+        ammo_w = fonts.measure(ammo, ammo_fs)
+        fonts.draw(ammo,
+                   mag_x - ammo_w - bpx(16),
+                   orb_top + int(ORB * 0.30) - 10, ammo_fs,
+                   rl.Color(235, 235, 235, 240))
 
         # 3) left cluster: bronze box with the organ-rot meter on top and the
         #    3 menu buttons underneath — the mockup's two-row rhythm
@@ -1146,14 +1178,16 @@ class HudRenderMixin:
                        int(row_bot + (mbtn - bpx(34)) // 2), bpx(34))
 
         # right-cluster geometry (computed before the centre row so the
-        # centre can centre itself against it). Anchored to the container's
-        # right edge — the mana orb is gone (owner ruling 2026-10-29:
-        # mana removed from the game; the freed right spot holds the pure
-        # orb_mag decoration) — and mirrors the left cluster's bpx(48) gap.
+        # centre can centre itself against it). Anchored to the orb_mag
+        # ring's left edge with the left cluster's bpx(48) gap — restored
+        # mirror geometry (2026-10-29): [centre] [box] [orb_mag] [statue],
+        # so the buttons no longer overlap the ring.
         rp_w = 2 * bpx(96) + bpx(4)
-        rp_x = hud_x + hud_w - bpx(48) - rp_w
+        rp_x = mag_x - bpx(48) - rp_w
+        # the frame covers the button row (+3px offset) AND the mouse-hint
+        # icon row underneath (bpx(50) button + bpx(2) gap + bpx(22) icon)
         right_box = (rp_x - PAD, row_top - PAD, rp_w + 2 * PAD,
-                     (row_top + bpx(50) + PAD) - (row_top - PAD))
+                     (row_top + 3 + bpx(74) + PAD) - (row_top - PAD))
 
         act_rects = self._hud_action_rects
         act_rects.clear()
@@ -1192,16 +1226,19 @@ class HudRenderMixin:
             else:
                 rl.draw_rectangle(int(sx), int(a_y), asz, asz, rl.Color(30, 30, 30, 220))
             found = gems.socketed_ability(self.inventory, key)
-            ab_id = found[1].get('id') if found is not None else None
+            # the ability id lives on the instance data — the ABILITIES
+            # dicts themselves don't carry an 'id' key
+            ab_id = found[0].get('ability') if found is not None else None
             icon = None
             if ab_id:
                 icon = self._ability_icons.get(ab_id)
             if icon and icon.id > 0:
+                # full-bleed art slot: the ability-icons pack carries its
+                # own dark square art, so it covers the whole frame and
+                # the key label stays on top
                 rl.draw_texture_pro(icon,
                     rl.Rectangle(0, 0, float(icon.width), float(icon.height)),
-                    rl.Rectangle(float(sx + bpx(10)), float(a_y + bpx(10)),
-                                 float(asz - bpx(20)), float(asz - bpx(20))),
-                    rl.Vector2(0, 0), 0.0, rl.WHITE)
+                    srect, rl.Vector2(0, 0), 0.0, rl.WHITE)
             elif ab_id and ABILITY_UI_ICONS.get(ab_id):
                 icons.draw(ABILITY_UI_ICONS[ab_id],
                            int(sx + bpx(12)), int(a_y + bpx(12)),
@@ -1219,7 +1256,7 @@ class HudRenderMixin:
                         rl.Rectangle(float(sx + bpx(12)), float(a_y + bpx(12)),
                                      float(asz - bpx(24)), float(asz - bpx(24))),
                         rl.Vector2(0, 0), 0.0, rl.Color(120, 120, 120, 160))
-            fonts.draw(key, sx + bpx(6), a_y + bpx(5), bfont(16),
+            fonts.draw(key, sx + bpx(6), a_y + bpx(5), bfont(24),
                        rl.Color(220, 220, 220, 230))
             cd = float(self._gem_cds.get(key, 0.0))
             if cd > 0:
@@ -1254,8 +1291,10 @@ class HudRenderMixin:
         if fl_entry:
             # the flask's own item art (health/mana .png), aspect-fit into
             # the slot — the same sprites the inventory panel shows
-            fl_icon = self.inv._icons.get(fl_entry['item']) \
-                if hasattr(self, 'inv') else None
+            inv_ui = getattr(self, 'inv', None)
+            fl_icon = (inv_ui._icons.get(fl_entry['item'])
+                       if inv_ui is not None and hasattr(inv_ui, '_icons')
+                       else None)
             if fl_icon and fl_icon.id > 0:
                 iw, ih = float(fl_icon.width), float(fl_icon.height)
                 k = min(bpx(72) / iw, bpx(72) / ih)
@@ -1280,7 +1319,7 @@ class HudRenderMixin:
             fonts.draw('T', fl_x + asz // 2 - bfont(14) // 2,
                        fl_y + asz // 2 - bfont(14) // 2, bfont(14),
                        rl.Color(150, 150, 150, 200))
-        fonts.draw('T', fl_x + bpx(6), fl_y + bpx(5), bfont(16),
+        fonts.draw('T', fl_x + bpx(6), fl_y + bpx(5), bfont(24),
                    rl.Color(220, 220, 220, 230))
         if (rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT)
                 and rl.check_collision_point_rec(
@@ -1289,14 +1328,19 @@ class HudRenderMixin:
         act_rects['T'] = frect
         self._draw_hud_flash('T', fl_x + asz / 2, fl_y, float(asz))
 
-        # 5) right cluster: bronze box with attack / move only (the mockup's
+        # 5) right cluster: framed box with attack / move only (the mockup's
         #    four lower slots are decorative — dropped, owner ruling
         #    2026-10-10). Both buttons stay clickable and flash on use.
+        #    The buttons sit 3 screen px lower than row_top, and below each
+        #    one a mouse hint icon reads the trigger: click under attack
+        #    (left button), pointer under move (right button).
         _section_box(*right_box)
         wbt = _tex('button2')
-        for i, (wicn, act) in enumerate((('melee', 'attack'), ('evasion', 'move'))):
+        for i, (wicn, act, hint) in enumerate((
+                ('melee', 'attack', 'click'),
+                ('evasion', 'move', 'mouse_pointer'))):
             bx = rp_x + i * (bpx(96) + bpx(4))
-            by = row_top
+            by = row_top + 3
             brect = rl.Rectangle(float(bx), float(by), float(bpx(96)), float(bpx(50)))
             if wbt:
                 rl.draw_texture_pro(wbt,
@@ -1306,6 +1350,9 @@ class HudRenderMixin:
                 rl.draw_rectangle(int(bx), int(by), bpx(96), bpx(50), rl.Color(40, 40, 40, 220))
             icons.draw(wicn, int(bx + (bpx(96) - bpx(34)) // 2),
                        int(by + (bpx(50) - bpx(34)) // 2), bpx(34), rl.WHITE)
+            icons.draw(hint,
+                       int(bx + (bpx(96) - bpx(22)) // 2),
+                       int(by + bpx(50) + bpx(2)), bpx(22), rl.WHITE)
             if (rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT)
                     and rl.check_collision_point_rec(
                         rl.Vector2(float(mxp), float(myp)), brect)):
@@ -1320,8 +1367,8 @@ class HudRenderMixin:
         _divider(hx + ORB + bpx(20))
         _divider((left_box[0] + left_box[2] + centre_box[0]) // 2 - bpx(6))
         _divider((centre_box[0] + centre_box[2] + right_box[0]) // 2 - bpx(6))
+        _divider(mag_x - bpx(33))          # the orb↔attack/move gap, mirrored
 
-        self._draw_tasks(cw, ch, hud_scale)
         self._draw_kill_streak(cw, ch)
 
         mm_ents = []
@@ -1373,24 +1420,6 @@ class HudRenderMixin:
             self.iso.draw_minimap(self.map, self.px, self.py, mm_ents, cw, ch,
                                   mm_size=mm_size, cell=mm_cell,
                                   mx=mm_x, my=mm_y)
-    def _draw_tasks(self, cw, ch, hud_scale=1.0):
-        BAR_W = int(160 * hud_scale); ROW_H = int(30 * hud_scale); PAD = int(12 * hud_scale)
-        task_origin_x = cw - BAR_W - PAD
-        task_origin_y = ch - int(180 * hud_scale) - ROW_H * 3 - int(10 * hud_scale)
-        for ref in self.char.tasks:
-            defn = task_def(ref['id'])
-            if not defn: continue
-            cur, req = self.tracker.get_progress(ref)
-            done = ref['done']
-            pct  = 1.0 if done else min(1.0, cur / max(req, 1))
-            name_col = rl.Color(80, 180, 80, 220) if done else rl.Color(180, 180, 180, 200)
-            fonts.draw(defn['name'], task_origin_x, task_origin_y, max(16, int(20 * hud_scale)), name_col)
-            rl.draw_rectangle(task_origin_x, task_origin_y + int(13 * hud_scale), BAR_W, max(3, int(5 * hud_scale)),
-                              rl.Color(0, 0, 0, 0x99))
-            bar_col = rl.Color(80, 200, 80, 220) if done else rl.Color(0xFF, 0xFF, 0xFF, 200)
-            rl.draw_rectangle(task_origin_x, task_origin_y + int(13 * hud_scale), int(BAR_W * pct),
-                              max(3, int(5 * hud_scale)), bar_col)
-            task_origin_y += ROW_H
     def _draw_end_screen(self, cw, ch):
         rl.clear_background(rl.BLACK)
         results      = self._raid_results or {}
@@ -1421,12 +1450,6 @@ class HudRenderMixin:
         row("ITEMS LOOTED", results.get('loot',  0))
         row("EXTRACTED",    "YES" if results.get('extracted') else "NO",
             GREEN_COLOR if results.get('extracted') else rl.Color(180, 60, 60, 255))
-
-        if results.get('extracted') and results.get('completed'):
-            text_y += 10; rl.draw_line(text_x, text_y, text_x + 240, text_y, rl.Color(0xE0, 0xE0, 0xE0, 255)); text_y += 12
-            for defn in results.get('completed', []):
-                fonts.draw(f"  {defn['name']}", text_x, text_y, 21, GREEN_COLOR)
-                text_y += 18
 
         if self.state == STATE_DEAD:
             fonts.draw("Permanent death — this character has been deleted.",

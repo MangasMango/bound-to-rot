@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Tasks, currency, characters, and item-based progression.
+"""Characters, currency and item-based progression.
 
 Save schema versioning and migration (issue #126)
 ================================================
@@ -54,7 +54,6 @@ import copy
 import hashlib
 import json
 import os
-import random
 import traceback
 import time as _time
 
@@ -180,8 +179,8 @@ _RETIRED_ROSTER_FIELDS = ('format_version', 'version', 'characters_v0')
 def _migrate_1_to_2(data: dict) -> dict:
     """v1 -> v2: strip retired level/XP fields and normalise roster payload.
 
-    v1 is the pre-framework save format. Character data (currency, tasks,
-    descend, perks, inventory, stash) is preserved as-is; only fields the
+    v1 is the pre-framework save format. Character data (currency, descend,
+    perks, inventory, stash) is preserved as-is; only fields the
     current model cannot represent are removed, and missing optional keys are
     defaulted so the payload is loadable.
     """
@@ -399,32 +398,9 @@ def clear_delve_data(char_id: str):
         print("[save] ERROR: Failed to clear delve data")
         traceback.print_exc()
 
-# ── Task pool ─────────────────────────────────────────────────────────────
-TASK_POOL = [
-    {'id': 'kill_3',     'name': 'First Blood',    'desc': 'Kill 3 infected in a single raid',    'req': {'type': 'kills',   'value': 3   }, 'reward': {'currency': 150}},
-    {'id': 'kill_10',    'name': 'Exterminator',   'desc': 'Kill 10 infected in a single raid',   'req': {'type': 'kills',   'value': 10  }, 'reward': {'currency': 400}},
-    {'id': 'kill_20',    'name': 'Hunter',         'desc': 'Kill 20 infected in a single raid',   'req': {'type': 'kills',   'value': 20  }, 'reward': {'currency': 750}},
-    {'id': 'survive_5',  'name': 'Survivor',       'desc': 'Survive 5 minutes in a single raid',  'req': {'type': 'survive', 'value': 300 }, 'reward': {'currency': 100}},
-    {'id': 'survive_15', 'name': 'Endurance Test', 'desc': 'Survive 15 minutes in a single raid', 'req': {'type': 'survive', 'value': 900 }, 'reward': {'currency': 300}},
-    {'id': 'survive_25', 'name': 'Iron Will',      'desc': 'Survive 25 minutes in a single raid', 'req': {'type': 'survive', 'value': 1500}, 'reward': {'currency': 600}},
-    {'id': 'extract_1',  'name': 'Successful Exit','desc': 'Extract from a raid alive',            'req': {'type': 'extract', 'value': 1   }, 'reward': {'currency': 200}},
-    {'id': 'loot_5',     'name': 'Scavenger',      'desc': 'Pick up 5 items in a single raid',    'req': {'type': 'loot',    'value': 5   }, 'reward': {'currency': 175}},
-    {'id': 'loot_10',    'name': 'Looter',         'desc': 'Pick up 10 items in a single raid',   'req': {'type': 'loot',    'value': 10  }, 'reward': {'currency': 300}},
-]
-
-_POOL_BY_ID = {t['id']: t for t in TASK_POOL}
-
-
-def task_def(task_id: str) -> dict | None:
-    return _POOL_BY_ID.get(task_id)
-
-
-def pick_tasks(count: int = 3, exclude_ids=None) -> list:
-    exclude = set(exclude_ids or [])
-    pool    = [t for t in TASK_POOL if t['id'] not in exclude]
-    chosen  = random.sample(pool, min(count, len(pool)))
-    return [{'id': t['id'], 'done': False} for t in chosen]
-
+# (The old raid-task "quests" system was removed — see ADR notes in the
+# module docstring. Raid stats (kills/loot/time/extracted) live on in
+# RaidTracker for the end screen.)
 
 # ── Derived stats ──────────────────────────────────────────────────────────
 
@@ -487,7 +463,6 @@ class Character:
         self.name           = name
         self.looks          = looks if looks in LOOKS_OPTIONS else 'fighter'
         self.currency       = 500
-        self.tasks          = pick_tasks(3)
         self.descend: dict  = vessel_baseline_stats(self.looks)
         self.perks: dict    = {}
         self.available_points: int = 0
@@ -520,7 +495,6 @@ class Character:
             'name':           self.name,
             'looks':          self.looks,
             'currency':       self.currency,
-            'tasks':          self.tasks,
             'descend':        self.descend,
             'perks':          self.perks,
             'available_points': self.available_points,
@@ -537,13 +511,12 @@ class Character:
         ValueError, which CharacterManager turns into a backup + a visible
         message rather than a partially loaded roster.
         """
-        required = {'id', 'name', 'looks', 'currency', 'tasks', 'descend',
+        required = {'id', 'name', 'looks', 'currency', 'descend',
                     'perks', 'available_points', 'inventory', 'stash'}
         if not isinstance(d, dict) or not required.issubset(d):
             raise ValueError('incompatible character save')
         c = cls(d['id'], d['name'], d['looks'])
         c.currency = d['currency']
-        c.tasks = d['tasks'] or pick_tasks(3)
         c.inventory = d['inventory']
         c.descend = d['descend']
         c.perks = d['perks']
@@ -755,50 +728,9 @@ class RaidTracker:
         self.time      = 0.0
         self.extracted = False
 
-    def get_progress(self, task_ref: dict) -> tuple[int, int]:
-        defn = task_def(task_ref['id'])
-        if not defn:
-            return (0, 1)
-        req = defn['req']
-        t   = req['type']
-        v   = req['value']
-        if t == 'kills':   return (min(self.kills, v),         v)
-        if t == 'survive': return (min(int(self.time), v),     v)
-        if t == 'loot':    return (min(self.loot, v),          v)
-        if t == 'extract': return (1 if self.extracted else 0, v)
-        return (0, v)
-
-    def check_tasks(self, char: Character) -> list:
-        newly_done = []
-        for ref in char.tasks:
-            if ref['done']:
-                continue
-            defn = task_def(ref['id'])
-            if not defn:
-                continue
-            req  = defn['req']
-            t, v = req['type'], req['value']
-            done = (
-                (t == 'kills'   and self.kills     >= v) or
-                (t == 'survive' and self.time       >= v) or
-                (t == 'loot'    and self.loot       >= v) or
-                (t == 'extract' and self.extracted      )
-            )
-            if done:
-                ref['done'] = True
-                newly_done.append(defn)
-        return newly_done
-
     def finalize(self, char: Character) -> dict:
-        completed = self.check_tasks(char)
-        cash_gained = sum(d['reward'].get('currency', 0) for d in completed)
-        char.currency += cash_gained
-
-        active_ids = {t['id'] for t in char.tasks if not t['done']}
-        done_count = sum(1 for t in char.tasks if t['done'])
-        if done_count:
-            char.tasks = [t for t in char.tasks if not t['done']] + pick_tasks(done_count, active_ids)
-
+        """End-screen stats snapshot (the raid-task system was removed; the
+        tracker keeps its raw counters only)."""
         char.save()
 
         return {
@@ -806,7 +738,5 @@ class RaidTracker:
             'time':        self.time,
             'loot':        self.loot,
             'extracted':   self.extracted,
-            'completed':   completed,
-            'cash_gained': cash_gained,
             'currency':    char.currency,
         }

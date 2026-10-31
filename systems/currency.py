@@ -144,11 +144,14 @@ def card_complete(entry):
 
 
 def stack_label(entry):
-    """Grid counter: Joker shows 'n/4', whole cards show their plain count."""
+    """Grid counter. A COMPLETE Joker stack shows its plain quarter count
+    (e.g. '41') so each 4-quarter spend stays visible — the old cap read
+    '4/4' for a 45-stack and identification looked free. Partial stacks
+    read 'n/4'; whole cards show their plain count."""
     arcana = arcana_of(entry.get('item', ''))
     count = int(entry.get('count', 0))
-    if arcana == 0:
-        return f"{min(count, QUARTERS_PER_CARD)}/{QUARTERS_PER_CARD}"
+    if arcana == 0 and 0 < count < QUARTERS_PER_CARD:
+        return f"{count}/{QUARTERS_PER_CARD}"
     return str(count)
 
 

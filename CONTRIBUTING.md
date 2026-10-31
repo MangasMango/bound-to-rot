@@ -88,8 +88,8 @@ In practice, this means:
 - ❌ Do not paste generated code straight into a PR without understanding every
   line of it.
 - ❌ Do not submit changes you cannot explain if asked "why does this work?"
-- ❌ Do not submit AI-generated assets; see
-  [THIRD_PARTY_ASSETS.md](THIRD_PARTY_ASSETS.md) for the rules.
+- ❌ Do not submit AI-generated assets; see the **Assets** section in
+  [README.md](README.md) for the rules.
 
 If a change came out of a long AI session, say so in the PR description:
 context helps review, it doesn't hurt you.
