@@ -56,7 +56,7 @@ def vessel_baseline_stats(looks: str) -> dict:
     baseline.update(VESSEL_BASELINE_STATS.get(looks, VESSEL_BASELINE_STATS['knight']))
     return baseline
 
-# Vessel unlock data — framed as piercing the Veils of the Anima.  A depth of 0
+# Vessel unlock data - framed as piercing the Veils of the Anima.  A depth of 0
 # means the vessel is available from the start.  Unlocks are account-wide and
 # persist once earned; the account's best depth is tracked to show progress.
 VESSEL_UNLOCKS = {
@@ -135,7 +135,7 @@ DESCEND_PERKS: dict[str, dict] = {
 
     # ── Cunning column ──────────────────────────────────────────────────
     # 'Deep Well' (+max mana) was retired when mana left the game;
-    # the cun1 slot is reserved for the bullets mechanic — the guarded
+    # the cun1 slot is reserved for the bullets mechanic - the guarded
     # 'maxBullets' bonus key stays inert until that system lands
     # (owner ruling 2026-10-29).
     'cun1': _perk('Deep Holster',    '+bullet capacity per rank',           3, _ef(('maxBullets', 5)),           'cunning', 1),

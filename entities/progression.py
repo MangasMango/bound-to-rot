@@ -340,7 +340,7 @@ def _delve_restore(data: dict) -> dict:
     if isinstance(delve.get('enemy_ids'), list):
         delve['enemy_ids'] = set(delve['enemy_ids'])
     delve.setdefault('pending_rewards', [])
-    # JSON stringifies dict keys — the chart graph's node map must come back
+    # JSON stringifies dict keys - the chart graph's node map must come back
     # as int-keyed or every node lookup by id silently fails after a restart.
     graph = (delve.get('chart') or {}).get('graph')
     if isinstance(graph, dict) and isinstance(graph.get('nodes'), dict):
@@ -397,10 +397,6 @@ def clear_delve_data(char_id: str):
     except Exception:
         print("[save] ERROR: Failed to clear delve data")
         traceback.print_exc()
-
-# (The old raid-task "quests" system was removed — see ADR notes in the
-# module docstring. Raid stats (kills/loot/time/extracted) live on in
-# RaidTracker for the end screen.)
 
 # ── Derived stats ──────────────────────────────────────────────────────────
 
@@ -477,7 +473,7 @@ class Character:
 
         The delve layout is bound to the character: same character → same
         chart and rooms on every visit; death deletes the character (new
-        id → new seed → fresh layout). Never stored — recomputed.
+        id → new seed → fresh layout). Never stored - recomputed.
         """
         digest = hashlib.sha1(self.id.encode('utf-8')).digest()
         return int.from_bytes(digest[:4], 'big')

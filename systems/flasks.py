@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Flask system — the T-slot flask (issue #73 ADDITION, Phase A scope).
+Flask system - the T-slot flask (issue #73 ADDITION, Phase A scope).
 
 A single flask is equipped in inventory['flask_slot'] and drunk with T.
 Fresh implementation (commit cc7b03b removed the old potion-belt code) with
@@ -22,7 +22,7 @@ ONE-USE-PER-WAVE semantics (owner's tuning rule):
 
   - The flask has exactly ONE charge. Drinking it consumes that charge;
     it cannot be used again mid-wave (empty charges block the drink).
-  - Charges RESET TO 1 when the next delve wave/encounter begins — the
+  - Charges RESET TO 1 when the next delve wave/encounter begins - the
     reset is tied to the wave lifecycle hook (_delve_spawn_wave), NOT a
     plain timer and NOT the earlier "refill at checkpoints" idea.
   - Effects are duration-based (regen over time / timed haste), gated by a

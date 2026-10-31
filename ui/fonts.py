@@ -13,11 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Shared font — loaded once, used by all UI modules.
+"""Shared font - loaded once, used by all UI modules.
 
 Pixel fonts (see CRISP_SIZES) rasterize cleanly only at specific point
 sizes, so one font object per crisp size is kept and every requested
-size snaps to the nearest crisp one before drawing (1:1 glyphs — no
+size snaps to the nearest crisp one before drawing (1:1 glyphs - no
 scaling artifacts). Scalable fonts keep bilinear filtering and free
 sizes."""
 from __future__ import annotations
@@ -30,18 +30,18 @@ _pixel_sizes: list[int] | None = None   # None = scalable; list = pixel font
 _pixel_fonts: dict[int, rl.Font] = {}   # crisp size -> font object
 _last_path: str = ''                    # pixel font file, for lazy per-size loads
 
-# Point sizes at which bundled bitmap fonts render pixel-perfect — kept
+# Point sizes at which bundled bitmap fonts render pixel-perfect - kept
 # as a hook; the current UI font (Sancreek) is scalable, so it loads at
 # free sizes with bilinear filtering instead.
 CRISP_SIZES = {}
 
 
-_cp_buf = None   # cffi int[] buffer — MUST outlive load_font_ex calls
+_cp_buf = None   # cffi int[] buffer - MUST outlive load_font_ex calls
 _cp_n = 0
 
 
 def _codepoints():
-    """ASCII + Latin-1 accents + common punctuation — load_font_ex with
+    """ASCII + Latin-1 accents + common punctuation - load_font_ex with
     a NULL codepoint list only loads 95 ASCII glyphs, which turns em-dashes
     and accented text into '?'. Returns (int* pointer, count); the buffer
     is cached module-level because a cast does NOT keep it alive."""
@@ -70,7 +70,7 @@ def _load_font_at(path: str, size: int, pixel: bool) -> rl.Font | None:
 
 
 def load(path: str, sizes=None):
-    """Load a font. `sizes` is the crisp-size list for pixel fonts — one
+    """Load a font. `sizes` is the crisp-size list for pixel fonts - one
     font object per size is created EAGERLY (loading a font mid-frame
     corrupts the render batch). None/empty = scalable font drawn at free
     sizes with bilinear filtering."""

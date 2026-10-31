@@ -15,8 +15,8 @@
 
 """Tests for issue #73 DESIGN PIVOT.
 
-Phase A — gems grant QWER abilities (blue=Q, green=W, red=E, white=R).
-Phase B — tarot cards as PoE-style stacking currency + unidentified items.
+Phase A - gems grant QWER abilities (blue=Q, green=W, red=E, white=R).
+Phase B - tarot cards as PoE-style stacking currency + unidentified items.
 """
 
 import unittest
@@ -83,7 +83,7 @@ class TestUnidentifiedItems(unittest.TestCase):
     def test_unidentified_stats_hidden_from_totals(self):
         slot = itemgen.roll_for('lungs', 1, 30, seed=5)
         hidden = itemgen.compute_item_stat_totals(slot)
-        # unidentified exposes NO stat text at all — not even the base implicit
+        # unidentified exposes NO stat text at all - not even the base implicit
         self.assertEqual(hidden, {})
         self.assertEqual(itemgen.comparison_rows(slot, None), [])
         itemgen.identify(slot)
@@ -162,7 +162,7 @@ class TestTarotCurrency(unittest.TestCase):
         currency.add_card_to_grid(grid, 0, 1)
         self.assertEqual(grid[0]['count'], 4)
         self.assertTrue(currency.card_complete(grid[0]))
-        # a COMPLETE stack shows its plain quarter count — the old '4/4' cap
+        # a COMPLETE stack shows its plain quarter count - the old '4/4' cap
         # hid every spend (identifying from a 45-stack read 4/4 forever)
         self.assertEqual(currency.stack_label(grid[0]), '4')
 
@@ -181,7 +181,7 @@ class TestTarotCurrency(unittest.TestCase):
                 arc, quarters = currency.roll_fraction_drop(depth, rng)
                 self.assertIn(arc, currency.CURRENCY_CARDS)
                 self.assertGreaterEqual(depth, currency.CURRENCY_CARDS[arc]['depth_min'])
-                # whole-card drops (BLUEPRINT §19.218) — per-arcana counts
+                # whole-card drops (BLUEPRINT §19.218) - per-arcana counts
                 self.assertEqual(quarters, currency.quarters_needed(arc))
 
     def test_fool_identifies_target(self):
@@ -332,7 +332,7 @@ class TestWholeCardsExceptFool(unittest.TestCase):
 
         game = FakeGame()
         game.inventory['grid'].append(target)
-        # 20 whole cards — the loop below consumes one per iteration
+        # 20 whole cards - the loop below consumes one per iteration
         game.inventory['grid'].append(currency.make_card_slot(17, 20, col=1, row=0))
         game._card_apply_target = ('grid', game.inventory['grid'].index(target))
         # reroll stays inside the Q pool

@@ -13,24 +13,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# Bank (stash) grid: single 8x8 spatial grid — matches the painted cells of
+# Bank (stash) grid: single 8x8 spatial grid - matches the painted cells of
 # the BankStash panel art (assets/ui/BankStash.png).
 GRID_COLS = 8
 GRID_ROWS = 8
 
 # Player-inventory grid (itsmars_Inventory panel art: 8 cols × 4 rows painted
-# cells) — smaller than the bank grid.
+# cells) - smaller than the bank grid.
 INV_COLS = 8
 INV_ROWS = 4
 INV_GRID_VERSION = 2
 
 ITEMS = {
-    # OWNER RULE: every item occupies EXACTLY ONE grid cell — (1, 1). The
+    # OWNER RULE: every item occupies EXACTLY ONE grid cell - (1, 1). The
     # organs (lungs, liver) used to be 2×2 / 2×3; they are normalised here so
     # placement, highlight, hit-testing and drawing never have to reason about
     # a multi-cell footprint. The size key stays in the table (every consumer
-    # reads it) but is always (1, 1) — see ``item_size``.
-    # ── poker currency cards — count is card quarters; 4/4 completes a
+    # reads it) but is always (1, 1) - see ``item_size``.
+    # ── poker currency cards - count is card quarters; 4/4 completes a
     #    usable card (the Joker). Faces come from the poker deck
     #    (assets/cards/dark). ──
     'poker_joker':          {'name': 'The Joker',         'img': 'cards/dark/JOKER.png', 'rarity': 'common',   'stackable': True, 'maxStack': 9999, 'size': (1, 1), 'isCard': 0},
@@ -62,7 +62,7 @@ ITEMS = {
 }
 
 def item_size(item_id):
-    """Grid footprint of an item — always (1, 1) for every item in ITEMS.
+    """Grid footprint of an item - always (1, 1) for every item in ITEMS.
 
     One accessor so placement, drawing, highlight and hit-testing all agree
     that no item spans more than a single cell.
@@ -210,8 +210,8 @@ def socket_gem_from_grid(inventory, index, dest_key=None):
     SOCKET action alone, since left-click drag and drop is gone. Rules:
 
       * the gem's own colour picks the slot (Q blue / W green / E red /
-        R white) — a wrong-colour destination is refused;
-      * an OCCUPIED slot is never overwritten — the existing gem stays and
+        R white) - a wrong-colour destination is refused;
+      * an OCCUPIED slot is never overwritten - the existing gem stays and
         the grid entry stays too;
       * on success the grid entry is consumed by the socket.
 

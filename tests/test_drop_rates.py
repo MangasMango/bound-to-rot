@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Drop-rate rework — BLUEPRINT §23 (whole-card drops, per-card weights,
+"""Drop-rate rework - BLUEPRINT §23 (whole-card drops, per-card weights,
 Fool depth taper, chart-truthful room rewards) and the fixed
 wing-loot / kill-table paths."""
 
@@ -90,7 +90,7 @@ class TestRoomRewards(unittest.TestCase):
         # each reward rolled a fresh instance
         lungs = next(s for s in slots if s['item'] == 'lungs')
         self.assertIn('instance_data', lungs)
-        # organs drop unidentified, gems identified — same as any drop
+        # organs drop unidentified, gems identified - same as any drop
         self.assertFalse(itemgen.is_identified(lungs))
 
     def test_empty_node_drops_nothing_but_the_card_roll(self):

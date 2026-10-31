@@ -123,7 +123,7 @@ CHART_ROW_SPACING = 46.0    # px per depth row (depth 1 sits at y = 0)
 # ── orthogonal grid topology (BLUEPRINT §26, owner ruling 2026-10-07) ──
 # Rows generate CHART_LANES nodes on fixed lane columns; a child ALWAYS
 # inherits its parent's column, so every edge is vertical (down a lane) or
-# horizontal (sideways in a row) — never diagonal.
+# horizontal (sideways in a row) - never diagonal.
 CHART_LANES = 4
 LANE_COLS = tuple((i + 0.5) / CHART_LANES for i in range(CHART_LANES))
 LATERAL_EDGE_CHANCE = 0.70   # in-row adjacency for NEW rows; row 1 and
@@ -223,7 +223,7 @@ def _carve_corridor(grid, start_c, start_r, end_c, end_r):
 
 # ── reward tables (item_id, min_count, max_count, chance) ─────────────
 # These rolls are pre-rolled at chart generation and GRANTED verbatim on
-# room clear (BLUEPRINT §23) — the chart label and the actual drop are the
+# room clear (BLUEPRINT §23) - the chart label and the actual drop are the
 # same single roll. Every row needs a matching ITEM_NAMES entry.
 REWARD_TABLES = {
     'combat':   [('gem_blue', 1, 1, 0.10), ('gem_green', 1, 1, 0.08),
@@ -305,7 +305,7 @@ def _make_node(rng, depth, col, is_start=False, allow_boss=False,
             'id': nid, 'depth': depth, 'col': col,
             'type': 'dead_end',
             'label': 'Dead End',
-            'loot': 'Collapsed Passage',   # honest — dead ends grant nothing
+            'loot': 'Collapsed Passage',   # honest - dead ends grant nothing
             'state': STATE_LOCKED,
             'enemy_level': level_for_depth(depth),
             'enemy_count': rng.randint(2, 4 + depth // 2),
@@ -333,7 +333,7 @@ def init_delve(seed: int = 0, current_depth: int = 1) -> dict:
              'start_node_id': None, 'current_node_id': None}
 
     # Depth 1: exactly CHART_LANES nodes on the fixed lane columns. Row 1
-    # is ALWAYS fully alive and fully linked sideways — its lanes have no
+    # is ALWAYS fully alive and fully linked sideways - its lanes have no
     # up-edges, so discovery depends entirely on the lateral chain (a dead
     # end here would orphan the whole lane below it).
     d1_nodes = []
@@ -372,7 +372,7 @@ def _extend_graph(graph: dict, rng: random.Random):
     """Grow one depth row: one child per ALIVE lane, at the SAME column.
 
     Orthogonal topology (§26): the child inherits the parent's column so the
-    edge is perfectly vertical — never diagonal. A lane whose node rolled a
+    edge is perfectly vertical - never diagonal. A lane whose node rolled a
     dead end simply stops (no children below it), so no unreachable node can
     ever be generated. Each batch is forced to keep at least one live lane
     (owner rule: dead ends allowed, but at least one new path always)."""
@@ -538,7 +538,7 @@ def init_delve_room(seed=0, depth=1):
     rng = random.Random(seed + depth * 7919)
     # Open arena: the whole delve grid starts as walkable floor. Rooms are
     # still carved as distinct floor regions (their size/position recorded on
-    # the node), but no wall tiles separate them — see issue #24 / #27.
+    # the node), but no wall tiles separate them - see issue #24 / #27.
     grid = [[0] * GRID_H for _ in range(GRID_W)]
     cx, cy = GRID_W // 2, GRID_H // 2
     room_w = rng.randint(ROOM_MIN, ROOM_MAX) * 2 + 1
@@ -629,7 +629,7 @@ def discovered_ids(graph: dict, cleared: set) -> set:
 def enterable_node_ids(graph: dict, chart: dict) -> list:
     """Nodes the player may enter right now (chart navigation rework).
 
-    - cleared nodes are permanently done — never enterable
+    - cleared nodes are permanently done - never enterable
     - discovered-but-uncleared nodes you walked away from stay enterable
       (retreating lowers depth, so it must be a legal move)
     - forward children of the current node stay enterable
@@ -641,7 +641,7 @@ def enterable_node_ids(graph: dict, chart: dict) -> list:
     if current_id in cleared:
         cleared.discard(current_id)      # standing here: not yet finished
     enterable = (discovered_ids(graph, cleared) - cleared) & set(graph.get('nodes', {}))
-    # Direct children of the standing node are live options — but NEVER a
+    # Direct children of the standing node are live options - but NEVER a
     # beaten one: a retreat to this node used to force-add its cleared
     # children back, letting the player redo a finished node (owner fix
     # 2026-10-07).
@@ -657,7 +657,7 @@ def enterable_node_ids(graph: dict, chart: dict) -> list:
 def ensure_row_supply(graph: dict, rng: random.Random, current_id) -> int:
     """Depth rows never run out (BLUEPRINT §26.236): when the standing row
     has no live option left, a fresh batch is appended to the LEFT or RIGHT
-    side of the row (owner ruling 2026-10-07 — nothing is ever deleted; the
+    side of the row (owner ruling 2026-10-07 - nothing is ever deleted; the
     beaten history stays on the chart). Fresh nodes are never dead ends,
     chain laterally, and are bridged from a CLEARED row extremity so the
     batch is discoverable (rng picks the side when both qualify; the
@@ -669,7 +669,7 @@ def ensure_row_supply(graph: dict, rng: random.Random, current_id) -> int:
     depth = current['depth']
 
     # discoverability: cleared nodes plus everything adjacent to them
-    # (mirrors discovered_ids) — a cleared bridge extremity makes the
+    # (mirrors discovered_ids) - a cleared bridge extremity makes the
     # fresh batch discoverable through its edge.
     cleared = {nid for nid, n in graph['nodes'].items()
                if n.get('state') == STATE_CLEARED}
@@ -680,7 +680,7 @@ def ensure_row_supply(graph: dict, rng: random.Random, current_id) -> int:
         if cid in cleared:
             discovered.add(pid)
     # Direct neighbours of the standing node are live options even before
-    # the anchor is marked cleared — the same rule enterable_node_ids
+    # the anchor is marked cleared - the same rule enterable_node_ids
     # applies via its force-children loop (point 2: direct connections only).
     current_neighbors = {cid if pid == current_id else pid
                          for pid, cid in graph['edges']
@@ -696,10 +696,10 @@ def ensure_row_supply(graph: dict, rng: random.Random, current_id) -> int:
     row = sorted((n for n in graph['nodes'].values() if n['depth'] == depth),
                  key=lambda n: n['col'])
 
-    # pick the append side: prefer a CLEARED extremity — its bridge edge is
+    # pick the append side: prefer a CLEARED extremity - its bridge edge is
     # what makes the fresh batch discoverable; rng when both qualify, the
     # standing node bridges when neither tail is cleared (edge stays in-row,
-    # i.e. horizontal — never diagonal).
+    # i.e. horizontal - never diagonal).
     right, left = row[-1], row[0]
     if right['id'] in cleared and left['id'] in cleared:
         side = rng.choice(('right', 'left'))
@@ -727,7 +727,7 @@ def ensure_row_supply(graph: dict, rng: random.Random, current_id) -> int:
         graph['nodes'][node['id']] = node
         fresh.append(node)
 
-    # bridge + lateral chain — every edge stays inside the row (horizontal)
+    # bridge + lateral chain - every edge stays inside the row (horizontal)
     graph['edges'].append((anchor['id'], fresh[0]['id']))
     for a, b in zip(fresh, fresh[1:]):
         graph['edges'].append((a['id'], b['id']))
@@ -795,7 +795,7 @@ def find_route(graph: dict, from_id: int, to_id: int) -> list:
 def rebuild_graph_from_save(seed: int, max_depth: int) -> dict:
     """Deterministically rebuild a chart graph from its seed + depth count.
 
-    Used as a corruption fallback only — the normal path persists the full
+    Used as a corruption fallback only - the normal path persists the full
     (JSON-safe) nodes/edges graph in the delve snapshot. For determinism the
     node-id counter is reset so ids regenerate identically.
     """
@@ -861,7 +861,7 @@ def generate_hidden_wing(grid: list, node: dict, rng: random.Random,
     The delve grid is an open arena, so the wing is built as a wall ring
     (tile value 1) enclosing a small pocket, with a single cracked cell
     facing the room. The cracked cell marks the seal (its old opener, the
-    dynamite tool, was removed — the wing is currently unreachable content).
+    dynamite tool, was removed - the wing is currently unreachable content).
     Returns a wing descriptor dict, or None if there is no space.
     """
     cx, cy = int(node['col']), int(node['row'])

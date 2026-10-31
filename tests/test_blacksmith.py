@@ -16,12 +16,12 @@
 """Blacksmith dismantle forge (BLUEPRINT §24): recipes, sell table, UI flow.
 
 Covers:
-  * the sell table — organs (identified or not), gems and potions pay
+  * the sell table - organs (identified or not), gems and potions pay
     Joker quarters by rarity (x stack count), flasks pay flat, cards pay
     1 per card; only zero-value junk refuses;
-  * the item recipes — organ ascension chains, the Queen of Hearts cleanse
+  * the item recipes - organ ascension chains, the Queen of Hearts cleanse
     income, the gem tier-up;
-  * the InventoryUI forge flow — DISMANTLE / TAKE context moves, the
+  * the InventoryUI forge flow - DISMANTLE / TAKE context moves, the
     dismantle execution, leftover return on close (never a lost item).
 """
 
@@ -143,7 +143,7 @@ def test_unidentified_organs_sell_by_rarity(rarity, quarters):
     ('epic', 6), ('legendary', 8), ('mythic', 12),
 ])
 def test_identified_organs_sell_by_rarity_too(rarity, quarters):
-    """Owner revised §24.225: identification no longer protects an organ —
+    """Owner revised §24.225: identification no longer protects an organ -
     it only stops the ASCENSION recipes (sell same price either way)."""
     entry = _organ(rarity=rarity, identified=True)
     assert recipes.sell_quarters_for(entry) == quarters
@@ -258,7 +258,7 @@ def test_queen_of_hearts_recipe():
 
 
 def test_queen_recipe_fires_despite_ascension_drain():
-    """The uncommon ascension drains in threes — the Queen must be matched
+    """The uncommon ascension drains in threes - the Queen must be matched
     first so 5 uncommons reach the cleanse recipe instead of a remainder."""
     grid = [_organ('liver', 'uncommon') for _ in range(5)]
     match = recipes.match_forge(grid)
@@ -342,7 +342,7 @@ def test_take_back_moves_offering_to_backpack():
 
 
 def test_receipt_is_not_takable():
-    """The results grid is a display-only receipt — its items already live
+    """The results grid is a display-only receipt - its items already live
     in the backpack, so a TAKE/duplicate must not exist."""
     ui = _forge_ui()
     inv = items.make_inventory()
@@ -350,7 +350,7 @@ def test_receipt_is_not_takable():
     ui._exec({'type': 'from_forge', 'source': 'forge_out', 'index': 0},
              inv, {})
     # the receipt slot dict survives untouched; the backpack's only Joker
-    # is the untouched starter stack (4/4) — no duplicate entered
+    # is the untouched starter stack (4/4) - no duplicate entered
     assert len(ui._forge_out) == 1
     jokers = [e for e in inv['grid']
               if currency.arcana_of(e.get('item', '')) == 0]
@@ -367,8 +367,8 @@ def test_new_offering_clears_stale_receipt():
 
 
 def test_forge_preview_matches_dismantle_outputs():
-    """The LIVE receipt previews the exact slots a dismantle will produce —
-    same cached rolls, same placement — then the receipt keeps showing them."""
+    """The LIVE receipt previews the exact slots a dismantle will produce -
+    same cached rolls, same placement - then the receipt keeps showing them."""
     ui = _forge_ui()
     inv = items.make_inventory()
     inv['grid'] = []
@@ -452,7 +452,7 @@ def test_dismantle_without_match_is_a_noop():
 
 
 def test_close_forge_returns_offerings_to_backpack():
-    """Only offerings return on close — the receipt is display-only."""
+    """Only offerings return on close - the receipt is display-only."""
     ui = _forge_ui()
     inv = items.make_inventory()
     ui._forge_grid = [_organ('lungs', 'common')]
@@ -547,7 +547,7 @@ def _inv_cell_center_px(col, row):
 
 def test_ctx_hit_uses_drawn_rect_at_screen_edge(headless_draw):
     """The menu clamps to the screen when drawn (the panel is anchored to
-    the right screen edge) — the hit-test must clamp identically or the
+    the right screen edge) - the hit-test must clamp identically or the
     visible rows are dead: 'SOCKET was there, click did nothing'."""
     ui = _forge_ui()
     slot = _organ('heart', 'rare', identified=True)
@@ -561,7 +561,7 @@ def test_ctx_hit_uses_drawn_rect_at_screen_edge(headless_draw):
 
 def test_ctx_hit_returns_disabled_options(headless_draw):
     """Disabled options are returned with their flag so the caller can keep
-    the menu open — and refusals are VISIBLE (zero-value junk)."""
+    the menu open - and refusals are VISIBLE (zero-value junk)."""
     ui = _forge_ui()
     slot = {'item': 'scrap_never_defined', 'count': 1, 'col': 0, 'row': 0}
     ui._ctx = {'x': 100, 'y': 100, 'source': 'grid', 'index': 0, 'slot': slot}
@@ -581,7 +581,7 @@ def test_ctx_hit_returns_disabled_options(headless_draw):
 
 def test_disabled_option_click_keeps_menu_open(headless_draw, monkeypatch):
     """Clicking a disabled option (zero-value junk) used to close the menu
-    with zero effect — the menu must stay open AND say why."""
+    with zero effect - the menu must stay open AND say why."""
     import systems.input as inp_mod
     ui = _forge_ui()
     inv = items.make_inventory()
@@ -611,7 +611,7 @@ def test_disabled_option_click_keeps_menu_open(headless_draw, monkeypatch):
 
 def test_rmb_on_another_item_swaps_menu_in_one_click(headless_draw, monkeypatch):
     """Right-clicking another item while the menu is open moves the menu
-    straight there — close-then-reopen cost two clicks."""
+    straight there - close-then-reopen cost two clicks."""
     import systems.input as inp_mod
     ui = _forge_ui()
     inv = items.make_inventory()

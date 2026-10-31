@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Per-tick input edge latches (systems/input.py) — regression guards.
+"""Per-tick input edge latches (systems/input.py) - regression guards.
 
 The 30 Hz fixed timestep makes game.update run zero ticks on most render
 frames, so raw rl.is_key_pressed scans dropped most presses (the "hub input

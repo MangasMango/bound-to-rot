@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Tarot (Major Arcana) card system — Bound To Rot.
+Tarot (Major Arcana) card system - Bound To Rot.
 
 The Pulse's card choice is now a tarot spread. Each of the 22 Major Arcana
 carries a direction (descend / stay / ascend / return) and a themed effect
@@ -48,7 +48,7 @@ DIRECTIONS = (DIRECTION_DESCEND, DIRECTION_STAY, DIRECTION_ASCEND, DIRECTION_RET
 # The Major Arcana always used for the guaranteed "Return to Hub" escape card.
 RETURN_ARCANA = 21  # The World
 
-# Card decks — 'dark' is the default poker deck, 'light' is the bundled
+# Card decks - 'dark' is the default poker deck, 'light' is the bundled
 # alternative skin.
 TAROT_DECKS = {
     'dark':  {'folder': 'cards/dark',  'point_filter': True},

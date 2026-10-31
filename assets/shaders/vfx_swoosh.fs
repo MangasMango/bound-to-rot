@@ -1,6 +1,6 @@
 #version 330
 
-// Combat slash arc — procedural replacement for vfx/swoosh/swoosh_*.png.
+// Combat slash arc - procedural replacement for vfx/swoosh/swoosh_*.png.
 // A crescent band sweeps open over u_progress, tapers, and fades away.
 in vec2 fragTexCoord;
 in vec4 fragColor;

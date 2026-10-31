@@ -1,6 +1,6 @@
 #version 330
 
-// Radial glow — procedural replacement for vfx/glow.png.
+// Radial glow - procedural replacement for vfx/glow.png.
 // Colour and alpha come entirely from the draw tint, so callers keep
 // their own fades (pickup flash, angel halo pulse).
 in vec2 fragTexCoord;

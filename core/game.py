@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Bound To Rot — main game state.
+Bound To Rot - main game state.
 Diablo 2-style isometric: click-to-move, click-to-attack, melee combat.
 """
 
@@ -66,33 +66,33 @@ def _sprite(subpath, name, n_frames, fps):
     return IsoSprite(base, name, n_frames, fps)
 
 # ── constants ─────────────────────────────────────────────────────────
-# SCREEN_W / SCREEN_H (boot resolution) live in config.py — the window opens
+# SCREEN_W / SCREEN_H (boot resolution) live in config.py - the window opens
 # at this size and the game renders at whatever size the window currently is.
 MAP_SIZE        = 50
 FLAT_MAP        = [[0] * MAP_SIZE for _ in range(MAP_SIZE)]
 
 MOVE_SPEED      = 4.0       # tiles / second (walk; R toggles the run gear).
                             # Native desert tiles are ~2.7x smaller on screen
-                            # than the old LoP canvas — speed is scaled up to
+                            # than the old LoP canvas - speed is scaled up to
                             # keep the old on-screen pace (1.5 * 2.72).
-ATTACK_RANGE_BASE = 5.00     # tiles — gunslinger ranged auto-attack reach
+ATTACK_RANGE_BASE = 5.00     # tiles - gunslinger ranged auto-attack reach
                             # (boostable later via item affixes, see
                             # _attack_range()); BULLET_SPEED_TPS sets the
                             # tracer flight time (~0.25 s for the base range)
-BULLET_SPEED_TPS = 20.0     # tiles / second — bullet flight speed
+BULLET_SPEED_TPS = 20.0     # tiles / second - bullet flight speed
 
-# Shot release frame — the revolver fires when the attack animation enters
+# Shot release frame - the revolver fires when the attack animation enters
 # this 0-based frame index (8-frame anim: 1 = the recoil pose), not at the
 # instant the cooldown expires.
 SHOT_FIRE_FRAME  = 1
 
-# Muzzle flash — a tiny Hit-Yellow burst (Sinestesia/Mikodrak pack; the
+# Muzzle flash - a tiny Hit-Yellow burst (Sinestesia/Mikodrak pack; the
 # sheet stays local, see assets/vfx/credits.txt and README.md, Assets).
 # Frame rects cut from the 4096x4096 master sheet.
 MUZZLE_VFX_PATH  = 'vfx/Hit-Yellow.png'
 MUZZLE_VFX_DUR   = 0.18     # seconds the flash plays
 MUZZLE_VFX_SCALE = 0.14     # draw size, fraction of the entity canvas
-# (x, y, w, h) rects in raster order — probed from the alpha channel; the
+# (x, y, w, h) rects in raster order - probed from the alpha channel; the
 # whole sequence reads small flare -> peak -> sparks.
 _MUZZLE_FRAME_RECTS = (
     (1275, 163, 429, 624), (2307, 163, 460, 624), (3337, 163, 538, 624),
@@ -101,13 +101,13 @@ _MUZZLE_FRAME_RECTS = (
     (258, 2182, 582, 599), (1280, 2182, 475, 599), (2304, 2182, 259, 599),
 )
 
-# Bullet-impact bursts — the red blood/slash packs in the same folder
+# Bullet-impact bursts - the red blood/slash packs in the same folder
 # (vfx 0/1/2; the owner's "vfx 0,1,3" ruling: no 3.png exists in the pack).
 HIT_VFX_DUR   = 0.25        # seconds one burst plays
 HIT_VFX_SCALE = 0.07        # draw size, fraction of the entity canvas
 
 _HIT_PACK_RECTS = (
-    # 0.png — cross-slash blood burst
+    # 0.png - cross-slash blood burst
     (
         (1128, 75, 287, 281), (1639, 75, 290, 281),
         (118, 605, 261, 299), (618, 605, 280, 299),
@@ -115,7 +115,7 @@ _HIT_PACK_RECTS = (
         (190, 1159, 147, 212), (702, 1159, 150, 212),
         (1213, 1159, 143, 212),
     ),
-    # 1.png — ring-style blood burst
+    # 1.png - ring-style blood burst
     (
         (1178, 112, 204, 206), (1690, 112, 204, 206),
         (156, 601, 200, 246), (673, 601, 202, 246),
@@ -123,7 +123,7 @@ _HIT_PACK_RECTS = (
         (164, 1165, 172, 216), (676, 1165, 175, 216),
         (1188, 1165, 160, 216),
     ),
-    # 2.png — X slash ignition -> wide slash -> fade
+    # 2.png - X slash ignition -> wide slash -> fade
     (
         (1761, 191, 60, 83), (106, 591, 283, 294),
         (636, 591, 249, 294), (1142, 591, 261, 294),
@@ -141,18 +141,18 @@ ATTACK_DAMAGE   = 25
 DEATH_DURATION  = 1.1       # seconds death anim plays before removal
 RAID_DURATION   = 1800.0
 
-# Revolver cylinder — the revolver ammo pool. HUD reads self._ammo /
+# Revolver cylinder - the revolver ammo pool. HUD reads self._ammo /
 # self._ammo_max; the future bullets system owns both (the 'maxBullets'
 # perk bonus will feed the max when it lands).
 AMMO_MAX        = 6
 
-# Skeleton kill drops — (item_id, min_count, max_count, chance)
+# Skeleton kill drops - (item_id, min_count, max_count, chance)
 SKELETON_DROP_TABLE = [
     ('lungs',         1, 1,  0.035),
     ('heart',         1, 1,  0.035),
     ('kidney',        1, 1,  0.020),
     ('intestine',     1, 1,  0.025),
-    # QWER ability gems (issue #73 DESIGN PIVOT) — rare kills-only drops
+    # QWER ability gems (issue #73 DESIGN PIVOT) - rare kills-only drops
     ('gem_blue',      1, 1,  0.010),
     ('gem_green',     1, 1,  0.010),
     ('gem_red',       1, 1,  0.008),
@@ -204,7 +204,7 @@ def _pick_enemy_dmg_type(enemy_level: float) -> str:
     return 'physical'
 
 def _is_enemy_immune(enemy: dict, dmg_type: str) -> bool:
-    """Physical is never blocked — only elemental types grant immunity."""
+    """Physical is never blocked - only elemental types grant immunity."""
     if dmg_type == 'physical':
         return False
     return enemy.get('dmg_type') == dmg_type
@@ -221,7 +221,7 @@ STATE_EDITOR    = 'editor'
 
 HUB_SIZE = 3
 
-# Tile paths connecting spawn (100,101) to the hub waypoints — absolute
+# Tile paths connecting spawn (100,101) to the hub waypoints - absolute
 # grid coords on the 200×200 sanctuary floor (the old 3×3-era cells drew
 # the path sprites off in a far corner of the world).
 _HUB_PATH_CELLS = frozenset({
@@ -251,7 +251,7 @@ DELVE_CLICK_RADIUS = 0.2
 
 # The hub waypoints. 'scale' matches the drawn entity size (labels
 # anchor to the art's top edge); 'label_dy' fine-tunes label height.
-# The anvil (blacksmith) is an inert waypoint — its shop died with the
+# The anvil (blacksmith) is an inert waypoint - its shop died with the
 # gold economy (owner ruling 2026-09-27) and the campfires are gone.
 _HUB_LAYOUT = [
     {'type': 'delve',  'x': _HEART_POS[0],   'y': _HEART_POS[1],
@@ -266,9 +266,9 @@ _HUB_LAYOUT = [
 ]
 
 # The Delve Heart keeps the whole sanctuary lit (owner ruling: the
-# campfires — braziers and pillar bowls — are gone). One light, kind
+# campfires - braziers and pillar bowls - are gone). One light, kind
 # 'heart' (deep slow breathing). `r` is the VISIBLE LIGHT EDGE (the
-# lighting shader fades to ambient at exactly `r` — lighting.fs
+# lighting shader fades to ambient at exactly `r` - lighting.fs
 # EDGE_SCALE); 7.5 tiles covers the spawn (5.0) and both waypoints
 # (5.66) while the sanctuary's edges stay genuinely dark.
 _HUB_LIGHTS = [
@@ -276,7 +276,7 @@ _HUB_LIGHTS = [
      'phase': 0.0, 'ax': -0.35, 'ay': 0.21},
 ]
 
-# Static hub dressing — hand-placed scenery (no engine scatter in the
+# Static hub dressing - hand-placed scenery (no engine scatter in the
 # hub): (atlas prop name, world x, y, scale, direction). Not in
 # _HUB_LAYOUT → never hoverable/clickable; depth-sorts and reflects in
 # puddles like every entity.
@@ -315,7 +315,7 @@ _HUB_PROP_SPOTS = [
 
 DELVE_PULSE_SPEED  = 0.9   # tiles/sec baseline
 DELVE_LIGHT_RADIUS   = 5.5   # tiles illuminated by the pulse (scaled for the
-                             # native tile density — visual parity with the
+                             # native tile density - visual parity with the
                              # old 2.0-tile pool on the big LoP tiles)
 DELVE_PERSONAL_LIGHT = 5.5   # player's own ambient radius (same compensation)
 DELVE_DARKNESS_DPS   = 10.0  # HP/sec in full darkness at depth 1
@@ -324,18 +324,18 @@ DELVE_DARKNESS_DPS   = 10.0  # HP/sec in full darkness at depth 1
 PULSE_OFFSET_X = 0
 PULSE_OFFSET_Y = 0
 
-# Ambient darkness level — 0 = pitch black, 60 = dim grey, 255 = fully lit
+# Ambient darkness level - 0 = pitch black, 60 = dim grey, 255 = fully lit
 DARKNESS_AMBIENT = 10   # floor dim level: unlit scene multiplied by this/255
-                        # — near pitch-black in the Hub AND the Anima (owner
+                        # - near pitch-black in the Hub AND the Anima (owner
                         # ruling 2026-10-07; light pools still carve out of it)
-# Fire-light maps render at this fraction of screen size then upscale — the
+# Fire-light maps render at this fraction of screen size then upscale - the
 # maps are smooth, so 0.5 is visually free and cuts shader fragments 4×.
 LIGHT_RT_SCALE = 0.5
 # Actors are redrawn above darkness, so retain only a small readability floor.
 # 0.24 keeps silhouettes/eyes visible in true darkness while allowing the
 # light map to produce a clear, genuine darkening; tune here if needed.
 ACTOR_MIN_LIGHT_TINT = 0.24
-# Python mirrors of the lighting.fs shaping consts — the actor-tint
+# Python mirrors of the lighting.fs shaping consts - the actor-tint
 # evaluator must stay in sync with the shader (FALL_RATE / CORE_RATE /
 # EDGE_SCALE: the light radius is the VISIBLE LIGHT EDGE).
 SHADER_FALL_RATE = 0.65
@@ -350,7 +350,7 @@ def _actor_tint_value(light_amount: float) -> float:
 
 
 # Ground sprite shown for EVERY dropped item on the floor. Owner-reported
-# issue: items were invisible until hovered. Per-item-type art comes later —
+# issue: items were invisible until hovered. Per-item-type art comes later -
 # swap this constant (or _drop_sprite_for) in one place when it does.
 GROUND_ITEM_SPRITE = ('gold_drop', 'gold_drop')   # atlas prop name (no file path)
 
@@ -374,7 +374,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self.state = STATE_MENU
         self.map   = None
 
-        # Player position (tile col / row — floats for sub-tile movement)
+        # Player position (tile col / row - floats for sub-tile movement)
         self.px = self.py = 0.0
 
         # D2-style state machine
@@ -430,7 +430,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._post_rt_size   = (0, 0)
         self._pp_enabled     = True
 
-        # Render canvas — recreated at the current window size (on resize too)
+        # Render canvas - recreated at the current window size (on resize too)
         self._virtual_rt      = None
         self._virtual_rt_size = (0, 0)
 
@@ -475,7 +475,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # by default so it does not double-darken actors or alter UI/gameplay.
         self._pp_outline = False
 
-        # Weather (rain + puddles) — render-only, see systems/weather.py
+        # Weather (rain + puddles) - render-only, see systems/weather.py
         self._weather_init()
 
         # HUD effects
@@ -513,7 +513,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._fire_aura_dps    = 0.0
         self._aura_tick        = 0.0
 
-        # Revolver ammo (mirrors the full cylinder — the future bullets
+        # Revolver ammo (mirrors the full cylinder - the future bullets
         # system owns this field)
         self._ammo     = AMMO_MAX
         self._ammo_max = AMMO_MAX
@@ -569,7 +569,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # Isometric renderer
         self.iso = IsoRenderer()
 
-        # Player sprites — keyed by looks
+        # Player sprites - keyed by looks
         self._player_sprites = {}   # looks -> {'idle': spr, 'walk': spr, 'attack': spr}
 
         # World prop sprites
@@ -598,19 +598,19 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._glint_effects   = []  # active: {'x','y','timer','color','scale','vel_x','vel_y'}
         self._flame_effects   = []  # active: {'x','y','timer','color'}
         self._glow_effects    = []  # active: {'x','y','timer','color','scale',
-                                    # optional 'lift'} — 'lift' rides the effect
+                                    # optional 'lift'} - 'lift' rides the effect
                                     # up MUZZLE_LIFT_FRAC * sprite height
         self._hit_effects     = []  # active impact bursts: {'x','y','timer','pack'}
         self._muzzle_frames   = []  # Hit-Yellow frames cut at load (muzzle flash)
         self._hit_packs       = []  # one frame-texture list per red impact sheet
         self._flash_effects   = []  # active muzzle flashes: {'x','y','timer'}
         self._bullets         = []  # flying shots: {'x','y','tx','ty','target',
-                                    # 'result','timer'} — damage delivers on
+                                    # 'result','timer'} - damage delivers on
                                     # arrival (bullet travel time)
-        self._pending_shot    = None  # {'target','effects','swing_start'} — fires
+        self._pending_shot    = None  # {'target','effects','swing_start'} - fires
                                       # on SHOT_FIRE_FRAME of the attack anim
         # Procedural VFX: 1x1 white quad drawn through the vfx_* shaders
-        # (assets/shaders/vfx_*.fs) — no sprite strips to load.
+        # (assets/shaders/vfx_*.fs) - no sprite strips to load.
         self._vfx_white       = None
 
         # Click-to-interact target (portal / crate)
@@ -618,11 +618,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # Click-to-pickup target (drop item)
         self.drop_target = None
 
-        # Screen-space rects of visible drop labels — populated each draw frame
+        # Screen-space rects of visible drop labels - populated each draw frame
         self._drop_label_rects = []
         self._hovered_ground_item = None
         # Interactable currently under the mouse (hub object or delve
-        # portal/crate/barrel/brazier) — drives hover glow.
+        # portal/crate/barrel/brazier) - drives hover glow.
         self._hover_interact = None
 
         # Enemy sprites
@@ -758,9 +758,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 except OSError:
                     pass
             if tex and tex.id > 0:
-                if arr.shape[0] > 1:   # noise tiles — REPEAT sampling
+                if arr.shape[0] > 1:   # noise tiles - REPEAT sampling
                     rl.set_texture_wrap(tex, rl.TEXTURE_WRAP_REPEAT)
-                else:                  # gradient LUT — CLAMP (uv.x=1 must
+                else:                  # gradient LUT - CLAMP (uv.x=1 must
                     # read the LAST texel, never wrap to the dark texel 0)
                     rl.set_texture_wrap(tex, rl.TEXTURE_WRAP_CLAMP)
                 setattr(self, attr, tex)
@@ -776,7 +776,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._load_steps      = None
         self.audio.set_music_state('off')   # no music during loading
         if self._load_runner_spr is None:
-            # player running sprite for the loading screen — facing right
+            # player running sprite for the loading screen - facing right
             self._load_runner_spr = _sprite('playable character/fighter/fighter_armed_walk',
                                             'fighter_armed_walk', 8, 22.0)
             self._load_runner_spr.load(dirs=('E',))
@@ -812,7 +812,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         cname = currency.CURRENCY_CARDS.get(arc, {}).get('name', 'Card')
         if result:
             self._log_combat(f"{cname}: {result}", 'info')
-            if arc == 14:   # Temperance — rot cleanse changes live affixes
+            if arc == 14:   # Temperance - rot cleanse changes live affixes
                 self._on_gear_changed()
         else:
             self._log_combat(f"{cname}: cannot be applied there.", 'info')
@@ -885,7 +885,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         def _hit_vfx_frames():
             """Cut the muzzle flash (Hit-Yellow) and the red impact pack
-            frames at load — only the small frame canvases ever reach VRAM
+            frames at load - only the small frame canvases ever reach VRAM
             (the full sheets would cost tens of MB each). Missing sheets
             just leave the lists empty; the renderers skip silently."""
             def _cut(sheet, rects):
@@ -917,7 +917,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         add(_hit_vfx_frames)
 
         def _atlas_props():
-            # All desert props are cropped from the master atlas at load —
+            # All desert props are cropped from the master atlas at load -
             # no per-prop PNGs exist anymore (assets/prop/ removed).
             self._crate_spr         = make_atlas_prop('crate', DIRS)
             self._crate_break_spr   = make_atlas_prop('crate_break', ('S', 'SE', 'SW'))
@@ -927,7 +927,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             self._brazier_break_spr = make_atlas_prop('brazier_break', ('S', 'SE', 'SW'))
             self._anvil_spr         = make_atlas_prop('anvil', ('S', 'SE'))
             self._chest_spr         = make_atlas_prop('chest', ('S', 'SE'))
-            # hub dressing — one 'S' sprite per unique prop name
+            # hub dressing - one 'S' sprite per unique prop name
             for name, _x, _y, _s, _d in _HUB_PROP_SPOTS:
                 if name not in self._hub_prop_sprs:
                     self._hub_prop_sprs[name] = make_atlas_prop(name, ('S',))
@@ -953,7 +953,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         def _ability_icons():
             icon_dir = os.path.join(_ASSETS, 'ability-icons')
-            # The shipped pack (cethiel, OGA/Patreon — see the pack's
+            # The shipped pack (cethiel, OGA/Patreon - see the pack's
             # credits.txt) uses numbered slots; the owner's assignment:
             #   01 vortex   → blink
             #   02 runic    → fire_aura (flames around the caster)
@@ -1077,7 +1077,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     # ── hub ───────────────────────────────────────────────────────────
 
     def _build_hub_map(self):
-        """The hub sits on the same 200×200 open floor as the delve — the
+        """The hub sits on the same 200×200 open floor as the delve - the
         world dissolves into darkness beyond the torch-lit sanctuary."""
         import core.delve_gen as _dg
         return [[0] * _dg.GRID_H for _ in range(_dg.GRID_W)]
@@ -1087,7 +1087,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         """Roll weather + puddle placement for a freshly loaded level.
 
         strength None = roll from systems/weather with `seed` (+ depth ramp).
-        Deterministic per level seed; render-only — no gameplay input.
+        Deterministic per level seed; render-only - no gameplay input.
         """
         from systems import weather as _weather
         if seed is None:
@@ -1105,7 +1105,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
     def _permadeath(self):
-        """Death is permanent — delete the character (hub or delve)."""
+        """Death is permanent - delete the character (hub or delve)."""
         self.state = STATE_DEAD
         self.audio.set_music_state('death')
         self._saved_delve = None
@@ -1226,13 +1226,13 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             if rt is not None and rt.texture.id > 0:
                 rl.unload_render_texture(rt)
             setattr(self, attr, rl.load_render_texture(lw, lh))
-            # smooth upscale — the maps are soft gradients
+            # smooth upscale - the maps are soft gradients
             rl.set_texture_filter(getattr(self, attr).texture,
                                   rl.TEXTURE_FILTER_BILINEAR)
         self._light_rt_size = (lw, lh)
 
     def _rebind_outer_rt(self):
-        """raylib's EndTextureMode always rebinds the *default* framebuffer —
+        """raylib's EndTextureMode always rebinds the *default* framebuffer -
         it does NOT return to an enclosing begin_texture_mode (nesting is
         unsupported). The virtual canvas (draw) wraps the state
         branches, so every inner scene-RT pair must re-open the outer target
@@ -1367,7 +1367,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
     def _light_anim(self, light):
-        """(flicker factor, tint) per light kind — slow breathing, no strobe:
+        """(flicker factor, tint) per light kind - slow breathing, no strobe:
         torches ≈0.7 Hz, braziers ≈0.4 Hz, the Delve Heart a deep slow pulse."""
         t = rl.get_time()
         kind = light.get('kind', '')
@@ -1431,7 +1431,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     # ── HUD action-bar helpers ────────────────────────────────────────
 
     def _hud_over_action(self, mx: int, my: int) -> bool:
-        """True when the cursor is over a clickable HUD action control —
+        """True when the cursor is over a clickable HUD action control -
         world clicks must not fire through them."""
         for rect in getattr(self, '_hud_action_rects', {}).values():
             if (rect.x <= mx < rect.x + rect.width
@@ -1440,7 +1440,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         return False
 
     def _hud_click_attack(self, mx: int, my: int):
-        """HUD attack button — same as a world left-click on an enemy."""
+        """HUD attack button - same as a world left-click on an enemy."""
         cw, ch = rl.get_screen_width(), rl.get_screen_height()
         enemy = self._find_enemy_near(mx, my, cw, ch)
         if enemy is not None:
@@ -1452,7 +1452,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             self._flash_hud('attack')
 
     def _hud_click_move(self, mx: int, my: int):
-        """HUD move button — same as a world right-click move order."""
+        """HUD move button - same as a world right-click move order."""
         cw, ch = rl.get_screen_width(), rl.get_screen_height()
         tile_col, tile_row = self.iso.screen_to_world(mx, my, cw, ch)
         if math.hypot(tile_col - self.px, tile_row - self.py) >= 0.1:
@@ -1560,7 +1560,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         return lines
 
-    # ── Anima panel — the 500x500 framed popup that hosts every node
+    # ── Anima panel - the 500x500 framed popup that hosts every node
     #    chooser (hub chart, junction paths, cart boons) ─────────────────
 
     ANIMA_PANEL_SIZE  = 500   # matches anima_panel.jpg
@@ -1619,7 +1619,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if self._angel_timer > 0:
             self._angel_timer = max(0.0, self._angel_timer - dt)
 
-        # Streak window expiry — sting for lost 3+ streaks
+        # Streak window expiry - sting for lost 3+ streaks
         if (self._kill_streak >= 3
                 and rl.get_time() - self._last_kill_t > ANGEL_STREAK_WINDOW):
             self._streak_lost_t = rl.get_time()
@@ -1840,7 +1840,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 live_f.append(e)
         self._flash_effects = live_f
 
-        # Advance flying bullets — light homing toward the (living) target;
+        # Advance flying bullets - light homing toward the (living) target;
         # deliver the pre-rolled hit on arrival, fizzle if the target died.
         live_b = []
         for b in self._bullets:
@@ -1889,7 +1889,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if self._delve is not None:
             d_dist = math.hypot(self.px - self._delve['pulse_x'], self.py - self._delve['pulse_y'])
             # the dream-foreboding warp starts AT the visible pool edge
-            # (light_r + the personal light) — never inside the lit pool
+            # (light_r + the personal light) - never inside the lit pool
             pool_edge = self._delve['light_r'] + DELVE_PERSONAL_LIGHT
             if d_dist > pool_edge:
                 darkness_pct = min(1.0, (d_dist - pool_edge) / 4.0)
@@ -1986,7 +1986,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         `objects` is a list of dicts with world-position keys 'x'/'y'
         (hub objects and delve ground-item interactables share the shape).
-        Purely visual — no player-distance check; the hover glow means
+        Purely visual - no player-distance check; the hover glow means
         "the art is under your cursor", not "you can use it yet".
         """
         if self.inv.open or self._hub_popup or self._delve_chart_is_open():
@@ -2140,7 +2140,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         # Desert decor pool: lit campfires (torches), Anima graveyard
         # pillars (bones*), cacti/reeds/bushes/rock piles, dead telegraph
-        # poles — all sliced from the desert tileset.
+        # poles - all sliced from the desert tileset.
         _DECOR_TYPES = ['bones1', 'bones2', 'bones3',
                         'cactus1', 'cactus2', 'reed1', 'reed2',
                         'bush_red', 'bush_red2', 'stone_s3', 'stone_s4',
@@ -2317,7 +2317,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     def _deliver_player_shot(self, bullet):
         """Apply a pre-rolled ranged hit when its bullet reaches the enemy."""
         target = bullet.get('target')
-        # the victim died before the bullet arrived — the shot fizzles
+        # the victim died before the bullet arrived - the shot fizzles
         if target is None or target.get('health', 0) <= 0:
             return
         result = bullet['result']
@@ -2426,7 +2426,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         capped at 75%). Elemental and magic damage is reduced by the player's
         per-type resist_pct; physical ignores resist and leans on armor instead.
         Flat DR shaves a fixed amount off every hit before the % multiplier."""
-        # Block roll — a blocked hit is negated entirely.
+        # Block roll - a blocked hit is negated entirely.
         if dmg_type == 'physical' and block_chance > 0.0 and _rnd.random() < min(0.75, block_chance):
             self._log_combat(f"Blocked {int(raw_dmg)} {dmg_type} dmg", 'dmg_taken')
             self._spawn_dmg_number(self.px, self.py - 0.4, 0,
@@ -2525,7 +2525,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     profile_ms: dict = {}
 
     def _update_mouse_transform(self):
-        """Window and canvas are the same surface — reset any leftover mouse
+        """Window and canvas are the same surface - reset any leftover mouse
         mapping so rl.get_mouse_*() calls see raw window coordinates."""
         rl.set_mouse_offset(0, 0)
         rl.set_mouse_scale(1.0, 1.0)
@@ -2541,7 +2541,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
 
-    # Loading screen layout — tweak these by hand
+    # Loading screen layout - tweak these by hand
     LOAD_RUNNER_SCALE = 3.0   # sprite zoom (frame art has transparent padding,
                               # so >1.0 often looks better)
     LOAD_RUNNER_OFF_X = -310    # px from right screen edge to sprite box
@@ -2571,7 +2571,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         })
 
     def _spawn_crit_sparkles(self, wx, wy):
-        """Gold sparkle burst at a crit impact — the dopamine garnish that
+        """Gold sparkle burst at a crit impact - the dopamine garnish that
         rides the big popping number."""
         for _i in range(5):
             ang = _rnd.uniform(0.0, math.tau)
@@ -2612,12 +2612,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 self._shake_intensity    = max(self._shake_intensity, 6.0)
 
     def _add_angel_meter(self, amount):
-        # Angel Form was removed in the Diablo 2-style combat rework. Kept as a
-        # no-op so legacy call sites don't need to change.
+        # no-op: Angel Form was removed from the combat rework.
         return
 
     def _activate_angel_form(self):
-        # Angel Form was removed in the Diablo 2-style combat rework.
+        # no-op: Angel Form was removed from the combat rework.
         return
 
     def _use_organ_ability(self, slot, found=None, cds=None):
@@ -2823,14 +2822,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         return fired
 
     def _use_flask(self):
-        """T — drink the flask equipped in the T slot (PoE-style charges).
+        """T - drink the flask equipped in the T slot (PoE-style charges).
         Returns the flask kind when a drink actually happened."""
         kind = flasks.use_flask(self.inventory,
                                 {'_flask_cd': self._flask_cd,
                                  'flask_effects': self.flask_effects},
                                 self.stats)
         if kind is not None:
-            # use_flask set the cooldown on its own state dict — mirror it
+            # use_flask set the cooldown on its own state dict - mirror it
             self._flask_cd = flasks.FLASK_CD
             self._log_combat(f"Drank {kind} flask.", 'info')
             self._flash_hud('T')
@@ -2843,7 +2842,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def _outgoing_dmg_mult(self, dmg_type: str) -> float:
         """Multiplier from D.E.S.C.E.N.D. attributes/perks for outgoing damage
-        of a given type. Penetration is intentionally NOT folded in here — it is
+        of a given type. Penetration is intentionally NOT folded in here - it is
         applied as enemy-resist reduction inside _apply_damage_to_enemy (true
         Diablo 2-style penetration)."""
         dmg_pct = self.stats.get('damage_pct', {})
@@ -2959,7 +2958,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
     def _streak_color(self, streak):
-        if streak >= 10: return rl.Color(200, 120, 255, 255)   # violet — angelic
+        if streak >= 10: return rl.Color(200, 120, 255, 255)   # violet - angelic
         if streak >= 8:  return rl.Color(255, 90, 60, 255)     # red-hot
         if streak >= 5:  return rl.Color(255, 140, 40, 255)    # orange
         if streak >= 3:  return rl.Color(255, 210, 60, 255)    # gold
@@ -3149,7 +3148,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def cleanup(self):
         self._save_delve()
-        # forge offerings are transient — ride them back into the backpack
+        # forge offerings are transient - ride them back into the backpack
         # before the final save so a hard exit never destroys offered items
         if self.inv.forge_open:
             self.inv.return_forge_items(self._get_char_inventory())

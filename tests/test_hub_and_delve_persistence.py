@@ -93,7 +93,7 @@ class DelvePersistenceTests(unittest.TestCase):
             self.assertEqual(saved_chart['seed'], seed)
             self.assertEqual(saved_chart['visited'], chart['visited'])
             # The chart is deterministic from the seed, so a rebuilt graph
-            # matches what was saved — the layout never changes mid-journey.
+            # matches what was saved - the layout never changes mid-journey.
             self.assertEqual(_graph_shape(delve_gen.init_delve(seed)),
                              _graph_shape(saved_chart['graph']))
         finally:
@@ -184,14 +184,14 @@ class DelveHeartChartLifecycleTests(unittest.TestCase):
 
 class CompactHubTests(unittest.TestCase):
     def test_hub_map_matches_delve_floor(self):
-        """The hub sits on the same 200×200 open floor as the delve —
+        """The hub sits on the same 200×200 open floor as the delve -
         infinite-feel darkness hides the bounds."""
         import core.delve_gen as delve_gen
         from core.game import Game
         hub = Game()._build_hub_map()
         self.assertEqual(len(hub), delve_gen.GRID_W)
         self.assertEqual(len(hub[0]), delve_gen.GRID_H)
-        # no walls — every tile is open floor (0)
+        # no walls - every tile is open floor (0)
         self.assertTrue(all(tile == 0 for row in hub for tile in row))
 
     def test_hub_layout_has_exactly_three_waypoints(self):
@@ -212,7 +212,7 @@ class CompactHubTests(unittest.TestCase):
 
     def test_hub_lights_cover_the_sanctuary(self):
         """Every sanctuary tile must be within reach of some torch/brazier/
-        heart — the sanctuary only works if the light actually reaches it."""
+        heart - the sanctuary only works if the light actually reaches it."""
         from core.game import _HUB_LIGHTS, DELVE_PERSONAL_LIGHT
         sanctuary = [(99, 99), (100, 99), (101, 99),
                      (99, 100), (100, 100), (101, 100),
@@ -233,7 +233,7 @@ class CompactHubTests(unittest.TestCase):
 
     def test_hub_lights_carry_kind_for_flicker(self):
         from core.game import _HUB_LIGHTS
-        # the campfires are gone — the Delve Heart carries the light alone
+        # the campfires are gone - the Delve Heart carries the light alone
         kinds = {l['kind'] for l in _HUB_LIGHTS}
         self.assertEqual(kinds, {'heart'})
 

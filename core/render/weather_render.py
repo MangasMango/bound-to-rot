@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Weather rendering — planar puddle reflections.
+"""Weather rendering - planar puddle reflections.
 
 Render-only: for every visible puddle tile, scissor-clip to that tile's
 diamond bounding box and re-draw nearby entity sprites mirrored through
@@ -48,7 +48,7 @@ class WeatherRenderMixin:
 
         entities: the same draw_map entity dicts (world col/row + sprite).
         Must be called while the scene RT (or equivalent full-canvas target)
-        is bound — draws composite straight onto the world layer.
+        is bound - draws composite straight onto the world layer.
         """
         if not self._weather_raining():
             return
@@ -60,7 +60,7 @@ class WeatherRenderMixin:
         step_x, step_y = iso._steps()
 
         # Radius (screen px) at which an actor can still appear inside a
-        # neighbouring puddle; generous — scissor discards the rest.
+        # neighbouring puddle; generous - scissor discards the rest.
         radius_sx = _REFL_MAX_DIST * step_x
 
         # Pre-project actors once (centred on the tile like draw_map does).
@@ -108,7 +108,7 @@ class WeatherRenderMixin:
         return any_drawn
 
     def _draw_puddle_shimmer(self, sx: int, sy: int, tile_size: int):
-        """Diamond ripple rings — reads as water without spilling outside
+        """Diamond ripple rings - reads as water without spilling outside
         the puddle shape (scissor is rectangular, so the ring geometry
         itself must stay inside the diamond)."""
         t = rl.get_time()

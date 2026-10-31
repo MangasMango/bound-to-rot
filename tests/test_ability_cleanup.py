@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Ability system cleanup — BLUEPRINT §20/§23 alignment.
+"""Ability system cleanup - BLUEPRINT §20/§23 alignment.
 
 Covers:
   1. The old auto-cast leftover is fully removed (no passive organ system,

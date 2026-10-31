@@ -38,12 +38,12 @@ COLD_STACK_DURATION = 4.0  # seconds before cold stacks expire
 FROZEN_DURATION    = 2.0   # seconds a frozen enemy stays frozen
 
 # Rot: a fixed total of damage dealt evenly over a fixed duration. A new rot
-# application only overwrites an existing one if its total is higher — rot
+# application only overwrites an existing one if its total is higher - rot
 # never stacks. Rot damage ignores armor and resistances entirely.
 ROT_DURATION    = 6.0    # seconds over which the full rot total is dealt
 ROT_TOTAL_RATIO = 0.50   # rot_total = hit_damage * this ratio
 
-# (skeleton_level, accuracy) keyframes — calibrated for the accuracy-vs-evasion
+# (skeleton_level, accuracy) keyframes - calibrated for the accuracy-vs-evasion
 # roll: chance = accuracy / (accuracy + evasion). Each value is solved from
 # accuracy = target_chance / (1 - target_chance) * player_evasion using the
 # actual base player evasion at that level (~300 at lvl1, ~600 at lvl100;
@@ -74,7 +74,7 @@ def skeleton_accuracy(level: int) -> int:
 
 
 def hit_chance(attacker_accuracy, defender_evasion):
-    """Accuracy-vs-evasion to-hit percentage, clamped to 5–95%.
+    """Accuracy-vs-evasion to-hit percentage, clamped to 5-95%.
 
     Every point of accuracy pushes the roll toward the ceiling and every point
     of evasion pushes it toward the floor; neither side can ever be fully
@@ -90,7 +90,7 @@ def evaluate_hit(defender, attacker_accuracy):
     """Per-swing to-hit roll (D.E.S.C.E.N.D. style).
 
     Each attack is an independent roll against the defender's evasion (its
-    analogue of Defense). No entropy pool — a miss is a miss, a hit is a hit,
+    analogue of Defense). No entropy pool - a miss is a miss, a hit is a hit,
     exactly like Diablo 2's per-swing attack rating check. The defender's
     entropy_grace_pct (Destiny/Essence-driven) acts as a straight dodge
     multiplier on the final chance."""
@@ -182,7 +182,7 @@ def spread_rot(target, rot_total):
 def tick_enemy_statuses(enemy, dt):
     """Advance all status timers for one enemy.
     Returns (fire_dot, rot_dot) damage to deal this tick. Rot damage ignores
-    armor and resistances — apply it directly to health."""
+    armor and resistances - apply it directly to health."""
     fire_dot_damage = 0.0
     rot_dot_damage  = 0.0
 
@@ -207,7 +207,7 @@ def tick_enemy_statuses(enemy, dt):
             enemy['cold_timer']  = 0.0
             enemy['cold_stacks'] = 0
 
-    # Rot DoT — fixed total drains away over the duration, then clears
+    # Rot DoT - fixed total drains away over the duration, then clears
     if enemy.get('rot_timer', 0.0) > 0.0:
         rot_dot_damage = enemy.get('rot_dps', 0.0) * dt
         enemy['rot_timer'] -= dt

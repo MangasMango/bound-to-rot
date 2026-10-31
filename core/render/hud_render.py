@@ -92,7 +92,7 @@ class HudRenderMixin:
                 reach = light['r']
             else:
                 # hub lights: `r` is the visible edge (EDGE_SCALE-compensated
-                # in _HUB_LIGHTS) — gameplay reach keeps its pre-swap value
+                # in _HUB_LIGHTS) - gameplay reach keeps its pre-swap value
                 reach = light['r'] / SHADER_EDGE_SCALE + DELVE_PERSONAL_LIGHT
             if math.hypot(self.px - light['x'], self.py - light['y']) <= reach:
                 in_light = True
@@ -118,7 +118,7 @@ class HudRenderMixin:
         else:
             rl.draw_rectangle(px, py, size, size, rl.Color(16, 14, 18, 255))
             rl.draw_rectangle_lines(px, py, size, size, rl.Color(90, 74, 28, 255))
-        # big X — straddling the panel's top-right corner
+        # big X - straddling the panel's top-right corner
         x_r = rl.Rectangle(float(px + size - 40), float(py - 12), 40.0, 40.0)
         x_clicked = _btn(x_r, 'X', 20)
         return content, x_clicked
@@ -126,9 +126,9 @@ class HudRenderMixin:
         """Top-left LEVEL readout, under the character name.
 
         One of the two display sites for the value. It renders
-        ``itemgen.format_character_level(self.inventory)`` verbatim — the same
+        ``itemgen.format_character_level(self.inventory)`` verbatim - the same
         accessor and the same compact ``LVL n`` string the inventory panel header
-        uses — so the two sites cannot drift apart. An empty loadout renders as
+        uses - so the two sites cannot drift apart. An empty loadout renders as
         ``LVL 0`` like any other value; the accessor never divides by zero.
         Aligned to the name column: the x offset matches the name text's
         offset in _draw_hud so icon / name / level share one grid.
@@ -144,14 +144,14 @@ class HudRenderMixin:
             return
         d = self._delve
 
-        # Depth counter — top center
+        # Depth counter - top center
         label       = f"Anima Depth {d['depth']}"
         fs          = scale_font(20)
         label_width = fonts.measure(label, fs)
         fonts.draw(label, cw // 2 - label_width // 2, 14, fs,
                    rl.Color(80, 200, 255, 230))
 
-        # Darkness exposure meter — top-right
+        # Darkness exposure meter - top-right
         if d['dark_timer'] > 0:
             MAX_EXPOSURE = 10.0
             exposure_pct = min(1.0, d['dark_timer'] / MAX_EXPOSURE)
@@ -167,9 +167,7 @@ class HudRenderMixin:
             exp_fs = scale_font(11)
             fonts.draw(exp_label, meter_x + 4, meter_y - exp_fs - 2, exp_fs, rl.Color(200, 160, 80, 200))
 
-        # Darkness exposure is represented by the meter above; the old
-        # "DARKNESS — TAKE COVER" overlay is intentionally not drawn.
-        # The flare/dynamite tool indicator row was removed with the tools.
+        # Darkness exposure is represented by the meter above.
     def _draw_debug_rings(self, objects, click_r: float, cw: int, ch: int,
                           interact_r: float = None):
         """Perf-overlay visualization of the click hitbox (orange) and,
@@ -254,7 +252,7 @@ class HudRenderMixin:
             self._draw_ground_item_sprite(gi, tile_center_x, tile_center_y, tile_size)
         self._draw_drop_labels(cw, ch)
     def _draw_aura_range(self, cw, ch):
-        """Fire Aura (E-gem active) ground ring while the buff runs — the
+        """Fire Aura (E-gem active) ground ring while the buff runs - the
         radius is snapshotted at cast time."""
         if self._fire_aura_timer <= 0 or self._fire_aura_radius <= 0:
             return
@@ -323,7 +321,7 @@ class HudRenderMixin:
                               rl.Color(200, 50, 50, 230) if pct > 0.4 else rl.Color(240, 200, 30, 230))
             rl.draw_rectangle_lines(bar_x, bar_y, bar_w, bar_h, rl.Color(60, 20, 20, 180))
     def _draw_dmg_numbers(self, cw, ch):
-        """Floating combat text — drawn ABOVE the darkness overlay so the
+        """Floating combat text - drawn ABOVE the darkness overlay so the
         gloom never eats it. Crits get 1.4× size, a longer life, a fast
         rise and a pop-in overshoot (the dopamine pop). Every number gets
         a dark outline pass for punch over any backdrop."""
@@ -760,7 +758,7 @@ class HudRenderMixin:
             tw  = fonts.measure(title, tsz)
             fonts.draw(title, cx - tw // 2, y_main + fs + 6, tsz, col)
 
-        # Draining window bar — time left before the streak breaks
+        # Draining window bar - time left before the streak breaks
         remain = max(0.0, ANGEL_STREAK_WINDOW - (t - self._last_kill_t))
         frac   = remain / ANGEL_STREAK_WINDOW
         bar_w, bar_h = 180, 5
@@ -775,7 +773,7 @@ class HudRenderMixin:
         def scale_font(n): return max(12, int(n * hud_scale))
         ui  = self._ui
 
-        # CHARACTER LEVEL — top-left HUD readout, drawn with the other
+        # CHARACTER LEVEL - top-left HUD readout, drawn with the other
         # top-left character info. Uses the same
         # itemgen.format_character_level() accessor and formatting as the
         # inventory panel header, so the two sites always show the identical
@@ -784,9 +782,9 @@ class HudRenderMixin:
 
         self._draw_delve_hud(cw, ch, scale_font)
 
-        # Area name — top center
+        # Area name - top center
         # if self._delve is not None:
-        #     area_name = f"The Anima  —  Depth {self._delve['depth']}"
+        #     area_name = f"The Anima  -  Depth {self._delve['depth']}"
         # elif self.state == STATE_HUB:
         #     area_name = "The Hub"
         # else:
@@ -815,7 +813,7 @@ class HudRenderMixin:
         buff_y = ci_y + scale_px(96)
         buff_fs = scale_font(14)
         buff_gap = scale_px(2)
-        # Timed E-gem buffs — Lifesteal / Fire Aura (snapshotted at cast)
+        # Timed E-gem buffs - Lifesteal / Fire Aura (snapshotted at cast)
         if self._lifesteal_timer > 0:
             buf = f"Lifesteal {self._lifesteal_timer:.1f}s"
             c = rl.Color(80, 220, 100, 255)
@@ -884,7 +882,7 @@ class HudRenderMixin:
                 fonts.draw(v_sub, cw // 2 - v_sw // 2, ch // 2 - 8, v_sf,
                            rl.Color(255, 255, 255, max(0, v_alpha - 60)))
 
-        # ── bottom: Diablo II-style action bar — mirrors assets/ui/result.png ──
+        # ── bottom: Diablo II-style action bar - mirrors assets/ui/result.png ──
         # The mockup composites the UI assets at native pixel size (1762x237), so
         # every metric below is a native asset pixel scaled by bar_s. The bar is a
         # centered container capped at HUD_MAX_W screen px; all elements anchor to
@@ -892,9 +890,9 @@ class HudRenderMixin:
         # Mockup structure (owner ruling 2026-10-10; 2026-10-29 revision):
         # [life orb + label] │ [left box: organ-rot meter over 3 menu
         # buttons] │ [centre box: five CENTRED QWER+T slots] │ [right box:
-        # attack / move] — grey hairline frames, no bronze/gold, and the
+        # attack / move] - grey hairline frames, no bronze/gold, and the
         # mana orb is gone (a decorative orb_mag sits in its old spot).
-        HUD_MAX_W = 800                    # screen px — max width of the action bar
+        HUD_MAX_W = 800                    # screen px - max width of the action bar
         hud_w = min(cw, HUD_MAX_W)
         hud_x  = (cw - hud_w) // 2
         bar_s = min(hud_scale, hud_w / 1762.0)
@@ -918,8 +916,6 @@ class HudRenderMixin:
         bar_y = ch - BAR_H
         orb_top = ch - ORB - ORB_RAISE   # orb vertical position (ORB_RAISE lifts it)
 
-        # neutral outlines replaced the old bronze/gold frame constants
-        # (owner ruling 2026-10-29 — striped yellow accents removed)
         hp_pct = max(0.0, self.stats['health'] / max(1, self.stats['max_health']))
 
         # 1) Base panel tiled across the container width (BAR_INSET_L/R pull
@@ -945,7 +941,7 @@ class HudRenderMixin:
             return t if (t and t.id > 0) else None
 
         def _band(x, y, w, h, t, col):
-            """Hollow rectangle outline from four bars — draw_rectangle has
+            """Hollow rectangle outline from four bars - draw_rectangle has
             no thickness argument, and bars stay headless-safe."""
             x, y, w, h = int(x), int(y), int(w), int(h)
             t = max(1, int(t))
@@ -959,7 +955,7 @@ class HudRenderMixin:
 
         def _section_box(x, y, w, h):
             """Neutral section frame: darkened inset with a dim grey hairline
-            outline (owner ruling 2026-10-29 — the bronze band and gold
+            outline (owner ruling 2026-10-29 - the bronze band and gold
             chevrons were removed; the three bar sections keep their framed
             separation without the yellow)."""
             rl.draw_rectangle(int(x), int(y), int(w), int(h),
@@ -968,7 +964,7 @@ class HudRenderMixin:
                   rl.Color(110, 110, 110, 110))
 
         def _divider(x):
-            """Vertical divider strip between bar sections — divider.png is
+            """Vertical divider strip between bar sections - divider.png is
             shared with the menus (restored for the HUD, blueprint §15.147)."""
             dt = _tex('divider')
             dy = bar_y + bpx(6)
@@ -985,7 +981,7 @@ class HudRenderMixin:
 
         def _draw_orb(cx, top_y, size, pct, fill_key, r, g, b, label=None):
             """The single Life orb (left). The mirrored right-side branches
-            (mana orb + right angel statue) were removed — owner ruling
+            (mana orb + right angel statue) were removed - owner ruling
             2026-10-29."""
             tint = rl.Color(r, g, b, 255)
             panel_t = ui.get('orb_panel')
@@ -1026,7 +1022,7 @@ class HudRenderMixin:
                     rl.Rectangle(0, 0, float(glass_t.width), float(glass_t.height)),
                     rl.Rectangle(float(cx), float(top_y), float(size), float(size)),
                     rl.Vector2(0, 0), 0.0, rl.WHITE)
-            # angel statue pinned to the container edge (left orb only —
+            # angel statue pinned to the container edge (left orb only -
             # the mirrored right statue retired with the mana orb)
             if angel_t and angel_t.id > 0:
                 ang_w = int(bpx(254) * STATUE_SCALE)
@@ -1044,15 +1040,14 @@ class HudRenderMixin:
                 fonts.draw(label, lx, ly, lfs,
                            rl.Color(235, 235, 235, 240))
 
-        # 2) far-left Life orb (the RIGHT mana orb was removed — see below)
+        # 2) far-left Life orb
         hx = hud_x + ORB_MARGIN
         _draw_orb(hx, orb_top, ORB, hp_pct, 'orb_fill0', 200, 30, 30,
                   label=f"Life : {int(self.stats['health'])} / {int(self.stats['max_health'])}")
 
-        # 2b) right side: the mana orb is removed (mana retired from the
-        #     game, owner ruling 2026-10-29) — in its place the decorative
+        # 2b) right side: in place of the retired mana orb, the decorative
         #     orb_mag ring on the same ornate backdrop, the mirrored angel
-        #     statue (restored 2026-10-29) and the revolver AMMO readout.
+        #     statue and the revolver AMMO readout.
         mag_x = hud_x + hud_w - ORB_MARGIN - ORB
         mag_t = _tex('orb_mag')
         if mag_t and mag_t.id > 0:
@@ -1072,7 +1067,7 @@ class HudRenderMixin:
                 rl.Rectangle(0, 0, float(mag_t.width), float(mag_t.height)),
                 rl.Rectangle(float(mag_x), float(orb_top), float(ORB), float(ORB)),
                 rl.Vector2(0, 0), 0.0, rl.WHITE)
-        # mirrored angel statue pinned to the container's right edge —
+        # mirrored angel statue pinned to the container's right edge -
         # its arm overlays the ring, exactly like the left statue does
         # on the Life orb. +20 screen px nudges it toward the screen edge.
         angel_t2 = ui.get('orb_angel')
@@ -1086,7 +1081,7 @@ class HudRenderMixin:
             rl.draw_texture_pro(angel_t2, src2,
                 rl.Rectangle(float(ax2), float(ang_y2), float(ang_w2), float(ang_h2)),
                 rl.Vector2(0, 0), 0.0, rl.WHITE)
-        # revolver ammo readout — same size/placement family as the Life
+        # revolver ammo readout - same size/placement family as the Life
         # text; the future bullets system mutates self._ammo
         ammo_cur = int(getattr(self, '_ammo', AMMO_MAX))
         ammo_max = int(getattr(self, '_ammo_max', AMMO_MAX))
@@ -1099,7 +1094,7 @@ class HudRenderMixin:
                    rl.Color(235, 235, 235, 240))
 
         # 3) left cluster: bronze box with the organ-rot meter on top and the
-        #    3 menu buttons underneath — the mockup's two-row rhythm
+        #    3 menu buttons underneath - the mockup's two-row rhythm
         row_top = bar_y + bpx(8)              # top row: rot meter / wide buttons
         row_bot = bar_y + bpx(66)             # bottom row: menu buttons
         PAD = bpx(6)
@@ -1114,8 +1109,7 @@ class HudRenderMixin:
         _section_box(*left_box)
 
         # organ-rot meter: icon slot + ten segments bound to itemgen.max_rot
-        # (worst equipped organ; owner ruling 2026-10-10 — replaces the
-        # removed stamina row of the mockup)
+        # (worst equipped organ)
         rot_pct = itemgen.max_rot(self.inventory)
         icon_w, icon_h = bpx(44), bpx(48)
         bt1 = _tex('button1')
@@ -1179,7 +1173,7 @@ class HudRenderMixin:
 
         # right-cluster geometry (computed before the centre row so the
         # centre can centre itself against it). Anchored to the orb_mag
-        # ring's left edge with the left cluster's bpx(48) gap — restored
+        # ring's left edge with the left cluster's bpx(48) gap - restored
         # mirror geometry (2026-10-29): [centre] [box] [orb_mag] [statue],
         # so the buttons no longer overlap the ring.
         rp_w = 2 * bpx(96) + bpx(4)
@@ -1194,7 +1188,7 @@ class HudRenderMixin:
         mxp, myp = rl.get_mouse_x(), rl.get_mouse_y()
 
         # 4) centre: five QWER+T slots, SIZED AND CENTRED like the mockup's
-        #    six-slot belt (owner ruling 2026-10-10 — no numbered hotkeys,
+        #    six-slot belt (owner ruling 2026-10-10 - no numbered hotkeys,
         #    no potion belt: the keys stay Q/W/E/R/T)
         zone_l = lp_right + bpx(14)
         zone_r = rp_x - bpx(14)
@@ -1211,7 +1205,7 @@ class HudRenderMixin:
                       slots_w + bpx(14), CSLOT + bpx(14))
         _section_box(*centre_box)
 
-        # Q/W/E/R gem ability slots — socketed ability icon, key label,
+        # Q/W/E/R gem ability slots - socketed ability icon, key label,
         # cooldown dim + seconds; click casts
         sk_t = _tex('skill_base')
         asz = CSLOT
@@ -1226,7 +1220,7 @@ class HudRenderMixin:
             else:
                 rl.draw_rectangle(int(sx), int(a_y), asz, asz, rl.Color(30, 30, 30, 220))
             found = gems.socketed_ability(self.inventory, key)
-            # the ability id lives on the instance data — the ABILITIES
+            # the ability id lives on the instance data - the ABILITIES
             # dicts themselves don't carry an 'id' key
             ab_id = found[0].get('ability') if found is not None else None
             icon = None
@@ -1275,7 +1269,7 @@ class HudRenderMixin:
             act_rects[key] = srect
             self._draw_hud_flash(key, sx + asz / 2, a_y, float(asz))
 
-        # T — the equipped flask (health/mana abilities, click or T to drink);
+        # T - the equipped flask (health/mana abilities, click or T to drink);
         #    slot 5 of the centred row, drawn on the same skill_base frame
         fl_x = slots_x + 4 * (asz + cgap)
         fl_y = slots_y
@@ -1290,7 +1284,7 @@ class HudRenderMixin:
         fl_entry = self.inventory.get('flask_slot')
         if fl_entry:
             # the flask's own item art (health/mana .png), aspect-fit into
-            # the slot — the same sprites the inventory panel shows
+            # the slot - the same sprites the inventory panel shows
             inv_ui = getattr(self, 'inv', None)
             fl_icon = (inv_ui._icons.get(fl_entry['item'])
                        if inv_ui is not None and hasattr(inv_ui, '_icons')
@@ -1329,7 +1323,7 @@ class HudRenderMixin:
         self._draw_hud_flash('T', fl_x + asz / 2, fl_y, float(asz))
 
         # 5) right cluster: framed box with attack / move only (the mockup's
-        #    four lower slots are decorative — dropped, owner ruling
+        #    four lower slots are decorative - dropped, owner ruling
         #    2026-10-10). Both buttons stay clickable and flash on use.
         #    The buttons sit 3 screen px lower than row_top, and below each
         #    one a mouse hint icon reads the trigger: click under attack
@@ -1394,7 +1388,7 @@ class HudRenderMixin:
                 mm_ents.append({'col': gi['x'], 'row': gi['y'],
                                 'mm_col': rl.Color(255, 150, 30, 255)})
 
-        # Minimap — top-right, circular inside compass frame
+        # Minimap - top-right, circular inside compass frame
         compass_tex = ui.get('compass')
         if compass_tex and compass_tex.id > 0:
             compass_w = 79
@@ -1478,7 +1472,7 @@ class HudRenderMixin:
             ry = int(radius * step_y * 2)
             return rx, ry
 
-        # Enemies — detect radius (yellow) and melee radius (orange)
+        # Enemies - detect radius (yellow) and melee radius (orange)
         for z in self.zombies:
             if z['health'] <= 0:
                 continue
@@ -1489,7 +1483,7 @@ class HudRenderMixin:
             rx, ry = ellipse_lines(center_x, center_y, MELEE_RANGE)
             rl.draw_ellipse_lines(center_x, center_y, float(rx), float(ry), rl.Color(255, 120, 0,  200))
 
-        # Player — ranged attack radius (cyan)
+        # Player - ranged attack radius (cyan)
         sx, sy = self.iso.world_to_screen(self.px, self.py, cw, ch)
         rx, ry = ellipse_lines(sx + half, sy + half, self._attack_range())
         rl.draw_ellipse_lines(sx + half, sy + half, float(rx), float(ry), rl.Color(80, 200, 255, 200))

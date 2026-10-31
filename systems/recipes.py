@@ -14,21 +14,21 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Blacksmith dismantle recipes — static data + pure matcher (BLUEPRINT §24).
+Blacksmith dismantle recipes - static data + pure matcher (BLUEPRINT §24).
 
 The forge panel (assets/ui/blacksmith.png) shows two 8×4 grids: the TOP grid
 holds the player's offered items, the BOTTOM grid previews what they are
 worth. Everything runs on ONE flow: upgrade recipes are matched first (they
 pay better than selling), then every remaining sellable item is dismantled
-into The Joker quarters — the card-stacking currency stands in for the gold
+into The Joker quarters - the card-stacking currency stands in for the gold
 economy that was removed (owner ruling 2026-09-27).
 
 Rules carried over from the blueprint (sell scope revised by owner):
   * Sells pay Joker quarters (rarity-scaled for organs/gems/potions,
-    flasks flat, cards 1 per card) — PoE wisdom-scrap pattern; this is the
+    flasks flat, cards 1 per card) - PoE wisdom-scrap pattern; this is the
     steady Joker income that lets its drop weight taper with depth
     (§23.220).
-  * Selling a legendary or mythic item requires a confirmation popup — those
+  * Selling a legendary or mythic item requires a confirmation popup - those
     are chase items, never destroyed by a misclick.
   * Recipe inputs must be unidentified organs; the output rolls a random
     organ slot at ilvl = max of the inputs (identified organs only SELL).
@@ -41,7 +41,7 @@ import systems.gems as gems
 import systems.currency as currency
 from systems.items import ITEMS
 
-# Forge grid dims — matches the painted cells of the blacksmith panel art
+# Forge grid dims - matches the painted cells of the blacksmith panel art
 # (568×798): two 8 cols × 4 rows grids.
 FORGE_COLS = 8
 FORGE_ROWS = 4
@@ -77,7 +77,7 @@ QUEEN_ARCANA = 14
 def sell_quarters_for(entry):
     """Joker-quarter value of ONE grid entry (x its stack count), or None
     for zero-value junk. Everything sellable (owner revised §24.225):
-    organs — IDENTIFIED OR NOT — gems and potions pay by rarity, flasks
+    organs - IDENTIFIED OR NOT - gems and potions pay by rarity, flasks
     pay flat, cards pay 1 quarter per card (a Joker stack pays its own
     quarters back). Unknown item ids / rarities refuse."""
     if not isinstance(entry, dict):
@@ -153,7 +153,7 @@ def match_forge(grid, rng=None):
     """Match a forge (offerings) grid against recipes + the sell table.
 
     Pure function of the grid's item-id multiset (random output rolls use
-    `rng`/module random — callers cache the result by `forge_signature` so a
+    `rng`/module random - callers cache the result by `forge_signature` so a
     resting preview never flickers). Greedy priority: organ ascension →
     Queen of Hearts → gem tier-up → sell everything left for Joker quarters.
 

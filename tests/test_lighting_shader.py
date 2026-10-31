@@ -41,7 +41,7 @@ class NoiseGenerationTests(unittest.TestCase):
 
     def test_tiles_seamlessly(self):
         """The generator wraps via np.roll, so the seam between the last and
-        first column must be no rougher than any interior neighbour step —
+        first column must be no rougher than any interior neighbour step -
         REPEAT sampling shows no visible discontinuity."""
         rgb = self.noise[..., 0].astype(np.int16)
         interior = np.abs(np.diff(rgb, axis=0)).mean() + np.abs(np.diff(rgb, axis=1)).mean()

@@ -40,7 +40,7 @@ class HubRenderMixin:
         player_entity, hub_actors = self._hub_actor_entities()
         hub_entities = list(hub_actors)
 
-        # Delve Heart — the pulse art, breathing slowly at the hub's centre
+        # Delve Heart - the pulse art, breathing slowly at the hub's centre
         if self._pulse_tex and self._pulse_tex.id > 0:
             breath = 1.0 + 0.06 * math.sin(self.anim_time * 2.2)
             hub_entities.append({
@@ -49,7 +49,7 @@ class HubRenderMixin:
                 'big_art': True,   # ENTITY canvas, same size as _draw_hub_bright
             })
 
-        # Static hub dressing — tents, flowers, graveyard corner, clutter
+        # Static hub dressing - tents, flowers, graveyard corner, clutter
         # (_HUB_PROP_SPOTS in game.py). Not interactable; depth-sorts and
         # reflects in puddles like every entity.
         for name, px_, py_, pscale, pdir in _HUB_PROP_SPOTS:
@@ -81,13 +81,13 @@ class HubRenderMixin:
 
         self._apply_post_chain(cw, ch)
 
-        # Darkness is real in the hub — torches & braziers carve the light.
+        # Darkness is real in the hub - torches & braziers carve the light.
         self._render_darkness(cw, ch, self._hub_lights, self._hub_dark_timer)
         self._hover_interact = self._hover_interactable(
             self._hub_objects, HUB_CLICK_RADIUS, cw, ch)
         self._draw_hub_bright(cw, ch)
 
-        # object labels — anchored to the ART's top edge (entities are drawn
+        # object labels - anchored to the ART's top edge (entities are drawn
         # centred on the tile centre, i.e. half a tile below the projection
         # point), then brightened above the darkness so they read from the gloom
         if self.menu_sys.settings.debug_overlay:
@@ -106,7 +106,7 @@ class HubRenderMixin:
             fonts.draw(lbl, center_x - label_width // 2, ly, 16,
                        rl.Color(obj['color'].r, obj['color'].g, obj['color'].b, 200))
 
-        # Ground drop labels — same always-visible/Alt rule as in the delve
+        # Ground drop labels - same always-visible/Alt rule as in the delve
         self._draw_drop_labels(cw, ch)
 
         # combat numbers above the hub darkness, matching the delve hook
@@ -152,7 +152,7 @@ class HubRenderMixin:
             elif self._hub_popup == 'blacksmith':
                 rl.draw_rectangle(0, 0, cw, ch, rl.Color(0, 0, 0, 160))
                 self.inv.draw(self._get_char_inventory(), cw, ch)
-                # X close button for the forge — offerings ride back to the
+                # X close button for the forge - offerings ride back to the
                 # backpack; a full backpack keeps the panel open
                 x_sz = 34
                 x_r = rl.Rectangle(cw - x_sz - 12, 12, x_sz, x_sz)
@@ -185,7 +185,7 @@ class HubRenderMixin:
             rl.draw_texture_pro(tex, src, dst, rl.Vector2(0.0, 0.0), 0.0,
                                 tint or rl.WHITE)
 
-        # Delve Heart — bright, with a subtle warm glow (the layered
+        # Delve Heart - bright, with a subtle warm glow (the layered
         # darkness light does the heavy lifting now)
         if self._pulse_tex and self._pulse_tex.id > 0:
             pulse = (math.sin(self.anim_time * 2.2) + 1.0) / 2.0
@@ -197,7 +197,7 @@ class HubRenderMixin:
             breath = 1.0 + 0.06 * math.sin(self.anim_time * 2.2)
             draw_tex(_HEART_POS[0], _HEART_POS[1], self._pulse_tex, 1.2 * breath, ent=True)
 
-        # (the campfire sprites — pillar bowls and braziers — are gone;
+        # (the campfire sprites - pillar bowls and braziers - are gone;
         # the Delve Heart carries the sanctuary's light alone)
 
         # ── actors above the darkness ────────────────────────────────────
@@ -224,7 +224,7 @@ class HubRenderMixin:
             tint = self._actor_tint(self._hub_lights, cx, cy, cw, ch)
             self._draw_ground_item_sprite(gi, cx, cy, tile_size, tint)
 
-        # hovered interactable pops: additive re-draw of the art itself —
+        # hovered interactable pops: additive re-draw of the art itself -
         # only art pixels brighten, no floor pool
         hv = self._hover_interact
         if hv:

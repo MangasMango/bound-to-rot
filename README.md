@@ -25,7 +25,7 @@ If you'd like to report a bug or suggest a feature, open an [issue](https://gith
 
 - **Anima** | an endless isometric descent. Depth drives everything: monster level, item level and reward quality.
 - **The Pulse** | your mobile light anchor. Leave its light radius and darkness starts eating you alive. Clear a wave and the Pulse opens the **chart**: pick your next checkpoint, claim a 1-of-3 relic boon.
-- **Vessels** | Pyrrhian (knight) — the only vessel for now. Myronian (warrior) and Theran (fighter) are work in progress.
+- **Vessels** | Pyrrhian (knight) - the only vessel for now. Myronian (warrior) and Theran (fighter) are work in progress.
 - **Permadeath** | dying in the Anima deletes the character. Only your account-wide best depth survives.
 - **Items & Tarot** | gear drops unidentified and is revealed with tarot cards, which double as crafting currency (upgrade, force mythic, reroll). Gems socketed into **Q / W / E / R** grant abilities; a **T** flask gives one charge per wave.
 
@@ -62,30 +62,30 @@ _Building:_ `pyinstaller main.spec`
 
 ### Assets
 
-Game assets live in `assets/` and **not all of them are in this repository**. The `boss`, `enemy` and `none-playable character` folders (plus the `playable character` pack folder) come from a third-party pack that forbids redistribution; obtain the pack yourself and copy the files into those folders before running the game. The whole world — floor, props and portal circles — is tracked with the repository: it renders from the desert-tileset atlas in `assets/environment/` (props are cropped from the atlas at load).
+Game assets live in `assets/` and **not all of them are in this repository**. The `boss`, `enemy` and `none-playable character` folders (plus the `playable character` pack folder) come from a third-party pack that forbids redistribution; obtain the pack yourself and copy the files into those folders before running the game. The whole world - floor, props and portal circles - is tracked with the repository: it renders from the desert-tileset atlas in `assets/environment/` (props are cropped from the atlas at load).
 
 The assets are collected on [itch.io](https://itch.io/c/8322662/boundtorot). If you can't find something, or you have questions about a licence, contact me on [Discord](https://discord.com/invite/s2rgHuctdc) or by [email](mailto:mangasmangostudios@gmail.com).
 
 #### Credits
 
-The **code** is licensed under the GPL (see [License](#license)). **Game assets are not** — they keep their original licences:
+The **code** is licensed under the GPL (see [License](#license)). **Game assets are not** - they keep their original licences:
 
 | Assets | Source & author | Licence |
 |--------|-----------------|---------|
-| Currency cards — `assets/cards/` | [Pixel Poker Cards](https://aspecsgaming.itch.io/mini-pixel-playing-cards) by Aspecs Gaming | CC0 1.0 |
-| UI font — `assets/fonts/` | [Sancreek](https://fonts.google.com/specimen/Sancreek) by Vernon Adams | SIL OFL 1.1 |
-| World tileset — `assets/environment/` | [Desert Tileset](https://opengameart.org/content/desert-tileset) by Amstrad, a modification of the [Flare grassland tileset](https://opengameart.org/content/grassland-tileset) | CC BY-SA 3.0 |
-| Inventory/bank panels & orbs — `assets/ui/` | [RPG Inventory](https://opengameart.org/content/rpg-inventory), [Health Orb 1.1](https://opengameart.org/content/health-orb-11) by itsmars | CC0 1.0 |
-| UI icons — `assets/ui-icons/` | [1-bit Pixel Icons](https://nikoichu.itch.io/pixel-icons) by Nikoichu | CC0 1.0 |
-| Ability gem icons — `assets/ability-icons/` | [Icons - Dark Magic](https://opengameart.org/content/icons-dark-magic) by Cethiel | CC0 1.0 |
-| Menu GUI kit — `assets/gui/` | [RPG GUI Construction Kit v1.0](https://opengameart.org/content/rpg-gui-construction-kit-v10) by Lamoot | CC BY 3.0 |
-| Sound effects — `assets/ui-sfx/`, `assets/ingame-sfx/` | [Kenney](https://kenney.nl) (UI Audio, Interface Sounds, RPG Audio, Impact Sounds, Footsteps) | CC0 1.0 |
-| Music — `assets/ost/` | [Spaghetti Western Guitar Stab](https://opengameart.org/content/spaghetti-western-guitar-stab) by SpringySpringo (CC BY 3.0); [Spaghetti Western Theme (Orchestral)](https://opengameart.org/content/spaghetti-western-theme-orchestral) by linxiaoma (CC BY 4.0); [Lobo Loco](https://freemusicarchive.org/music/Lobo_Loco/tunnel-games) | CC BY 4.0 |
+| Currency cards - `assets/cards/` | [Pixel Poker Cards](https://aspecsgaming.itch.io/mini-pixel-playing-cards) by Aspecs Gaming | CC0 1.0 |
+| UI font - `assets/fonts/` | [Sancreek](https://fonts.google.com/specimen/Sancreek) by Vernon Adams | SIL OFL 1.1 |
+| World tileset - `assets/environment/` | [Desert Tileset](https://opengameart.org/content/desert-tileset) by Amstrad, a modification of the [Flare grassland tileset](https://opengameart.org/content/grassland-tileset) | CC BY-SA 3.0 |
+| Inventory/bank panels & orbs - `assets/ui/` | [RPG Inventory](https://opengameart.org/content/rpg-inventory), [Health Orb 1.1](https://opengameart.org/content/health-orb-11) by itsmars | CC0 1.0 |
+| UI icons - `assets/ui-icons/` | [1-bit Pixel Icons](https://nikoichu.itch.io/pixel-icons) by Nikoichu | CC0 1.0 |
+| Ability gem icons - `assets/ability-icons/` | [Icons - Dark Magic](https://opengameart.org/content/icons-dark-magic) by Cethiel | CC0 1.0 |
+| Menu GUI kit - `assets/gui/` | [RPG GUI Construction Kit v1.0](https://opengameart.org/content/rpg-gui-construction-kit-v10) by Lamoot | CC BY 3.0 |
+| Sound effects - `assets/ui-sfx/`, `assets/ingame-sfx/` | [Kenney](https://kenney.nl) (UI Audio, Interface Sounds, RPG Audio, Impact Sounds, Footsteps) | CC0 1.0 |
+| Music - `assets/ost/` | [Spaghetti Western Guitar Stab](https://opengameart.org/content/spaghetti-western-guitar-stab) by SpringySpringo (CC BY 3.0); [Spaghetti Western Theme (Orchestral)](https://opengameart.org/content/spaghetti-western-theme-orchestral) by linxiaoma (CC BY 4.0); [Lobo Loco](https://freemusicarchive.org/music/Lobo_Loco/tunnel-games) | CC BY 4.0 |
 | Knight vessel | rendered from the Hero Clint gunslinger model (Sketchfab) with [3d-to-isometric](https://github.com/MangasMango/3d-to-isometric) | CC BY 4.0 |
 | Skeleton enemy | rendered from the [Flare game](https://github.com/flareteam/flare-game) skeleton character | CC BY-SA 3.0 |
-| Icon, logo, pulse, item sprites, VFX shaders | made in-house | — |
+| Icon, logo, pulse, item sprites, VFX shaders, inventory/bank/blacksmith/descend panels, angel statue | made in-house | - |
 
-Slash/sparkle/flame/glow VFX are generated by code (GLSL shaders in `assets/shaders/`). The muzzle-flash/bullet-impact sprites (Hit-Yellow by Sinestesia & Mikodrak) stay **local only** — their licence is not confirmed yet, so they are not distributed with the repository.
+Slash/sparkle/flame/glow VFX are generated by code (GLSL shaders in `assets/shaders/`). The muzzle-flash/bullet-impact sprites (Hit-Yellow by Sinestesia & Mikodrak) stay **local only** - their licence is not confirmed yet, so they are not distributed with the repository.
 
 The full file → track mapping lives in [`credits/SOURCES.txt`](credits/SOURCES.txt) and in the per-folder `credits.txt` / `README.md` files. **AI-generated assets are prohibited** in contributions; make new art yourself (see [Contributing](CONTRIBUTING.md)).
 

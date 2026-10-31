@@ -68,7 +68,7 @@ class HubMixin:
             self._hub_lights = [dict(l) for l in _HUB_LIGHTS]
             self._hub_dark_timer = 0.0
             self.iso.set_path_cells(_HUB_PATH_CELLS)
-            # The hub settles into a light drizzle rather than a storm —
+            # The hub settles into a light drizzle rather than a storm -
             # calm, reflective sanctuary look (render-only).
             self._sync_weather(strength=0.30, seed=0x4875)
 
@@ -95,7 +95,7 @@ class HubMixin:
             cw = rl.get_screen_width()
             ch = rl.get_screen_height()
 
-            # Anima panel — the node chooser popup; freeze the hub behind it
+            # Anima panel - the node chooser popup; freeze the hub behind it
             if self._hub_popup == 'anima':
                 if self._chart_screen is None:
                     self._hub_popup = None
@@ -116,7 +116,7 @@ class HubMixin:
                 if result == 'close' or inp.key_pressed('hub.anima.close', rl.KEY_ESCAPE):
                     self._hub_popup = None
                     return
-                # Resume button (saved mid-delve snapshot) — panel bottom edge
+                # Resume button (saved mid-delve snapshot) - panel bottom edge
                 lmb = inp.mouse_pressed('hub.anima.resume', rl.MOUSE_BUTTON_LEFT)
                 if (self._chart_resume and self._chart_resume_rect and lmb
                         and rl.check_collision_point_rec(
@@ -169,7 +169,7 @@ class HubMixin:
                 self._combat_log_scroll = 0
             self.inv.update(self._get_char_inventory(), self.stats)
 
-            # movement — right click / hold (blocked when inventory is open)
+            # movement - right click / hold (blocked when inventory is open)
             if not self.inv.open:
                 if inp.mouse_pressed('hub.movement', rl.MOUSE_BUTTON_RIGHT):
                     mx, my = rl.get_mouse_x(), rl.get_mouse_y()
@@ -185,7 +185,7 @@ class HubMixin:
                         self.dest_col = tile_col
                         self.dest_row = tile_row
 
-            # left click on hub object — walk then interact (blocked when inventory is open)
+            # left click on hub object - walk then interact (blocked when inventory is open)
             if not self.inv.open and inp.mouse_pressed('hub.object_click', rl.MOUSE_BUTTON_LEFT):
                 mx, my = rl.get_mouse_x(), rl.get_mouse_y()
                 tile_col, tile_row = self.iso.screen_to_world(mx, my, cw, ch)
@@ -202,7 +202,7 @@ class HubMixin:
             else:
                 self.player_state = 'idle'
 
-            # Free roam — no clamp. The 200×200 floor is bounded only by the
+            # Free roam - no clamp. The 200×200 floor is bounded only by the
             # grid itself; outside the torch light the darkness punishes.
 
             # arrive at hub object
@@ -213,7 +213,7 @@ class HubMixin:
                     self._hub_pending_interact = None
                     self._hub_trigger(obj)
 
-            # darkness is real in the hub too — torches keep you alive
+            # darkness is real in the hub too - torches keep you alive
             self._update_hub_darkness(dt)
 
             self.anim_time += dt
@@ -229,7 +229,7 @@ class HubMixin:
             for light in lights:
                 dist = math.hypot(self.px - light['x'], self.py - light['y'])
                 # `r` is the VISIBLE LIGHT EDGE (lighting.fs EDGE_SCALE
-                # semantics, hub radii are compensated in _HUB_LIGHTS) — the
+                # semantics, hub radii are compensated in _HUB_LIGHTS) - the
                 # gameplay reach keeps its pre-compensation value
                 reach = light['r'] / SHADER_EDGE_SCALE + DELVE_PERSONAL_LIGHT
                 if best is None or dist - reach < best[0] - best[1]:
@@ -246,14 +246,14 @@ class HubMixin:
             if in_dim:
                 dps_mult = min(dps_mult, 0.5)
             self.stats['health'] = max(0.0, self.stats['health'] - DELVE_DARKNESS_DPS * dps_mult * dt)
-            # the red flash rides the damage ramp — zero while the darkness
+            # the red flash rides the damage ramp - zero while the darkness
             # deals zero DPS, not the instant you step out
             self.hit_flash = max(self.hit_flash, 0.18 * min(1.0, dps_mult))
             if self.stats['health'] <= 0:
                 self._permadeath()
 
         def _hub_actor_entities(self):
-            """Player + hub NPC + stash entity specs — shared between the scene
+            """Player + hub NPC + stash entity specs - shared between the scene
             draw and the above-darkness actor redraw."""
             player_sprites = self._player_sprites.get(self.char.looks,
                              self._player_sprites.get('fighter', {}))
@@ -267,7 +267,7 @@ class HubMixin:
                 'big_art': True,      # legacy character canvas keeps ENTITY_BASE size
             }
             actors = []
-            # Blacksmith anvil — inert waypoint (the vendor's shop died
+            # Blacksmith anvil - inert waypoint (the vendor's shop died
             # with the gold economy); atlas prop art, tile-riding size
             if self._anvil_spr:
                 actors.append({

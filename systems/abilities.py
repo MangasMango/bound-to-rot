@@ -14,12 +14,12 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Ability system — abilities live on GEMS (QWER), not organs.
+Ability system - abilities live on GEMS (QWER), not organs.
 
 Gem COLORS map onto the four action keys (see systems/gems.py):
     Q  blue  -> cone actives (aimed with the mouse)
     W  green -> movement actives (dash / blink)
-    E  red   -> survival actives (lifesteal / fire aura — pressed on E)
+    E  red   -> survival actives (lifesteal / fire aura - pressed on E)
     R  white -> ultimate: any ability, rolled at a higher floor
 
 Tiers are driven by the item's rarity:
@@ -74,7 +74,7 @@ ABILITIES = {
         'cooldown': [4.8, 3.6, 2.4, 1.5, 1.2],
         'max_range': [4.0, 6.0, 8.0, 12.0, 15.0],
     },
-    # ── active: survival (E slot) — timed buffs ────────────────────────
+    # ── active: survival (E slot) - timed buffs ────────────────────────
     'lifesteal': {
         'label': 'Lifesteal', 'short': 'Leech', 'type': 'active',
         'cooldown': [10.0, 9.0, 8.0, 7.0, 6.0],

@@ -15,23 +15,23 @@
 
 from config import ASSETS
 """
-Audio system — loads all sound pools once, exposes simple play calls.
+Audio system - loads all sound pools once, exposes simple play calls.
 
 Music: every scene state maps to one track, and every transition is a
-CROSSFADE (old stream fades out while the new one fades in — never an
+CROSSFADE (old stream fades out while the new one fades in - never an
 instant stop). States:
 
     menu        Western menu               main menu + title screen
-    (loading)   off — silence while the loading screen runs
+    (loading)   off - silence while the loading screen runs
     hub         Settlers Caravan           the Hub
     death       Western guitar stab        permadeath screen
-    game        western_ingame playlist    the delve — the three in-game
+    game        western_ingame playlist    the delve - the three in-game
                 western_ingame1/2/3.ogg    tracks play one after another,
                 continuously (crossfaded end-to-end, endless loop) and are
                 NEVER re-triggered by waves, depths or node choices.
 
-    (old maxstack / Devilish Design tracks are retired — see
-    assets/ost/credits.txt for the current soundtrack licences)
+    (retired tracks were removed; current soundtrack licences live in
+    assets/ost/credits.txt)
 """
 
 import os
@@ -50,7 +50,7 @@ _MUSIC_FILES = {
     'hub':        'ost/western_hub.ogg',
     'death':      'ost/westernguitarstab.ogg',
 }
-# The delve playlist — plays continuously, one after another, forever.
+# The delve playlist - plays continuously, one after another, forever.
 _GAME_PLAYLIST = (
     'ost/western_ingame1.ogg',
     'ost/western_ingame2.ogg',
@@ -92,7 +92,7 @@ class AudioSystem:
     # ── init ─────────────────────────────────────────────────────────
 
     def init_music(self):
-        # One stream PER FILE, shared by the states that use it — loading
+        # One stream PER FILE, shared by the states that use it - loading
         # the same file once per state would run six independent copies
         # of the same track against each other during crossfades.
         for name, rel in _MUSIC_FILES.items():
@@ -102,7 +102,7 @@ class AudioSystem:
                 self._file_streams[rel] = stream
             if stream is not None:
                 self._music[name] = stream
-        # Delve playlist — every track loaded once, in playlist order
+        # Delve playlist - every track loaded once, in playlist order
         self._playlist_streams = []
         for rel in _GAME_PLAYLIST:
             stream = self._file_streams.get(rel)
@@ -146,7 +146,7 @@ class AudioSystem:
         # Enemy melee hit on player
         self._load_a('enemy_hit', 'ingame-sfx/impactPunch_medium_000.ogg')
 
-        # Gunslinger — revolver shot + bullet impacts on undead (bone crack)
+        # Gunslinger - revolver shot + bullet impacts on undead (bone crack)
         self._load_pool_a('revolver_shot', ['ingame-sfx/revolverShoot1.ogg'])
         self._load_pool_a('bullet_impact', [f'ingame-sfx/impactGlass_heavy_{i:03d}.ogg'
                                             for i in range(5)])
@@ -208,7 +208,7 @@ class AudioSystem:
 
     def set_music_volume(self, v: float):
         self.music_vol = max(0.0, min(1.0, v))
-        # apply to every audible stream — respecting any in-flight fade so
+        # apply to every audible stream - respecting any in-flight fade so
         # the settings slider can't fight the crossfade (it runs every tick)
         for m in list(self._music.values()) + list(self._playlist_streams):
             if rl.is_music_stream_playing(m):
@@ -221,10 +221,10 @@ class AudioSystem:
 
     def set_music_state(self, state: str):
         """Scene-state music with a crossfade: the old track fades out while
-        the new one fades in (FADE_SECONDS each way) — never an instant stop.
+        the new one fades in (FADE_SECONDS each way) - never an instant stop.
         State 'game' is the delve playlist: entering it RESTARTS the playlist
         at the first track (owner ruling), and track-to-track switching is
-        then driven purely by track ends in tick() — never by gameplay."""
+        then driven purely by track ends in tick() - never by gameplay."""
         if not self._music_ready:
             self._music_state = state
             return
@@ -236,7 +236,7 @@ class AudioSystem:
         self._music_state = state
 
     def set_delve_music(self):
-        """Delve music — the continuous western playlist."""
+        """Delve music - the continuous western playlist."""
         self.set_music_state(GAME_MUSIC_STATE)
 
     def _state_stream(self, state: str):
@@ -250,7 +250,7 @@ class AudioSystem:
 
     def _crossfade_to(self, state: str):
         # `_music` is keyed by LOGICAL STATE NAME ('menu', 'hub', …) and the
-        # delve playlist lives in _playlist_streams — resolve the target
+        # delve playlist lives in _playlist_streams - resolve the target
         # stream, then every stream keeps EXACTLY ONE fader: the incoming
         # track fades in (target 1.0), every other stream fades out
         # (target 0.0), retargeting mid-fade streams in place so a cut never
@@ -273,7 +273,7 @@ class AudioSystem:
                 self._fades.append({'music': m, 'vol': 1.0, 'target': 0.0})
 
     def _advance_playlist(self):
-        """Track ended — start the next one with a crossfade, wrapping
+        """Track ended - start the next one with a crossfade, wrapping
         around the playlist endlessly."""
         if not self._playlist_streams:
             return
@@ -294,11 +294,11 @@ class AudioSystem:
             if f['vol'] == f['target']:
                 if f['target'] == 0.0:
                     rl.stop_music_stream(f['music'])
-                continue          # fade complete — volume pinned, drop fader
+                continue          # fade complete - volume pinned, drop fader
             remaining.append(f)
         self._fades = remaining
         # Continuous delve playlist of last resort: while in the delve the
-        # playlist is the ONLY music driver — when the current track ends
+        # playlist is the ONLY music driver - when the current track ends
         # (and nothing is fading), roll to the next one, forever.
         if (self._music_state == GAME_MUSIC_STATE and not self._fades
                 and self._playlist_index < len(self._playlist_streams)):

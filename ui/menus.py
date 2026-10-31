@@ -58,7 +58,7 @@ DEFAULT_FONT = 'Sancreek-Regular.ttf'
 def _apply_font(font_name: str):
     path = os.path.join(_FONT_DIR, font_name)
     if not os.path.exists(path):
-        # deleted/unknown font in an old settings.json — fall back
+        # deleted/unknown font in an old settings.json - fall back
         font_name = DEFAULT_FONT
         path = os.path.join(_FONT_DIR, font_name)
         if not os.path.exists(path):
@@ -79,7 +79,7 @@ C_GOLD    = _c(255, 225, 70,  255)
 C_GREEN   = _c(80,  200, 80,  255)
 C_RED     = _c(0xDA, 0x00, 0x00, 255)
 
-# UI palette (BLUEPRINT §14) — red accents, white trim, black panels
+# UI palette (BLUEPRINT §14) - red accents, white trim, black panels
 C_GOLD_HOVER = _c(0xD2, 0xD2, 0xD2)                    # Main White
 C_GOLD_TEXT  = _c(0x99, 0x99, 0x99)
 C_SLATE      = _c(0x11, 0x11, 0x11, 0x99)
@@ -315,7 +315,7 @@ class _TextInput:
     """Text-entry buffer fed from a per-render-frame char queue.
 
     raylib clears its char-pressed queue at every PollInputEvents (once per
-    RENDER frame), but text fields are polled per SIM tick — and with the
+    RENDER frame), but text fields are polled per SIM tick - and with the
     30 Hz fixed timestep, many render frames run zero ticks, so
     characters typed on a zero-tick frame were dropped and typing did not
     work. Game.poll_frame_input() drains the raylib char queue once per
@@ -473,6 +473,7 @@ class MenuSystem:
 
         # Settings toast notification
         self._settings_toast_timer = 0.0
+        self._credits_scroll = 0
 
         # UI textures -- set by Game.init() after window is open
         self.panel_tex  = None
@@ -721,6 +722,7 @@ class MenuSystem:
             ('Multiplayer',       'multiplayer', 'mp'),
             ('Dedicated Server',  'server',   'dedicated'),
             ('Settings',          'settings', 'settings'),
+            ('Credits',           'settings', 'credits'),
             ('Exit Bound To Rot', 'exit',     'quit'),
         ]
         item_size = 28
@@ -762,6 +764,9 @@ class MenuSystem:
                 if _ == 'settings':
                     self._prev = 'main'
                     self.state = 'settings'
+                elif _ == 'credits':
+                    self._prev = 'main'
+                    self.state = 'credits'
                 elif _ == 'quit':
                     self._confirm_quit = True
                 elif _ == 'play':
@@ -897,7 +902,7 @@ class MenuSystem:
             _divider(rx, ry, rw - 0, color=gui_kit.MUTED)
             ry += 10
 
-            # attributes — one per line
+            # attributes - one per line
             for attr_key in DESCEND_ATTRIBUTES:
                 label = ATTR_LABEL.get(attr_key, attr_key.title())
                 val = c.descend.get(attr_key, 0)
@@ -1320,6 +1325,93 @@ class MenuSystem:
                            gui_kit.MUTED)
             vy += row_h + 10
 
+    # ── CREDITS (licences & attribution) ──────────────────────────────
+
+    CREDITS_SECTIONS = (
+        ('Code & Original Art',
+         ('Bound To Rot by MangasMango',
+          'Code licensed under the GNU GPL v3 or later.')),
+        ('Cards',
+         ('Pixel Poker Cards by Aspecs Gaming (CC0 1.0)',)),
+        ('Font',
+         ('Sancreek by Vernon Adams (SIL Open Font License 1.1)',)),
+        ('World Tileset',
+         ('Desert Tileset by Amstrad (CC BY-SA 3.0)',
+          'Modified Grasslands tileset from the Flare game (CC BY-SA 3.0)')),
+        ('UI Panels & Icons',
+         ('RPG Inventory + Health Orb 1.1 by itsmars (CC0 1.0)',
+          '1-bit Pixel Icons by Nikoichu (CC0 1.0)',
+          'Icons - Dark Magic by Cethiel (CC0 1.0)')),
+        ('Menu GUI Kit',
+         ('RPG GUI Construction Kit v1.0 by Lamoot (CC BY 3.0)',)),
+        ('Sound Effects',
+         ('Kenney - UI Audio, Interface Sounds, RPG Audio,',
+          'Impact Sounds, Footsteps (CC0 1.0)')),
+        ('Music',
+         ('Spaghetti Western Guitar Stab by SpringySpringo (CC BY 3.0)',
+          'Spaghetti Western Theme (Orchestral) by linxiaoma (CC BY 4.0)',
+          'Lobo Loco - Tunnel Games (CC BY 4.0)')),
+        ('Characters',
+         ('Knight rendered from the Hero Clint model (CC BY 4.0)',
+          'Skeleton rendered from the Flare game (CC BY-SA 3.0)')),
+    )
+
+    def _u_credits(self, _dt):
+        if _inp.key_pressed(self, rl.KEY_ESCAPE):
+            self.state = self._prev
+
+    def _d_credits(self, cw: int, ch: int):
+        self._draw_menu_background(cw, ch)
+        left, right = gui_kit.board_page(cw, ch)
+
+        lx = left.x + 24
+        fonts.draw('Credits', lx, left.y + 22, 30, rl.WHITE)
+        _divider(lx, left.y + 66, left.width - 48, color=gui_kit.MUTED)
+        note = ('Game assets keep their original licences; the code is GPL. '
+                'Full file-level attributions live in credits/SOURCES.txt.')
+        fy = left.y + 84
+        for line in _wrap_text(note, 14, int(left.width - 48)):
+            fonts.draw(line, lx, fy, 14, gui_kit.MUTED)
+            fy += 18
+
+        back_r = rl.Rectangle(lx, left.y + left.height - 52, 120, 40)
+        if _btn(back_r, '< Back', 20, wood=True):
+            self.state = self._prev
+
+        # Right page: scrollable attribution sections
+        pad = 16
+        px = right.x + pad
+        pw_ = right.width - 2 * pad
+        total_h = sum(34 + 18 * len(lines) + 10
+                      for _t, lines in self.CREDITS_SECTIONS)
+        view_h = right.height - 28
+        self._credits_scroll = max(
+            0, min(self._credits_scroll, max(0, total_h - view_h)))
+        wheel = rl.get_mouse_wheel_move()
+        if wheel:
+            self._credits_scroll = max(
+                0, self._credits_scroll - int(wheel * 40))
+
+        rl.begin_scissor_mode(int(right.x), int(right.y),
+                              int(right.width), int(view_h))
+        cy = right.y + 14 - self._credits_scroll
+        for title, lines in self.CREDITS_SECTIONS:
+            fonts.draw(title, px, cy, 17, gui_kit.GOLD)
+            cy += 24
+            for line in lines:
+                fonts.draw(line, px + 10, cy, 13, rl.WHITE)
+                cy += 17
+            cy += 10
+        rl.end_scissor_mode()
+
+        if total_h > view_h:
+            bar_x = right.x + right.width - 6
+            bar_h = max(40, int(view_h * view_h / total_h))
+            bar_y = right.y + int((view_h - bar_h)
+                                  * self._credits_scroll
+                                  / max(1, total_h - view_h))
+            rl.draw_rectangle(int(bar_x), bar_y, 4, bar_h, gui_kit.MUTED)
+
     def _do_create(self):
         name = self._char_name.strip()
         if not name or len(self.char_mgr.characters) >= CharacterManager.MAX_CHARS:
@@ -1372,7 +1464,7 @@ class MenuSystem:
             fonts.draw(tab, int(r.x + (r.width - fonts.measure(tab, 20)) / 2),
                        int(r.y + 11), 20, tcol)
             if actv:
-                # gold underline marks the active tab (no more plank image)
+                # gold underline marks the active tab
                 ttw = fonts.measure(tab, 20)
                 rl.draw_rectangle(int(r.x + (r.width - ttw) / 2),
                                   int(r.y + 34), int(ttw), 2, gui_kit.GOLD)

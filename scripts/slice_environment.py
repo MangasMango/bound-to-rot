@@ -21,15 +21,15 @@ Slice the open-source desert tileset (Amstrad, CC-BY-SA 3.0) into:
   * path stone (derived) -> assets/environment/path_tiles.png
 
 Prop sprites are NOT sliced anymore: the engine crops them directly from
-the master atlas at load (core/iso_engine.py `_PROP_WINDOWS` — that table
+the master atlas at load (core/iso_engine.py `_PROP_WINDOWS` - that table
 is the single source of truth for prop windows/upScale now).
 
 The engine draws floors from the tileset's NATIVE cells: each atlas
 diamond is trimmed and pasted un-scaled into a 64×64 tile cell whose
-diamond bounding box is (0, 16, 64, 32) — matching core/iso_engine.py.
+diamond bounding box is (0, 16, 64, 32) - matching core/iso_engine.py.
 
 Run from the project root:  python scripts/slice_environment.py
-Deterministic — re-running only overwrites with identical output.
+Deterministic - re-running only overwrites with identical output.
 """
 import os
 import sys
@@ -54,7 +54,7 @@ ALPHA_TIP = 120              # 'content' threshold for tight trimming
 
 # ── window specs: (window, upscale, dirs) ───────────────────────────
 # Prop windows/upScale moved to core/iso_engine.py `_PROP_WINDOWS` (the
-# engine crops props from the atlas at load) — do NOT re-add per-prop
+# engine crops props from the atlas at load) - do NOT re-add per-prop
 # PNG slicing here.
 
 # Roaming floor tiles: (row y band, column offset)
@@ -153,7 +153,7 @@ def make_prop_canvas(art, upscale):
 
 def _mask_and_extrude(rgba):
     """Numpy RGBA (h, w, 4) -> PIL image on an (h+2, w+2) canvas:
-    1. Alpha-masked to the diamond equation — kills the tips of the
+    1. Alpha-masked to the diamond equation - kills the tips of the
        neighbouring diamonds that intrude into the cell corners.
     2. Alpha hardened (this is pixel art: the atlas' semi-transparent AA
        edges never fully overlap on abutting tiles and leave a dotted
@@ -226,7 +226,7 @@ def main():
             counters['floor'] += 1
         print(f'floor row {fname}: cells={len(slug)} unique in row')
 
-    # ── props: removed — the engine crops props from the atlas
+    # ── props: removed - the engine crops props from the atlas
     #    (core/iso_engine.py `_PROP_WINDOWS`); no per-prop PNGs are baked.
 
     # ── portal magic circles (256×256 canvases, engine draws square) ───
@@ -249,7 +249,7 @@ def main():
         else:
             col += 16
 
-    # ── derived: 'tiles' path stone — plain floor diamond tinted darker ──
+    # ── derived: 'tiles' path stone - plain floor diamond tinted darker ──
     # The engine draws cluster/path sprites at 1.5x the tile canvas, so the
     # path diamond is baked at half tile size INSIDE the 64 cell (still
     # centred) to read as a stone slab on the floor. Same mask+extrude as
@@ -257,7 +257,7 @@ def main():
     plain = Image.open(os.path.join(
         PROJECT_ROOT, 'assets', 'environment', 'plain_1.png'))
     SMALL = DIAMOND_W // 2           # diamond inside cell: 32 px wide
-    cx_px = TILE_CANVAS // 2         # 32 — cell centre
+    cx_px = TILE_CANVAS // 2         # 32 - cell centre
     x0 = cx_px - SMALL // 2
     y0 = cx_px - SMALL // 4
     sub = plain.crop((x0, y0, x0 + SMALL, y0 + SMALL // 2))
