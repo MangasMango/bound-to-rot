@@ -23,15 +23,15 @@ For most changes, this should not be necessary. I just want to know if you're
 doing something big, so I can offer advice and/or make sure you're not wasting
 your time on it.
 
-### Use Conventional Commits with issue references.
+### Use Conventional Commits.
 Commit messages must follow the [Conventional Commits](https://www.conventionalcommits.org/)
-format, with a reference to the issue the commit resolves where one exists:
+format:
 
 ```
-type: #N short summary
+type: short summary
 ```
 
-For example: `fix: #21 keyboard only works if the user has set EN language`.
+For example: `fix: keyboard only works if the user has set EN language`.
 
 Allowed types:
 
@@ -49,15 +49,16 @@ Allowed types:
 
 Rules:
 
-- One commit per issue where practical. If a commit touches several issues,
-  split it or list them: `fix: #4, #3 ...`.
+- Keep the subject short and in the imperative mood: `fix: crash when ...`,
+  not `fixed the crash ...`.
 - A scope is optional but welcome when it narrows the intent:
-  `fix(input): #21 ...`.
-- If there is no associated issue, omit the reference: `chore: bump deps`.
+  `fix(input): deadzone applies twice on gamepads`.
+- Issue numbers in commit subjects or PR titles are not needed. If the work
+  resolves an issue, link it from the PR description instead - a
+  `Closes #N` line in the body auto-closes the issue on merge and keeps the
+  issue and PR visible in each other's timelines.
 - Keep it going forward: legacy commits predate the convention and are exempt
   from the CI check, which only validates new commits.
-- Close issues via the PR body (`Closes #N`), not the commit message; PR
-  titles use the same `type: #N summary` format.
 
 CI rejects commits that don't start with a valid type and colon.
 

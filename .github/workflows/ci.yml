@@ -42,7 +42,7 @@ jobs:
             fi
           done
           if [ "$FAILED" -ne 0 ]; then
-            echo "Commit messages must be 'type: #N summary' with one of: fix, feat, chore, docs, refactor, test, perf, ci, build. See CONTRIBUTING.md."
+            echo "Commit messages must be 'type: summary' with one of: fix, feat, chore, docs, refactor, test, perf, ci, build. See CONTRIBUTING.md."
             exit 1
           fi
 
