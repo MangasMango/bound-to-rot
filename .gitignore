@@ -27,12 +27,6 @@ skin_*.png
 # Stash dir used by scripts/build_release.py --no-private-packs
 .private_packs_tmp/
 
-# Leftover metadata from the non-redistributable pack
-/assets/Licence.txt
-/assets/Asset Index.txt
-/assets/Animation Index.txt
-/assets/+ Update.txt
-
 # Desert environment: only the open-source desert tileset (Amstrad
 # CC-BY-SA 3.0) is tracked; local leftovers stay untracked.
 /assets/environment/*
@@ -46,9 +40,6 @@ skin_*.png
 # Kit source files (GIMP projects) stay local 
 # rendered PNGs are tracked
 /assets/gui/*.xcf
-
-# VFX sheets with unconfirmed licence - keep local only (see README.md, Assets)
-/assets/vfx/*
 
 # Source WAVs stay local - OGG conversions are tracked (see assets/ost/credits.txt)
 /assets/ost/*.wav

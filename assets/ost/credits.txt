@@ -1,15 +1,12 @@
 Music -> state mapping (systems/audio.py):
-  Western_menu.ogg        - menu + title screen
-  westernguitarstab.ogg   - death screen
-  western_hub.ogg         - the Hub
-  western_ingame1/2/3.ogg - delve playlist (continuous, endless loop)
+  Western_menu.ogg        - menu + title screen        (Lobo Loco)
+  westernguitarstab.ogg   - death screen               (SpringySpringo)
+  western_hub.ogg         - the Hub                    (Lobo Loco)
+  western_ingame1/2/3.ogg - delve playlist             (Lobo Loco)
 
 Sources:
   "Spaghetti Western Guitar Stab" by SpringySpringo, CC BY 3.0:
     https://opengameart.org/content/spaghetti-western-guitar-stab
-  "Spaghetti Western Theme (Orchestral)" by linxiaoma (Markus Lindner),
-  CC BY 4.0:
-    https://opengameart.org/content/spaghetti-western-theme-orchestral
-  Lobo Loco tracks (hub + in-game playlist) are licensed under a
-  Attribution 4.0 International License.
-  https://freemusicarchive.org/music/Lobo_Loco/tunnel-games
+  All other tracks are by Lobo Loco (the original filenames were
+  shortened for convenience), Attribution 4.0 International:
+    https://freemusicarchive.org/music/Lobo_Loco/tunnel-games

@@ -86,9 +86,8 @@ BULLET_SPEED_TPS = 20.0     # tiles / second - bullet flight speed
 # instant the cooldown expires.
 SHOT_FIRE_FRAME  = 1
 
-# Muzzle flash - a tiny Hit-Yellow burst (Sinestesia/Mikodrak pack; the
-# sheet stays local, see assets/vfx/credits.txt and README.md, Assets).
-# Frame rects cut from the 4096x4096 master sheet.
+# Muzzle flash - a tiny Hit-Yellow burst (Sinestesia, CC0; see
+# assets/vfx/credits.txt). Frame rects cut from the 4096x4096 master sheet.
 MUZZLE_VFX_PATH  = 'vfx/Hit-Yellow.png'
 MUZZLE_VFX_DUR   = 0.18     # seconds the flash plays
 MUZZLE_VFX_SCALE = 0.14     # draw size, fraction of the entity canvas

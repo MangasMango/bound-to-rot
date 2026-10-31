@@ -1,0 +1,9 @@
+Hit-Yellow.png - "Hit Animation 2 | Frame by frame" by Sinestesia
+License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+Source: https://opengameart.org/content/hit-animation-2-frame-by-frame
+(4096x4096 sheet, 16 frames of 1024x1024)
+
+0.png, 1.png, 2.png - red hit/blood bursts by Sinestesia
+License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+Source: https://opengameart.org/content/animations-blood-hit-and-both-d
+(2048x2048 sheets, 16 frames of 512x512)

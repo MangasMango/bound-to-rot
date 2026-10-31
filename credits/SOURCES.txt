@@ -21,13 +21,16 @@ Ability gem icons - "Icons - Dark Magic" by Cethiel, CC0 1.0:
 UI/game sound effects - Kenney, CC0 1.0 (credit appreciated, not required):
   https://kenney.nl
 
+Hit VFX (assets/vfx) - Hit Animation 2 + Blood/Hit bursts by Sinestesia,
+CC0 1.0:
+  https://opengameart.org/content/hit-animation-2-frame-by-frame
+  https://opengameart.org/content/animations-blood-hit-and-both-d
+
   Music (assets/ost):
     "Spaghetti Western Guitar Stab" by SpringySpringo, CC BY 3.0:
       https://opengameart.org/content/spaghetti-western-guitar-stab
-    "Spaghetti Western Theme (Orchestral)" by linxiaoma (Markus Lindner),
-    CC BY 4.0:
-      https://opengameart.org/content/spaghetti-western-theme-orchestral
-    Lobo Loco tracks (Attribution 4.0 International, in-game + hub):
+    All other tracks are by Lobo Loco (original filenames shortened for
+    convenience), Attribution 4.0 International:
       https://freemusicarchive.org/music/Lobo_Loco/tunnel-games
 
 World tileset (assets/environment) - Desert Tileset by Amstrad,

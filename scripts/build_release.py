@@ -2,10 +2,11 @@
 Build the one-file executable with PyInstaller and zip it for distribution.
 
 Run per target OS (PyInstaller cannot cross-compile):
-    python scripts/build_release.py                 # includes everything on disk
-    python scripts/build_release.py --no-private-packs
-        # temporarily removes the non-redistributable pack content from the
-        # build; use this for zips you intend to UPLOAD (itch.io, GitHub, ...)
+    python scripts/build_release.py
+
+Every asset in assets/ is freely licensed or in-house and tracked with the
+repository, so there is nothing private to exclude anymore; the
+--no-private-packs flag is kept for compatibility and does nothing.
 
 Output: dist/BoundToRot-<version>-<os>-<arch>.zip
 The zip holds the renamed executable plus LICENSE / README / credits.
@@ -21,12 +22,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-PRIVATE_PACKS = (
-    'vfx',
-)
-PRIVATE_FILES = (
-    '+ Update.txt', 'Animation Index.txt', 'Asset Index.txt', 'Licence.txt',
-)
+# Nothing private remains: all asset packs were replaced by freely
+# licensed or in-house art tracked with the repository.
+PRIVATE_PACKS = ()
+PRIVATE_FILES = ()
 
 
 def project_version() -> str:
