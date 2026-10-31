@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Organ rot (durability replacement) — BLUEPRINT §22.
+"""Organ rot (durability replacement) - BLUEPRINT §22.
 
 Covers:
   1. Every organ carried gains a flat rot chunk per successful wave.
@@ -115,7 +115,7 @@ class TestWaveRotGain(unittest.TestCase):
         self.assertNotIn('rot', gem['instance_data'])
 
     def test_unidentified_organs_never_rot(self):
-        """Owner ruling 2026-10-07: unidentified = inert — no rot either."""
+        """Owner ruling 2026-10-07: unidentified = inert - no rot either."""
         entry = _organ('heart', identified=False, seed=61)
         inv = make_inventory()
         inv['grid'] = []
@@ -134,7 +134,7 @@ class TestWaveRotGain(unittest.TestCase):
         # four waves: nothing rotten yet
         for _ in range(4):
             self.assertEqual(itemgen.apply_wave_rot(inv), 0)
-        # fifth wave rots BOTH — return counts the equipped one
+        # fifth wave rots BOTH - return counts the equipped one
         self.assertEqual(itemgen.apply_wave_rot(inv), 1)
         self.assertTrue(itemgen.is_rotten(inv['equipped']['heart']['instance_data']))
         self.assertTrue(itemgen.is_rotten(inv['grid'][0]['instance_data']))
@@ -251,7 +251,7 @@ class TestTemperanceCleanse(unittest.TestCase):
 
     def test_temperance_clears_partial_rot(self):
         target = _organ('liver', seed=25)
-        itemgen.add_rot(target)          # 20% — not rotten yet
+        itemgen.add_rot(target)          # 20% - not rotten yet
         game = _fake_game()
         result = _apply_temperance(game, target)
         self.assertIsNotNone(result)
@@ -262,7 +262,7 @@ class TestTemperanceCleanse(unittest.TestCase):
         game = _fake_game()
         result = _apply_temperance(game, target)
         self.assertIsNone(result)
-        # nothing consumed — the whole card is still there
+        # nothing consumed - the whole card is still there
         cards = [e for e in game.inventory['grid'] if e['item'] == 'poker_queen_hearts']
         self.assertEqual(cards[0]['count'], 1)
 
@@ -341,12 +341,12 @@ class TestRotTooltip(unittest.TestCase):
         entry = _organ('heart', identified=False, seed=47)
         inst = entry['instance_data']
         # Gameplay can't produce rotten+unidentified any more (unidentified
-        # organs don't rot, owner ruling 2026-10-07) — but saves from the
+        # organs don't rot, owner ruling 2026-10-07) - but saves from the
         # interim build could, so the tooltip must still render it.
         inst['rot'] = 100.0
         inst['rotten'] = True
         lines = self._texts(entry)
-        # unidentified exposes no stats — but the ROTTEN condition shows
+        # unidentified exposes no stats - but the ROTTEN condition shows
         self.assertTrue(any(l.startswith('ROTTEN ') for l in lines))
         self.assertFalse(any('Item Level' in l for l in lines))
 

@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Weather — rain state for the wet-look rendering pipeline.
+"""Weather - rain state for the wet-look rendering pipeline.
 
 Render-only: nothing here touches simulation, loot, movement or combat.
 The manager is a small dict read by the renderer each frame; rolls are
@@ -27,7 +27,7 @@ RAIN_CHANCE       = 0.6
 RAIN_INTENSITY    = (0.55, 1.0)   # min..max streak opacity/speed factor
 PUDDLE_DENSITY    = (0.010, 0.030)  # fraction of floor tiles per puddle-seed tier
 
-# Deep Anima ramps the urge to rain up (depth drives everything —
+# Deep Anima ramps the urge to rain up (depth drives everything -
 # here it is cosmetic only, no gameplay input).
 DEPTH_RAIN_BONUS  = 0.15          # added chance per 10 depth, capped
 DEPTH_RAIN_CAP    = 0.9

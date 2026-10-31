@@ -17,7 +17,7 @@
 
 Owner rulings (2026-10-07):
   * reset_stats PRESERVES health/mana/energy_shield (clamped to the new
-    maxima) — a stat recalc (gear swap, identify, hub arrival, delve
+    maxima) - a stat recalc (gear swap, identify, hub arrival, delve
     resume) never refills you. The level-up-era full heal is gone.
     Full refills exist only at character creation (empty dict → defaults)
     and a fresh delve start (explicit, delve_flow._enter_delve).
@@ -44,7 +44,7 @@ class TestResetStatsPreservesPools(unittest.TestCase):
         reset_stats(s, max_health=100, max_energy_shield=20)
         s['health'] = 37.0
         s['energy_shield'] = 11.0
-        # a gear swap raises every maximum — the pools must NOT refill
+        # a gear swap raises every maximum - the pools must NOT refill
         reset_stats(s, max_health=150, max_energy_shield=30)
         self.assertEqual(s['health'], 37.0)
         self.assertEqual(s['energy_shield'], 11.0)
@@ -61,7 +61,7 @@ class TestResetStatsPreservesPools(unittest.TestCase):
 
     def test_mana_keys_are_ignored_from_old_saves(self):
         """Owner ruling 2026-10-29: mana left the game. Old saves carrying
-        mana/max_mana/mana_regen load clean — the keys are dropped and
+        mana/max_mana/mana_regen load clean - the keys are dropped and
         nothing regenerates them."""
         s = {'health': 42.0, 'mana': 17.0, 'max_mana': 20, 'mana_regen': 2.0}
         reset_stats(s, max_health=80, max_energy_shield=10)

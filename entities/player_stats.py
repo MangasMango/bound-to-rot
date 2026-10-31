@@ -43,13 +43,13 @@ def reset_stats(s, max_health=50, evasion=53,
     """Rebuild the derived stat block IN PLACE.
 
     Owner ruling 2026-10-07: the current POOLS (health / energy shield)
-    are PRESERVED and only clamped to the new maxima — a stat recalc
+    are PRESERVED and only clamped to the new maxima - a stat recalc
     (gear swap, identify, hub arrival, delve resume) must never refill
     you. The level-up-era full refill is gone; the only full refills live
     at character creation (empty dict → defaults) and a fresh delve start
     (explicit, see delve_flow._enter_delve). Mana was retired from the
     game (owner ruling 2026-10-29); old saves carrying ``mana`` /
-    ``max_mana`` keys load fine — they are simply ignored.
+    ``max_mana`` keys load fine - they are simply ignored.
     """
     prev_health   = s.get('health')
     prev_es       = s.get('energy_shield')

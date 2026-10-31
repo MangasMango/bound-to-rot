@@ -143,7 +143,7 @@ class InputMixin:
             if not self.inv.open and not self._delve_chart_is_open():
                 # NOTE: the delve Q/E tool keybinds (flares, dynamite) were
                 # removed. Q/W/E/R belong to the gem ability slots below and
-                # T is the flask — see systems/flasks.py. Both are blocked
+                # T is the flask - see systems/flasks.py. Both are blocked
                 # while the Anima panel is open (modal decision UI).
                 for _gk in gems.GEM_SLOTS:
                     if inp.key_pressed(self,getattr(rl, 'KEY_' + _gk)):
@@ -156,7 +156,7 @@ class InputMixin:
 
     def _dispatch_game_mouse_input(self, cw, ch):
         # The Anima panel is modal: while it is open, world clicks (move /
-        # attack / interact / the Pulse heart) must not fire — the panel
+        # attack / interact / the Pulse heart) must not fire - the panel
         # overlaps the Pulse heart on screen, and an unguarded click on the
         # panel used to re-trigger the heart (or worse, `_delve_descend`).
         if self._delve_chart_is_open():

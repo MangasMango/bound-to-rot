@@ -11,7 +11,7 @@ release/
 .idea/
 .claude/
 
-# Personal AI-agent notes — every contributor keeps their own, never committed
+# Personal AI-agent notes - every contributor keeps their own, never committed
 /.ai/
 
 # Local scratch files (personal notes, debug dumps, screenshots)
@@ -33,7 +33,7 @@ skin_*.png
 /assets/Animation Index.txt
 /assets/+ Update.txt
 
-# Non-redistributable asset packs — contents ignored, README placeholder stays
+# Non-redistributable asset packs - contents ignored, README placeholder stays
 /assets/boss/*
 !/assets/boss/README.md
 /assets/enemy/*
@@ -43,7 +43,7 @@ skin_*.png
 /assets/playable character/*
 !/assets/playable character/README.md
 
-# Desert environment is open-source (Amstrad CC-BY-SA 3.0) — track it.
+# Desert environment is open-source (Amstrad CC-BY-SA 3.0) - track it.
 # Everything else in environment/ (LoP leftovers, OFDN backup tiles) stays local.
 /assets/environment/*
 !/assets/environment/README.md
@@ -57,10 +57,10 @@ skin_*.png
 # rendered PNGs are tracked
 /assets/gui/*.xcf
 
-# VFX sheets with unconfirmed licence — keep local only (see README.md, Assets)
+# VFX sheets with unconfirmed licence - keep local only (see README.md, Assets)
 /assets/vfx/*
 
-# Source WAVs stay local � OGG conversions are tracked (see assets/ost/credits.txt)
+# Source WAVs stay local - OGG conversions are tracked (see assets/ost/credits.txt)
 /assets/ost/*.wav
 /steam-assets
 *.zip

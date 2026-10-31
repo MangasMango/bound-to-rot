@@ -39,7 +39,7 @@ OUTLINE_COLOR_IDLE = rl.Color(0, 0, 0, 255)
 OUTLINE_COLOR_HIT = rl.Color(190, 20, 20, 255)
 OUTLINE_SIZE = 1.5
 
-# Delve actors (player + enemies) draw dimmer than the raw sprite art —
+# Delve actors (player + enemies) draw dimmer than the raw sprite art -
 # 1.0 = unchanged, lower = darker.
 SPRITE_DARKEN = 0.75
 
@@ -73,7 +73,7 @@ class FrameRenderMixin:
         self._update_mouse_transform()
 
         rl.begin_texture_mode(self._virtual_rt)
-        # Opaque clear — additive light passes composite onto this surface;
+        # Opaque clear - additive light passes composite onto this surface;
         # without it, stale frames accumulate (ghost trails, brightness creep).
         rl.clear_background(rl.Color(0, 0, 0, 255))
         self._outer_rt = self._virtual_rt
@@ -160,7 +160,7 @@ class FrameRenderMixin:
         rl.clear_background(rl.Color(10, 8, 12, 255))
         self.iso.follow(self.px, self.py)
 
-        # Screen shake — save clean camera, apply random offset
+        # Screen shake - save clean camera, apply random offset
         _clean_cam_x = self.iso._cam_x
         _clean_cam_y = self.iso._cam_y
         if self._shake_timer > 0:
@@ -328,7 +328,7 @@ class FrameRenderMixin:
         self._render_puddle_reflections(cw, ch, entities)
         t_after_weather = _perf_time.perf_counter()
         t_after_draw_map = t_weather_start
-        # interactable hover (portal/crate/barrel/brazier) — shared with the
+        # interactable hover (portal/crate/barrel/brazier) - shared with the
         # hub via _hover_interactable; drives glow labels + hover highlight
         self._hover_interact = self._hover_interactable(
             [gi for gi in self.ground_items
@@ -388,7 +388,7 @@ class FrameRenderMixin:
                 self.iso._draw_entity(e2, sx, sy, tile_size)
             self._draw_pulse_sprite(cw, ch)
             self._draw_drop_overlay(cw, ch)
-            # combat numbers above the darkness — never dimmed by the gloom
+            # combat numbers above the darkness - never dimmed by the gloom
             self._draw_dmg_numbers(cw, ch)
             # Ground-item tooltips are UI: resolve and draw them after the
             # darkness mask so labels/panels are never darkened or fire-tinted.

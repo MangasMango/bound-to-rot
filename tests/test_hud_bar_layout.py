@@ -17,7 +17,7 @@
 
 Owner ruling 2026-10-10 (BLUEPRINT §20.204 / §20.205 / §20.208 / §20.211):
 the bottom bar mirrors assets/ui/result.png's STRUCTURE inside the 800 px
-container —
+container -
   * left box: organ-rot meter row (worst equipped organ) over the 3 menu
     buttons (the mockup's stamina row is rot now, never stamina),
   * centre box: five CENTRED mockup-size Q/W/E/R/T slots (no numbered
@@ -44,7 +44,7 @@ def _organ(item_id='heart', ilvl=10, identified=True, seed=5):
     return entry
 
 
-# ── itemgen.max_rot — the meter's binding ─────────────────────────────
+# ── itemgen.max_rot - the meter's binding ─────────────────────────────
 
 class TestMaxRot(unittest.TestCase):
     def test_empty_or_malformed_inventory_reads_zero(self):
@@ -155,7 +155,7 @@ def test_source_dropped_the_decorative_and_belt_pieces():
     # cleanup (no more yellow borders around the bar sections)
     assert '_chevron(' not in HUD_SRC
     assert 'BRONZE' not in HUD_SRC
-    # the meter must never read a stamina stat — stamina is gone for good
+    # the meter must never read a stamina stat - stamina is gone for good
     # (tests/test_run_toggle.py guards the stats side)
     for stale in ("stats['stamina'", 'stats.get(\'stamina\'', 'max_stamina'):
         assert stale not in HUD_SRC, f'stale stamina read: {stale}'

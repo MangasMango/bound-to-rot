@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Delve relics — run-scoped boons offered at Anima Cart (checkpoint) shrines
+Delve relics - run-scoped boons offered at Anima Cart (checkpoint) shrines
 Replaces the build-swing itch the old tarot card
 effects provided: 1-of-3 boon choice at each checkpoint, scoped to the
 current delve run (persists with the delve snapshot).

@@ -13,13 +13,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Orthogonal Anima chart grid (BLUEPRINT §26 — owner ruling 2026-10-07).
+"""Orthogonal Anima chart grid (BLUEPRINT §26 - owner ruling 2026-10-07).
 
   1. Paths never run diagonally: every edge is vertical (same column,
      next depth) or horizontal (same row).
   2. Row 1 is exactly CHART_LANES nodes on the fixed lane columns.
   3. Every generated batch keeps at least one live (non-dead-end) path.
-  4. Dead ends terminate their lane — nothing is ever generated below
+  4. Dead ends terminate their lane - nothing is ever generated below
      them, so no unreachable node can exist.
   5. Every non-dead node is reachable from the start (one-hop adjacency).
 """
@@ -130,7 +130,7 @@ class TestReachability(unittest.TestCase):
                                  'a dead end parented a deeper node')
 
     def test_laterals_exist_but_are_not_guaranteed(self):
-        """New rows roll ~70% — over enough rows both cases must occur."""
+        """New rows roll ~70% - over enough rows both cases must occur."""
         graph = _grown_graph(seed=9, rows=10)
         same_row_edges = [e for e in graph['edges']
                           if graph['nodes'][e[0]]['depth']

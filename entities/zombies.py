@@ -23,7 +23,7 @@ from systems import frames
 # MOVE_SPEED (native desert tiles are ~2.7x smaller on screen than the old
 # LoP canvas) so the chase feel matches the pre-swap pacing.
 ZOMBIE_SPEED = 0.6
-DETECT_RANGE   = 22.0       # tiles — enemies acquire the player inside this radius
+DETECT_RANGE   = 22.0       # tiles - enemies acquire the player inside this radius
 HIT_DAMAGE     = 10
 MAX_HEALTH     = 100
 IDLE_FPS       = 4
@@ -42,9 +42,9 @@ SLIME_HEALTH    = 150
 SLIME_DAMAGE    = 12
 SLIME_ATTACK_CD = 10
 
-# Gunslinger knockback decay — a shove dies out over this window (mirror of
+# Gunslinger knockback decay - a shove dies out over this window (mirror of
 # KNOCKBACK_DECAY_TIME in core/game.py; kept local to avoid a core import
-# cycle — the impulse magnitude and the timer length live there).
+# cycle - the impulse magnitude and the timer length live there).
 KNOCKBACK_DECAY_TIME = 0.25
 KNOCKBACK_STOP_TPS   = 0.3   # residual speed below which the slide ends
 
@@ -59,7 +59,7 @@ SLIME_ATTACK_CD_S   = frames.attack_seconds(SLIME_BASE_ATTACK_FRAMES)
 # Enemies surround the player instead of stacking into a single pile, ramp up
 # to full speed rather than snapping into motion, give up the chase and walk
 # home once the player escapes, and slide along walls instead of sticking.
-SEPARATION_RADIUS   = 0.45   # tiles — enemies repel each other inside this radius
+SEPARATION_RADIUS   = 0.45   # tiles - enemies repel each other inside this radius
 SEPARATION_STRENGTH = 0.55   # how strongly repulsion blends into pursuit
 SPEED_RAMP_TIME     = 0.35   # seconds to accelerate from standstill to full speed
 MOVE_SPEED_VARIANCE = 0.15   # per-enemy speed variance (± this fraction)
@@ -68,7 +68,7 @@ MOVE_SPEED_VARIANCE = 0.15   # per-enemy speed variance (± this fraction)
 # An enemy may only deal damage while inside MELEE_RANGE, and MELEE_RANGE must
 # never exceed the range at which it acquires the chase (DETECT_RANGE). If this
 # were violated, a slime could hit the player from farther away than it starts
-# chasing — i.e. damage the player before it is actually aggro'd. Both the
+# chasing - i.e. damage the player before it is actually aggro'd. Both the
 # chase->attack transition and the damage check use the same MELEE_RANGE, so the
 # attack range can never exceed the chase-acquire range.
 assert MELEE_RANGE <= DETECT_RANGE, "attack range must not exceed chase-acquire range"
@@ -92,7 +92,7 @@ def default_status_fields():
         'rot_total':     0.0,
         'rot_dps':       0.0,
         'rot_timer':     0.0,
-        # Mitigation — overridden per-spawn with level-scaled values by the
+        # Mitigation - overridden per-spawn with level-scaled values by the
         # game's enemy-spawn helpers. Defaults are zero (level-1 one-shot).
         'damage_reduction': 0.0,
         'hit_flash':       0.0,
@@ -100,7 +100,7 @@ def default_status_fields():
             'fire': 0.0, 'cold': 0.0, 'lightning': 0.0, 'physical': 0.0,
             'magic': 0.0, 'rot': 0.0, 'darkness': 0.0,
         },
-        # Gunslinger knockback — shove velocity along the shot line, decaying
+        # Gunslinger knockback - shove velocity along the shot line, decaying
         # over KNOCKBACK_DECAY_TIME. `knockback_immune` enemies ignore it
         # entirely (bosses/elites can flip the flag later; nobody does at launch).
         'kb_x':             0.0,
@@ -262,7 +262,7 @@ def update_zombies(dt, zombies, players, map_data):
         fire_dot, rot_dot = tick_enemy_statuses(z, dt)
         if fire_dot > 0.0:
             z['health'] = max(0.0, z['health'] - fire_dot)
-        # Rot damage ignores armor and resistances — drain straight from health.
+        # Rot damage ignores armor and resistances - drain straight from health.
         if rot_dot > 0.0:
             z['health'] = max(0.0, z['health'] - rot_dot)
         if z['health'] <= 0:
@@ -357,7 +357,7 @@ def update_zombies(dt, zombies, players, map_data):
                     if z['move_speed'] <= base_speed0 * 1.01:
                         z['move_speed'] = base_speed0
                         z['sprinting'] = False
-            # Keep closing until well inside attack reach — the stop distance
+            # Keep closing until well inside attack reach - the stop distance
             # must stay strictly below MELEE_RANGE or the enemy halts just
             # outside it and never enters 'attack' (regression guard).
             if nearest_dist > MELEE_RANGE * 0.6:

@@ -51,7 +51,7 @@ class DelveRenderMixin:
         no_flip  = rl.Rectangle(0.0, 0.0, float(cw), float(ch))
         rl.draw_texture_pro(self._scene_rt.texture, flip_src, no_flip, rl.Vector2(0.0, 0.0), 0.0, rl.WHITE)
     def _ensure_darkness_rt(self):
-        """Render texture for darkness compositing — recreated when the
+        """Render texture for darkness compositing - recreated when the
         window is resized so it always matches the canvas."""
         if (self._darkness_rt is not None and self._darkness_rt.id > 0
                 and self._darkness_rt.texture.width == rl.get_screen_width()
@@ -67,7 +67,7 @@ class DelveRenderMixin:
         if self._delve is None:
             return
         d = self._delve
-        # The Pulse is the delve's light source: kind 'pulse' — brighter than
+        # The Pulse is the delve's light source: kind 'pulse' - brighter than
         # the hub heart (no deep breathing dip). The radius is the VISIBLE
         # LIGHT EDGE (lighting.fs EDGE_SCALE semantics) and matches the
         # gameplay light check exactly (delve_flow: light_r + personal).
@@ -78,7 +78,7 @@ class DelveRenderMixin:
     def _render_darkness(self, cw: int, ch: int, lights: list, dark_timer: float):
         """Fire-light pass over arbitrary light anchors.
 
-        lights: [{'x', 'y', 'r', 'kind', 'phase'}] in tile coords — the delve
+        lights: [{'x', 'y', 'r', 'kind', 'phase'}] in tile coords - the delve
         passes the Pulse, the hub passes torches/braziers/
         the Delve Heart. Outside every light the dark_timer drives the red
         danger pulse. Primary path is the lighting shader (Godot-style log
@@ -94,7 +94,7 @@ class DelveRenderMixin:
         falls back to the software path).
 
         The light math is scene-independent, so both passes render into
-        half-res render targets and upscale with plain texture blits — the
+        half-res render targets and upscale with plain texture blits - the
         expensive shader runs on a quarter of the pixels."""
         sh = self.shaders.get('lighting') if self.shaders else None
         if sh is None or self._light_noise_tex is None or self._light_curve_tex is None:
@@ -164,14 +164,14 @@ class DelveRenderMixin:
             rl.end_texture_mode()
             self._rebind_outer_rt()
 
-        # Pass 1 — dim map: unlit world drops to the ambient dim level.
+        # Pass 1 - dim map: unlit world drops to the ambient dim level.
         if not no_dim:
             light_pass(lm, rl.WHITE, 0.0)
-        # Pass 2 — warm glow: golden fire colour (debug modes 2/3 replace it).
+        # Pass 2 - warm glow: golden fire colour (debug modes 2/3 replace it).
         if not no_glow:
             light_pass(gl, rl.BLACK, 1.0 if dbg_mode is None else float(dbg_mode))
 
-        # Upscale-blit the maps onto the current target with plain blending —
+        # Upscale-blit the maps onto the current target with plain blending -
         # zero custom shader work per screen pixel.
         flip_src = rl.Rectangle(0.0, float(lh), float(lw), -float(lh))
         dst      = rl.Rectangle(0.0, 0.0, float(cw), float(ch))
@@ -286,7 +286,7 @@ class DelveRenderMixin:
 
         label = 'PULSE'
         lw = fonts.measure(label, 14)
-        # pulse art keeps the ENTITY canvas scale — hug its visible top
+        # pulse art keeps the ENTITY canvas scale - hug its visible top
         fonts.draw(label, cx - lw // 2, sy + ts // 2 - int(ENTITY_BASE * self.iso.scale * 0.3), 14,
                    rl.Color(255, 210, 80, 200))
     def _draw_delve_junction(self, cw: int, ch: int):
@@ -620,7 +620,7 @@ class DelveRenderMixin:
                            sx + tile_size // 2, sy + tile_size // 2 - lift,
                            int(ENTITY_BASE * self.iso.scale * 2.2 * e.get('scale', 1.0)), 0.0, tint)
 
-        # Angel form — persistent pulsing halo on the player
+        # Angel form - persistent pulsing halo on the player
         if self._angel_timer > 0:
             pulse     = 0.5 + 0.5 * math.sin(rl.get_time() * 8.0)
             alpha     = int(120 + 90 * pulse)
@@ -660,7 +660,7 @@ class DelveRenderMixin:
         rl.end_blend_mode()
 
     def _draw_hit_effects(self, cw: int, ch: int):
-        """Bullet-impact bursts — one frame-texture list per red pack,
+        """Bullet-impact bursts - one frame-texture list per red pack,
         cut into individual textures at load (see _build_load_steps);
         skips silently when the packs are missing."""
         if not self._hit_effects or not any(self._hit_packs):
@@ -761,7 +761,7 @@ class DelveRenderMixin:
         if sz != (1, 1):
             lines.append((f"{sz[0]}x{sz[1]} cells", rl.Color(0xCC, 0xCC, 0xCC, 255)))
 
-        # QoL #20 — comparison vs the currently equipped item in this slot
+        # QoL #20 - comparison vs the currently equipped item in this slot
         if idef.get('equipSlot'):
             slot_key = idef['equipSlot']
             eq_entry = self.inventory['equipped'].get(slot_key)

@@ -259,7 +259,7 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         before = dict(game.stats)
         ui._exec({'type': 'equip', 'source': 'grid',
                   'index': len(inv['grid']) - 1}, inv, game.stats)
-        # cunning — the retired 'max mana' read became the neutral
+        # cunning - the retired 'max mana' read became the neutral
         # cooldown/attr dumps (mana removed from the game, 2026-10-29)
         self.assertEqual(game.stats['cunning'], before['cunning'] + 6)
         self.assertNotIn('max_mana', game.stats)
@@ -271,7 +271,7 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
                          before['max_energy_shield'] + 3 * 4)
         self.assertEqual(game.stats['darkness_resist_pct'],
                          before['darkness_resist_pct'] + 3 * 2 / 100.0)
-        # and the live health pool is PRESERVED — equipping must never
+        # and the live health pool is PRESERVED - equipping must never
         # refill (owner ruling 2026-10-07; the old refresh was the
         # level-up-era heal)
         self.assertEqual(game.stats['health'], before['health'])

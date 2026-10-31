@@ -27,7 +27,7 @@ import random
 MAP_SIZE    = 50
 SPAWN_C     = MAP_SIZE // 2   # 25
 SPAWN_R     = MAP_SIZE // 2   # 25
-SPAWN_CLEAR = 10              # hard radius around player start — no walls
+SPAWN_CLEAR = 10              # hard radius around player start - no walls
 BORDER      = 3               # perimeter wall thickness
 
 
@@ -38,7 +38,7 @@ def generate(seed: int = 0, difficulty: int = 1) -> list[list[int]]:
 
     `difficulty` was previously misnamed after the character level, which was
     wrong on two counts: it was never a character level, and it is not read
-    anywhere in this function — the layout is driven entirely by `seed`. It is
+    anywhere in this function - the layout is driven entirely by `seed`. It is
     kept as a parameter for the day map density is actually wired to run
     difficulty.
     """

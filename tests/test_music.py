@@ -15,11 +15,11 @@
 
 """Music scene states + crossfade.
 
-    menu / loading silence / hub / death screen — plus the continuous
+    menu / loading silence / hub / death screen - plus the continuous
     delve playlist (western_ingame1/2/3) that advances on track ends and
     is never re-triggered by waves, depths or node choices.
 
-    States sharing a file share one loaded stream — see TestSharedStreams.
+    States sharing a file share one loaded stream - see TestSharedStreams.
 """
 
 import os

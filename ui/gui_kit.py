@@ -16,7 +16,7 @@
 """Procedural GUI widgets plus the wood-and-parchment menu theme.
 
 Menu screens draw a full-screen wood board (assets/gui/wood background.png)
-with two parchment sheets laid over it — western-poster style; wooden
+with two parchment sheets laid over it - western-poster style; wooden
 buttons, gold frame edges and checkboxes are cut from
 assets/gui/RPG_GUI_v1.png (RPG GUI Construction Kit v1.0 by Lamoot, CC-BY
 3.0). All kit pieces degrade to the plain drawn widgets when the textures
@@ -122,7 +122,7 @@ def _roundness(corner: float, w: float, h: float) -> float:
 
 
 def panel(x: int, y: int, w: int, h: int, corner: int = 32):
-    """Rounded near-black slab with a soft hairline border — the frame
+    """Rounded near-black slab with a soft hairline border - the frame
     background used behind menus and settings sheets."""
     rec = rl.Rectangle(float(x), float(y), float(w), float(h))
     r = _roundness(corner, w, h)

@@ -1,6 +1,6 @@
 #version 330
 
-// Fire burst — procedural replacement for vfx/flame/flame_*.png.
+// Fire burst - procedural replacement for vfx/flame/flame_*.png.
 // A noisy, bottom-anchored body narrows as it rises and dies over the
 // effect lifetime. u_seed decorrelates simultaneous bursts.
 in vec2 fragTexCoord;

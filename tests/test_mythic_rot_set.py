@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""ROT ETERNAL — the depth-gated rot-set mythic (BLUEPRINT §27).
+"""ROT ETERNAL - the depth-gated rot-set mythic (BLUEPRINT §27).
 
     * 2% chance on any ORGAN drop at depth 1-10 (never depth 11+, never
       gems/flasks/cards).
@@ -43,7 +43,7 @@ def _organ_slot(item_id='heart', unique=None):
 
 
 def _roster(unique_on='heart'):
-    """Five identified, ROTTEN organs — the full set."""
+    """Five identified, ROTTEN organs - the full set."""
     inv = {'equipped': {}, 'grid': []}
     for slot in ('lungs', 'heart', 'liver', 'intestine', 'kidney'):
         entry = _organ_slot(

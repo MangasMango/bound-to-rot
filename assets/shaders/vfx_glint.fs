@@ -1,6 +1,6 @@
 #version 330
 
-// Sparkle glint — procedural replacement for vfx/glint/glint_*.png.
+// Sparkle glint - procedural replacement for vfx/glint/glint_*.png.
 // Two crossing rays grow outward and retract while a hot core fades.
 in vec2 fragTexCoord;
 in vec4 fragColor;

@@ -19,7 +19,7 @@ import os
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(PROJECT_ROOT, 'assets')
 
-# Boot resolution — the window opens at this size and can be resized freely;
+# Boot resolution - the window opens at this size and can be resized freely;
 # the game renders at the current window size (no fixed virtual canvas).
 SCREEN_W = 1280
 SCREEN_H = 720

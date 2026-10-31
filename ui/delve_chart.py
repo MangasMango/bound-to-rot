@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Delve Chart screen — PoE 'Subterranean Chart'-style
+Delve Chart screen - PoE 'Subterranean Chart'-style
 map shown before entering the delve (and as an in-delve minimap overlay).
 
 Renders the persistent depth-row chart graph from core/delve_gen.py:
@@ -27,9 +27,9 @@ Renders the persistent depth-row chart graph from core/delve_gen.py:
   readout on the screen frame (outside the modal) and a RETURN TO HUB button
   at the modal's bottom-right
 
-Input: mouse-wheel zoom (opens at ZOOM_DEFAULT — three wheel-notches
+Input: mouse-wheel zoom (opens at ZOOM_DEFAULT - three wheel-notches
 zoomed out from the maximum, centred on the current node), left-drag pan (click without drag = select), Escape closes.
-Fully data-driven — no game-object coupling. Node positions come from
+Fully data-driven - no game-object coupling. Node positions come from
 core/delve_gen.py (`layout_positions`); this module only projects them.
 """
 
@@ -57,7 +57,7 @@ _TOOLTIP_BG = rl.Color(8, 10, 18, 245)
 _TOOLTIP_BORDER = rl.Color(90, 74, 28, 255)   # worn gold frame
 _HEADER_BG = rl.Color(58, 46, 18, 240)
 
-# Reward-item icon cache (loaded once, kept for the session — a handful of
+# Reward-item icon cache (loaded once, kept for the session - a handful of
 # small 32x32 textures; organs are the only node drop ids today)
 _ICON_CACHE = {}
 
@@ -133,7 +133,7 @@ class DelveChartScreen:
         self.on_select = on_select
         self.title = title
         self.closable = closable
-        # Default opens three wheel-notches zoomed out (owner 2026-10-07) —
+        # Default opens three wheel-notches zoomed out (owner 2026-10-07) -
         # an overview of the surrounding rows like PoE's Subterranean Chart.
         self.zoom = ZOOM_DEFAULT
         self._hover_id = None
@@ -188,7 +188,7 @@ class DelveChartScreen:
         if left_released or not rl.is_window_focused():
             self._reset_drag()
 
-        # Zoom (wheel), centred on cursor — only over the chart surface
+        # Zoom (wheel), centred on cursor - only over the chart surface
         wheel = rl.get_mouse_wheel_move() if inside else 0.0
         if wheel != 0.0:
             new_zoom = max(ZOOM_MIN, min(ZOOM_MAX, self.zoom * (1.0 + wheel * 0.15)))
@@ -198,9 +198,9 @@ class DelveChartScreen:
             self.cam_x = wx - (mx - vw // 2) / self.zoom
             self.cam_y = wy - (my - vh // 2) / self.zoom
 
-        # Pan by dragging — drag only starts on empty space. Pressing a
+        # Pan by dragging - drag only starts on empty space. Pressing a
         # selectable node (or the tooltip ENTER button) descends instantly
-        # on press; pressing a non-selectable node is a dead click — the
+        # on press; pressing a non-selectable node is a dead click - the
         # map must never pan under an intended node interaction.
         if inside and left_down:
             # RETURN TO HUB sits above everything else in the modal. The rect
@@ -362,7 +362,7 @@ class DelveChartScreen:
             selectable = node['id'] in self.selectable_ids
             color = (delve_gen.NODE_COLORS.get(node['type'], (200, 200, 200))
                      if known else (90, 94, 108))
-            # Small ring, BIG icon — the reward icon overflows the circle
+            # Small ring, BIG icon - the reward icon overflows the circle
             # on purpose (owner ruling 2026-10-07, §26).
             radius = int((8 if node['type'] in ('checkpoint', 'boss') else 6)
                          * self.zoom)
@@ -383,7 +383,7 @@ class DelveChartScreen:
                     icon = _reward_icon(rewards[0]['item'])
                 if icon and icon.id > 0:
                     # 2× bigger than before (owner 2026-10-07): the item
-                    # icon is ~3.1× the circle diameter — PoE-style, the
+                    # icon is ~3.1× the circle diameter - PoE-style, the
                     # icon IS the node.
                     isz = max(6, int(radius * 2 * 1.55 * 2))
                     src = rl.Rectangle(0, 0, float(icon.width), float(icon.height))
@@ -394,7 +394,7 @@ class DelveChartScreen:
                                         rl.Color(255, 255, 255, alpha))
                 else:
                     glyph = delve_gen.NODE_ICONS.get(node['type'], '?')
-                    fs = max(10, int(34 * self.zoom))   # 2× — paired with the icons
+                    fs = max(10, int(34 * self.zoom))   # 2× - paired with the icons
                     gw = fonts.measure(glyph, fs)
                     fonts.draw(glyph, ix - gw // 2, iy - fs // 2 - 1, fs,
                                rl.Color(20, 20, 26, 255))
@@ -457,7 +457,7 @@ class DelveChartScreen:
     def _revealed_set(self):
         """Nodes visible through the fog: visited nodes plus every node
         directly adjacent (via chart edges) to a visited one. Deliberately
-        ignores the stale state=='available' flags — those outlive the node
+        ignores the stale state=='available' flags - those outlive the node
         that opened them and made far-off nodes look enterable."""
         if self.chart is None:
             return set()
@@ -507,7 +507,7 @@ class DelveChartScreen:
         title = node.get('loot') or node.get('label') or 'Delve Node'
         zone = delve_gen.zone_for_depth(node['depth'])
 
-        # body lines (text, color) — icon rows handled specially below
+        # body lines (text, color) - icon rows handled specially below
         body = []
         reward = None            # (item_id, name, count, extra_count)
         if known:
@@ -581,7 +581,7 @@ class DelveChartScreen:
             fonts.draw(rlabel_txt, px + tw - icon_px - 12 - lw - 8, ry,
                        fs, rl.Color(190, 120, 255, 255))
 
-        # ENTER button — raylib-drawn, rect stored in canvas
+        # ENTER button - raylib-drawn, rect stored in canvas
         # coords (update() consumes it; rendering adds the popup origin)
         if has_btn:
             bx = tx + tw - btn_w - 10

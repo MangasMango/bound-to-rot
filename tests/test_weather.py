@@ -58,7 +58,7 @@ class WeatherRollTests(unittest.TestCase):
 
 
 class PuddlePlacementTests(unittest.TestCase):
-    """IsoRenderer.generate_puddles — pure set logic, no GL required."""
+    """IsoRenderer.generate_puddles - pure set logic, no GL required."""
 
     def _iso(self):
         from core.iso_engine import IsoRenderer

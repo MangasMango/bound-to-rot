@@ -14,9 +14,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Isometric renderer — replaces engine.py for the iso rewrite.
+Isometric renderer - replaces engine.py for the iso rewrite.
 Tile cell: 64×64. Native desert tileset diamond: 64×32, bounding box at
-(0, 16) — engine projection matches the tileset's own 2:1 camera and the
+(0, 16) - engine projection matches the tileset's own 2:1 camera and the
 tiles render at (or near) native pixel size, no pre-scaled bake.
   step_x = DIAMOND_W * scale / 2 = 32 * scale
   step_y = DIAMOND_H * scale / 2 = 16 * scale
@@ -34,7 +34,7 @@ _ASSETS = ASSETS
 TILE_SRC      = 64         # source PNG canvas size (64×64 cell)
 
 ISO_W         = 64         # tile draw size at 1x scale (= TILE_SRC)
-# Diamond geometry inside the 64×64 PNG — bounding box origin (DIAMOND_X, DIAMOND_Y),
+# Diamond geometry inside the 64×64 PNG - bounding box origin (DIAMOND_X, DIAMOND_Y),
 # size DIAMOND_W × DIAMOND_H. Heart of the cell lands at (32, 32) = PNG centre.
 # Desert tileset (Amstrad, CC-BY-SA 3.0) floors are sliced by
 # scripts/slice_environment.py to this native cell format.
@@ -49,7 +49,7 @@ FLOOR_PAD     = 1        # px overlap between adjacent floor tiles
 
 # World-entity sprite canvas: characters, props, portals and effect quads
 # are authored on 256×256 canvases and keep their on-screen size tied to
-# ENTITY_BASE * scale — INDEPENDENT of the tile scale, so shrinking the
+# ENTITY_BASE * scale - INDEPENDENT of the tile scale, so shrinking the
 # tiles (more of the scene in view) does not shrink the actors with them.
 ENTITY_BASE   = 256
 
@@ -92,7 +92,7 @@ TILE_COL = {
     248: _rgba(75,  215, 115, 255),   # exit
 }
 
-# Wall tiles (1/2/3) are stripped to floor in generate_props — walls no
+# Wall tiles (1/2/3) are stripped to floor in generate_props - walls no
 # longer exist at runtime, so there is no wall sprite table.
 
 _FLOOR_TIDS = frozenset({0, 9})
@@ -121,7 +121,7 @@ _V3 = rl.Vector2(0.0, 0.0)
 
 
 def _tex_src(tex):
-    """Mutable source rect sized to a texture — entity/prop canvases are
+    """Mutable source rect sized to a texture - entity/prop canvases are
     256×256 while floor tiles are 64×64, so draws must not assume TILE_SRC."""
     _SRC_TEX.x = 0.0
     _SRC_TEX.y = 0.0
@@ -152,7 +152,7 @@ class IsoSprite:
                     frames.append(rl.load_texture(path))
             self._textures[direction] = frames
         if frames and 'desert' in (self._base or ''):
-            # desert prop canvases are pixel art (nearest-baked) — crisp
+            # desert prop canvases are pixel art (nearest-baked) - crisp
             for tex in frames:
                 rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
 
@@ -185,7 +185,7 @@ class IsoSprite:
 # assets/environment/tileset_desert.png. Windows + upscale factors are the
 # slicer's tuned values (scripts/slice_environment.py), reproduced here as
 # the single source of truth. `tiles` (path stones) is the one derived
-# sprite — a tinted/extruded bake shipped as environment/path_tiles.png.
+# sprite - a tinted/extruded bake shipped as environment/path_tiles.png.
 _ATLAS_PATH      = os.path.join(_ASSETS, 'environment', 'tileset_desert.png')
 _PATH_TILES_PATH = os.path.join(_ASSETS, 'environment', 'path_tiles.png')
 _PROP_CANVAS     = 256          # engine world-sprite canvas convention
@@ -242,7 +242,7 @@ _PROP_WINDOWS = {
 
 def _largest_component_bbox(art, tip=_PROP_ALPHA_TIP):
     """Bbox of the largest 4-connected opaque region (alpha ≥ tip) inside
-    `art` — the exact algorithm the old slicer used for prop parity
+    `art` - the exact algorithm the old slicer used for prop parity
     (falls back to the plain alpha border when the window holds one merged
     cluster). Operates on pixel data, independent of GL state."""
     try:
@@ -308,7 +308,7 @@ def _largest_component_bbox(art, tip=_PROP_ALPHA_TIP):
 def _synth_prop_canvas(atlas_img, name):
     """Crop `name`'s atlas window, snap to the opaque content bbox, apply
     the pixel-art NEAREST upscale (clamped to the 256 canvas) and paste
-    content-centred on a transparent 256×256 canvas — exactly what the old
+    content-centred on a transparent 256×256 canvas - exactly what the old
     baked prop PNGs contained."""
     x0, y0, x1, y1, upscale = _PROP_WINDOWS[name]
     art = rl.image_from_image(
@@ -362,7 +362,7 @@ def make_atlas_prop(name, dirs=None):
 
 
 def make_baked_path_tiles(dirs=('SE', 'SW')):
-    """The derived path-stone sprite ('tiles') — one baked file produced by
+    """The derived path-stone sprite ('tiles') - one baked file produced by
     scripts/slice_environment.py (tinted + extruded; not an atlas crop)."""
     sprite = IsoSprite('tiles', 'tiles', 1, 1.0)
     if os.path.exists(_PATH_TILES_PATH):
@@ -379,7 +379,7 @@ def make_baked_path_tiles(dirs=('SE', 'SW')):
 class IsoRenderer:
 
     PROP_TILE_SCALE = 1.5  # tile prop size relative to tile size
-    # per-prop multiplier on top of PROP_TILE_SCALE — oversized art shrink
+    # per-prop multiplier on top of PROP_TILE_SCALE - oversized art shrink
     _PROP_EXTRA_SCALE = {'cactus1': 0.6, 'cactus2': 0.6}
 
     # Extra pixel offset as a fraction of tile size (x, y). Negative y = up.
@@ -395,9 +395,9 @@ class IsoRenderer:
         # Precomputed per-level prop placements (populated by generate_props)
         self._tile_cells       = set()   # (col, row)
         self._floor_prop_cells = {}      # (col, row) -> (name, direction)
-        self._path_cells       = set()   # (col, row) — hub floor paths, draw tiles sprite full-size
-        self._any_prop_cells   = set()   # union of above three — fast guard in draw_map pass 1
-        self._puddle_cells     = frozenset()  # (col, row) — wet floor tiles (render-only)
+        self._path_cells       = set()   # (col, row) - hub floor paths, draw tiles sprite full-size
+        self._any_prop_cells   = set()   # union of above three - fast guard in draw_map pass 1
+        self._puddle_cells     = frozenset()  # (col, row) - wet floor tiles (render-only)
         self._puddle_bounds    = None    # (col0, row0, col1, row1) over all puddles, or None
         self._minimap_render_tex           = None    # cached minimap render texture
         self._minimap_cached_col       = -9999  # player tile pos when cache was built
@@ -410,13 +410,13 @@ class IsoRenderer:
             p = os.path.join(_ASSETS, rel)
             tex = rl.load_texture(p) if os.path.exists(p) else None
             if tex is not None:
-                # desert floors/props are pixel art — point filtering keeps
+                # desert floors/props are pixel art - point filtering keeps
                 # them crisp; the default bilinear filter smears edge halos
                 # that read as a border between tiles
                 rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
             return tex
         # Desert tileset floors (plain_1..16, brush_17..32) sliced by
-        # scripts/slice_environment.py — native 64×64 cells; plain_1 is the
+        # scripts/slice_environment.py - native 64×64 cells; plain_1 is the
         # base ground, the other 31 are the hash-picked variation pool.
         self._floor_tex = _load_tex('environment/plain_1.png')
         self._variation_textures = [
@@ -425,7 +425,7 @@ class IsoRenderer:
                         + [_load_tex(f'environment/brush_{n}.png')
                            for n in range(17, 33)]) if t is not None
         ]
-        # Scatter props — cropped from the master atlas at load (no per-prop
+        # Scatter props - cropped from the master atlas at load (no per-prop
         # PNGs ship anymore; scripts/slice_environment.py bakes only the
         # derived path-stone sprite).
         for name in ('rocks', 'mushrooms', 'tiles',
@@ -457,7 +457,7 @@ class IsoRenderer:
         cols = len(map_data)
         rows = len(map_data[0]) if map_data else 0
 
-        # Walls are removed from the game entirely — flatten every wall tile
+        # Walls are removed from the game entirely - flatten every wall tile
         # (1/2/3) to open floor so collision, minimap, spawning and the
         # renderer all see a wall-free battlefield. Runs on every level
         # load and segment carve, since delve generation keeps placing
@@ -554,7 +554,7 @@ class IsoRenderer:
     def generate_puddles(self, map_data: list, strength: float = 0.0):
         """Deterministic puddle placement for the wet-weather look.
 
-        strength: 0..1 rain intensity — 0 clears puddles. Uses an
+        strength: 0..1 rain intensity - 0 clears puddles. Uses an
         independent hash channel from props so puddles never mutate the
         deterministic rock/mushroom/cluster sets, and only lands on plain
         floor tiles (no props, no paths, no tile clusters). Call after
@@ -725,7 +725,7 @@ class IsoRenderer:
         _sw_half = sw * 0.5
         _sh_half = sh * 0.5
 
-        # Local aliases for module globals — local var lookup is ~80ns faster than global.
+        # Local aliases for module globals - local var lookup is ~80ns faster than global.
         _dst    = _MUTABLE_DST
         _padded = _MUTABLE_PAD
         _src    = _FULL_SRC
@@ -767,11 +767,11 @@ class IsoRenderer:
                                    [var_h % var_count])
                         if var_tex and var_tex.id > 0:
                             rl.draw_texture_pro(var_tex, _src, _dst, _orig, 0.0, rl.WHITE)
-                # wet-weather puddle base — flat colour disc the reflection
+                # wet-weather puddle base - flat colour disc the reflection
                 # shader composites over later
                 if puddle_cells and (col, row) in puddle_cells:
                     self._diamond(int(sx), int(sy), tile_size, PUDDLE_COL)
-                # floor-level props — guarded by union set; skips ~70 % of tiles immediately
+                # floor-level props - guarded by union set; skips ~70 % of tiles immediately
                 if has_props and (col, row) in any_prop_cells:
                     self._draw_floor_prop(col, row, int(sx), int(sy), tile_size)
                     _dst.width  = tile_size_f
@@ -800,7 +800,7 @@ class IsoRenderer:
             self._draw_entity(e, ex, ey, tile_size)
 
     def _draw_entity_flipped(self, e: dict, sx: int, sy: int, tile_size: int):
-        """Draw an entity mirrored vertically — the planar reflection of the
+        """Draw an entity mirrored vertically - the planar reflection of the
         sprite inside a puddle surface (mirror line = the caller's scissored
         puddle diamond). Mirrors via a negative-height source rect."""
         direct_tex = e.get('texture')
@@ -891,7 +891,7 @@ class IsoRenderer:
                     _MUTABLE_DST.width = float(tile_size); _MUTABLE_DST.height = float(tile_size)
                     rl.draw_texture_pro(tex, _tex_src(tex), _MUTABLE_DST, _ZERO_VEC, 0.0, rl.WHITE)
             return
-        # scatter props are tileset art on 256 canvases — sized against the
+        # scatter props are tileset art on 256 canvases - sized against the
         # (small) tile cell, centred on the tile anchor
         prop_size     = tile_size * self.PROP_TILE_SCALE
         center_offset = (tile_size - prop_size) / 2
@@ -988,7 +988,7 @@ class IsoRenderer:
             ring_base      = base * 0.06
             rx = ring_base * hl_scale
             ry = rx * 0.5
-            # draw_ellipse_lines is 1px wide — two concentric strokes
+            # draw_ellipse_lines is 1px wide - two concentric strokes
             # double the thickness
             cx = int(sx + tile_size * 0.5)
             cy = int(sy + tile_size * 0.5)
@@ -1066,13 +1066,13 @@ class IsoRenderer:
                     rl.draw_rectangle(dc * cell, dr * cell, cell, cell, tile_color)
             rl.end_texture_mode()
             # EndTextureMode rebinds the default framebuffer, not an
-            # enclosing render texture — reopen the outer virtual canvas
+            # enclosing render texture - reopen the outer virtual canvas
             # when the game is letterboxing the whole frame.
             outer = getattr(self, '_outer_rt', None)
             if outer is not None:
                 rl.begin_texture_mode(outer)
 
-        # Blit cached tile layer — single draw call
+        # Blit cached tile layer - single draw call
         src = rl.Rectangle(0.0, 0.0, float(mm_size), float(-mm_size))  # flip Y
         dst = rl.Rectangle(float(minimap_x), float(minimap_y), float(mm_size), float(mm_size))
         rl.draw_texture_pro(self._minimap_render_tex.texture, src, dst,

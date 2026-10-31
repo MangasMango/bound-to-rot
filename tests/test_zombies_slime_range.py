@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Tests for QoL #111 / GitHub issue #15 — Slime attack range vs chase range.
+"""Tests for QoL #111 / GitHub issue #15 - Slime attack range vs chase range.
 
 The historical bug: slimes transitioned idle->chase at MELEE_RANGE (0.25) but
 dealt damage at a *wider* 0.5 tile range, so they could hit the player from
@@ -81,7 +81,7 @@ MAP = [[0] * 40 for _ in range(40)]
 class SlimeRangeTests(unittest.TestCase):
 
     def setUp(self):
-        # The to-hit roll is capped at 95%, so force hits for determinism —
+        # The to-hit roll is capped at 95%, so force hits for determinism -
         # these tests verify range gating, not the accuracy-vs-evasion math.
         self._real_evaluate_hit = z.evaluate_hit
         z.evaluate_hit = lambda defender, attacker_accuracy: True

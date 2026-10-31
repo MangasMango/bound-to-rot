@@ -18,7 +18,7 @@
 The frame is drawn at a fixed virtual resolution (SCREEN_W x SCREEN_H in
 config.py) and aspect-fit into the (resizable) real window with black bars.
 The same math drives BOTH the letterbox blit and the mouse coordinate
-transform, so they can never disagree — a half-updated pair of these is
+transform, so they can never disagree - a half-updated pair of these is
 exactly what caused the 1080p click-misalignment bug.
 """
 
@@ -27,9 +27,9 @@ def letterbox_transform(win_w: int, win_h: int, virt_w: int, virt_h: int):
     """Aspect-fit a (virt_w x virt_h) canvas into a (win_w x win_h) window.
 
     Returns (scale, off_x, off_y):
-      scale  — uniform scale factor applied to the virtual canvas
-      off_x  — left edge of the canvas inside the window (letterbox)
-      off_y  — top edge of the canvas inside the window (letterbox)
+      scale  - uniform scale factor applied to the virtual canvas
+      off_x  - left edge of the canvas inside the window (letterbox)
+      off_y  - top edge of the canvas inside the window (letterbox)
 
     Window mouse coords map into canvas coords via:
         canvas = (window - offset) / scale

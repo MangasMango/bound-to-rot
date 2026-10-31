@@ -1,8 +1,8 @@
 Music -> state mapping (systems/audio.py):
-  Western_menu.ogg        — menu + title screen
-  westernguitarstab.ogg   — death screen
-  western_hub.ogg         — the Hub
-  western_ingame1/2/3.ogg — delve playlist (continuous, endless loop)
+  Western_menu.ogg        - menu + title screen
+  westernguitarstab.ogg   - death screen
+  western_hub.ogg         - the Hub
+  western_ingame1/2/3.ogg - delve playlist (continuous, endless loop)
 
 Sources:
   "Spaghetti Western Guitar Stab" by SpringySpringo, CC BY 3.0:

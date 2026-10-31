@@ -33,7 +33,7 @@ _ICON_DIR = os.path.join(ASSETS, 'ui-icons')
 # Curated mapping: logical name → filename on disk
 # Names with _s use the "Small" variant; names with _b use the "Big" variant.
 ICON_MAP = {
-    # ── Stats (unique per stat — no reuse) ──────────────────────────
+    # ── Stats (unique per stat - no reuse) ──────────────────────────
     'str':         'RPG_Stat_Strength_Fist_Melee_Attack_Small.png',
     'dex':         'RPG_Stat_Dexterity_Agility_Boots_Movement_Speed_Small.png',
     'int':         'RPG_Stat_Intelligence_Intellect_Brain_Wisdom_Thinking_IQ_Small.png',
@@ -142,7 +142,7 @@ ICON_MAP = {
     'cart':         'Warfare_Dynamite_TNT_Explosives_Crate_Bundle.png',
     'hidden':       'RPG_Skill_Explosive_Shot_Bomb_Arrow.png',
 
-    # ── Gem abilities (HUD Q/W/E/R slots) — the real ability-icons pack
+    # ── Gem abilities (HUD Q/W/E/R slots) - the real ability-icons pack
     #    is not distributed, so each ability maps to an ui-icons sprite
     #    (game.py: assets/ability-icons/*.png still override these) ─────
     'cone_physical': 'RPG_Skill_Strike_Attack_Sword_Slash_Cleave.png',

@@ -64,7 +64,7 @@ class TestNodeNames(unittest.TestCase):
 
 class TestRowSupply(unittest.TestCase):
     """Depth rows never run out (§26.236): an exhausted standing row gets a
-    fresh batch APPENDED to its left or right side — nothing is ever
+    fresh batch APPENDED to its left or right side - nothing is ever
     deleted, the beaten history stays on the chart."""
 
     def test_exhausted_row_appends_to_the_side(self):
@@ -81,7 +81,7 @@ class TestRowSupply(unittest.TestCase):
 
         added = delve_gen.ensure_row_supply(graph, random.Random(3), start_id)
         self.assertGreaterEqual(added, 2)
-        # append, not replace — every original node (incl. start) survives
+        # append, not replace - every original node (incl. start) survives
         self.assertEqual(len(graph['nodes']), total_before + added)
         self.assertTrue(row1_before <= set(graph['nodes']))
         self.assertIn(start_id, graph['nodes'])
@@ -95,7 +95,7 @@ class TestRowSupply(unittest.TestCase):
                         or cols_after[0] < cols_before[0] - 1e-9,
                         'fresh batch did not extend past the row edge')
         # bridge: the first fresh node links to a CLEARED row node; the
-        # batch chains sideways — every new edge stays in-row (horizontal)
+        # batch chains sideways - every new edge stays in-row (horizontal)
         fresh_ids = {n['id'] for n in fresh}
         inbound = [(p, c) for p, c in graph['edges']
                    if c in fresh_ids and p not in fresh_ids]
@@ -130,7 +130,7 @@ class TestChartDensity(unittest.TestCase):
         src = Path('ui/delve_chart.py').read_text(encoding='utf-8')
         self.assertIn("(8 if node['type'] in ('checkpoint', 'boss') else 6)",
                       src)
-        # icons 2× bigger than the first pass — ~3.1× the circle diameter
+        # icons 2× bigger than the first pass - ~3.1× the circle diameter
         self.assertIn('radius * 2 * 1.55 * 2', src)
         self.assertIn('34 * self.zoom', src)          # glyph paired with icons
         self.assertIn('radius * 3.1', src)            # hitbox follows the icon
@@ -142,7 +142,7 @@ class TestDarkness(unittest.TestCase):
     def test_ambient_is_near_black(self):
         from core.game import DARKNESS_AMBIENT
         self.assertLessEqual(DARKNESS_AMBIENT, 12)
-        self.assertGreater(DARKNESS_AMBIENT, 0)   # 'almost' — not absolute
+        self.assertGreater(DARKNESS_AMBIENT, 0)   # 'almost' - not absolute
 
 
 if __name__ == '__main__':

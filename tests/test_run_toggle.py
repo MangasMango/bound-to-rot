@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-The D2-style run/walk mechanic and the potion belt were removed — flasks
+The D2-style run/walk mechanic and the potion belt were removed - flasks
 (equipped in the T slot) are the only consumable, R is purely the white-gem
 slot, and the HUD has a clickable action bar (QWER + T + attack/move) with
 active_action flashes.

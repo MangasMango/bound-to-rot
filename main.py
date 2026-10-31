@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Bound To Rot — entry point.
+Bound To Rot - entry point.
 Run from the project root:  python main.py
 """
 
@@ -116,7 +116,7 @@ def main():
 
             rl.end_drawing()
     finally:
-        # Also runs on Ctrl+C (KeyboardInterrupt) — release textures/audio.
+        # Also runs on Ctrl+C (KeyboardInterrupt) - release textures/audio.
         game.cleanup()
         rl.close_audio_device()
         rl.close_window()

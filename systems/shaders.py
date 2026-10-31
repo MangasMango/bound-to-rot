@@ -33,7 +33,7 @@ class ShaderManager:
         self._uniforms: dict[str, dict[str, int]] = {}
         self._vs_path = os.path.join(shaders_dir, 'default.vs')
         _set_shaders_dir(shaders_dir)
-        # Reused uniform buffers — SetShaderValue copies immediately, so a
+        # Reused uniform buffers - SetShaderValue copies immediately, so a
         # single scratch buffer per type avoids per-call cffi allocations.
         self._fbuf = ffi.new('float *')
         self._ibuf = ffi.new('int *')
@@ -151,7 +151,7 @@ class ShaderManager:
 
     def set_vec2_array(self, name: str, uniform: str, points):
         """Upload a vec2 uniform array (list of (x, y) tuples). Uses the
-        array-count variant — plain SetShaderValue only writes ONE element."""
+        array-count variant - plain SetShaderValue only writes ONE element."""
         loc = self.loc(name, uniform)
         if loc < 0:
             return

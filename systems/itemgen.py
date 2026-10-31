@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Item instance generator — Borderlands-style volatile affix rolls.
+Item instance generator - Borderlands-style volatile affix rolls.
 
 Static base stats live in items.ITEMS. This module produces a per-instance
 `instance_data` dict (rarity, display_name, ilvl, affixes) that rides on the
@@ -126,8 +126,8 @@ _AFFIXES = [
 # (e.g. 'fire_damage_pct'); values are expressed in the SAME units the
 # perk bonuses use (percentage points for *_pct keys, flat for *_flat).
 #
-# They are aggregated into compute_perk_bonuses() — the BLUEPRINT §6
-# "passives come from items" aggregation point — so equipped gear can grant
+# They are aggregated into compute_perk_bonuses() - the BLUEPRINT §6
+# "passives come from items" aggregation point - so equipped gear can grant
 # every one of the 28 perk effects. They are deliberately kept OUT of
 # LIVE_EFFECT_MAP so they are NOT double-applied by the legacy per-frame
 # _equipped_bonuses() path (which handles the classic affixes such as
@@ -195,7 +195,7 @@ _PREFIXES = [a for a in _AFFIXES if a['kind'] == 'prefix']
 _SUFFIXES = [a for a in _AFFIXES if a['kind'] == 'suffix']
 
 # ── organ rot drawback suffixes (BLUEPRINT §22) ─────────────────────────
-# Rolled ONLY by make_rotten() when an organ hits 100% rot — never part of
+# Rolled ONLY by make_rotten() when an organ hits 100% rot - never part of
 # the normal generation pools (_PREFIXES/_SUFFIXES above). Values are stored
 # NEGATIVE so live_effect_totals / aggregate_item_bonuses subtract them; the
 # label carries the minus and affix_lines() renders abs().
@@ -237,7 +237,7 @@ _UNIQUES = [
 ]
 
 # The depth-gated rot-set mythic (BLUEPRINT §27). Deliberately NOT in
-# _UNIQUES — normal legendary/mythic rolls never pick it; only
+# _UNIQUES - normal legendary/mythic rolls never pick it; only
 # try_rot_mythic() (2% on organ drops at depth 1-10) grants it.
 ROT_MYTHIC_UNIQUE = {
     'id': 'rot_eternal', 'title': 'ROT ETERNAL',
@@ -267,7 +267,7 @@ LIVE_EFFECT_MAP = {
     'attr_essence':            'essence',
     'attr_nerve':              'nerve',
     'attr_destiny':            'destiny',
-    # rot drawback suffixes — stored NEGATIVE, so the summed effect subtracts
+    # rot drawback suffixes - stored NEGATIVE, so the summed effect subtracts
     'rot_drawback_max_life':      'max_health',
     'rot_drawback_move_speed':    'move_speed',
     'rot_drawback_evasion':       'evasion',
@@ -341,7 +341,7 @@ def generate_instance(item_id, ilvl, rarity=None, equip_slot=None, base_name=Non
         'rarity':       rarity,
         'display_name': name,
         'ilvl':         int(ilvl),
-        # Issue #73 DESIGN PIVOT: ALL items drop unidentified — rolled stats
+        # Issue #73 DESIGN PIVOT: ALL items drop unidentified - rolled stats
         # are hidden (and inert) until The Joker identifies the item. Legacy
         # instances without the key stay identified via is_identified().
         'identified':   False,
@@ -409,7 +409,7 @@ def is_rotten(inst):
 def apply_rotten_buff(aff):
     """Multiply every non-drawback affix value by ROTTEN_STAT_MULT.
 
-    Mutates in place. Drawback suffixes keep their rolled magnitude — the
+    Mutates in place. Drawback suffixes keep their rolled magnitude - the
     rot buff applies to the organ's own stats, never to the drawback.
     Rounding is half-up (not banker's) so a "+2" really becomes "+3" and
     every stat visibly gains from rotting."""
@@ -468,7 +468,7 @@ def add_rot(entry):
     if not ITEMS.get(entry.get('item', ''), {}).get('equipSlot'):
         return False                      # only organs rot
     if not is_identified(entry):
-        return False                      # unidentified: inert (§22) — no rot
+        return False                      # unidentified: inert (§22) - no rot
     if inst.get('rotten'):
         return False                      # meter pinned at 100% once rotten
     rot = min(ROT_MAX, rot_of(inst) + ROT_PER_WAVE)
@@ -479,7 +479,7 @@ def add_rot(entry):
 
 
 def cleanse_rot(entry):
-    """Queen of Hearts: FULL revert — rot to 0, drawback suffix removed, ROTTEN
+    """Queen of Hearts: FULL revert - rot to 0, drawback suffix removed, ROTTEN
     stat bonuses reverted, original name restored. Returns True when the
     entry carried any rot (i.e. the card application was meaningful)."""
     if not isinstance(entry, dict):
@@ -487,7 +487,7 @@ def cleanse_rot(entry):
     inst = entry.get('instance_data')
     if not isinstance(inst, dict):
         return False
-    # (no `or` short-circuit here — both keys must be popped unconditionally)
+    # (no `or` short-circuit here - both keys must be popped unconditionally)
     had_rot = bool(inst.pop('rot', 0.0))
     had_rotten = bool(inst.pop('rotten', False))
     had_rot = had_rot or had_rotten
@@ -507,7 +507,7 @@ def apply_wave_rot(inventory):
     """End-of-wave rot: every organ carried (equipped + backpack) gains
     ROT_PER_WAVE. Stash and ground items never rot.
 
-    Returns the number of EQUIPPED organs that turned ROTTEN this call —
+    Returns the number of EQUIPPED organs that turned ROTTEN this call -
     callers recalc derived stats when the result is > 0 (only a rotten
     transform changes live affix values)."""
     if not isinstance(inventory, dict):
@@ -525,7 +525,7 @@ def max_rot(inventory):
     """WORST-organ rot percent (0..100) across the equipped loadout.
 
     HUD organ-rot meter binding (owner ruling 2026-10-10): the bar shows the
-    organ closest to the ROTTEN state, not an average — the danger state is
+    organ closest to the ROTTEN state, not an average - the danger state is
     per-organ (add_rot / make_rotten), so the worst organ is the one that
     needs the Queen of Hearts card. Follows the same guards as add_rot: only
     identified organs with a real equipSlot can contribute; backpack and
@@ -586,14 +586,14 @@ def try_rot_mythic(slot, depth, rng=None):
         slot['item'], inst.get('ilvl', 1), rarity='mythic',
         equip_slot=defn.get('equipSlot'),
         base_name=defn.get('name', slot['item']))
-    # generate_instance rolls a random unique at mythic — force ours
+    # generate_instance rolls a random unique at mythic - force ours
     fresh['unique'] = dict(ROT_MYTHIC_UNIQUE)
     slot['instance_data'] = fresh
     return True
 
 
 def balanced_affix_values(inst):
-    """Ace of Clubs: recompute every rolled affix at the exact "fair" value —
+    """Ace of Clubs: recompute every rolled affix at the exact "fair" value -
     V_rand collapses to 1.0 so each stat sits at the balanced midpoint of
     its numeric range. Returns {affix_id: value} (does not mutate)."""
     out = {}
@@ -654,7 +654,7 @@ def roll_for(item_id, count, ilvl, seed=None):
 def affix_lines(instance_data):
     """Human-readable tooltip lines for an instance's affixes.
 
-    Values are rendered as absolute numbers — the label itself carries the
+    Values are rendered as absolute numbers - the label itself carries the
     sign (rot drawback suffixes are stored negative with a '-{v}' label)."""
     lines = []
     aff = instance_data.get('affixes', {})
@@ -671,7 +671,7 @@ def affix_lines(instance_data):
 def live_effect_totals(instance_data, include_drawbacks=True):
     """Sum affixes that map to live player effects -> {effect: value}.
 
-    include_drawbacks=False drops the rot drawback suffixes — the ROT
+    include_drawbacks=False drops the rot drawback suffixes - the ROT
     ETERNAL set condition nullifies them (§27)."""
     out = {}
     aff = instance_data.get('affixes', {})
@@ -718,8 +718,8 @@ def compute_item_stat_totals(slot):
     totals of its rolled affixes. Returns {stat_key: value}; empty when the
     slot is None or carries no comparable stats.
 
-    An UNIDENTIFIED item exposes no stats at all — neither its rolled affixes
-    nor its base implicits — so tooltips, comparison rows and stat lists can
+    An UNIDENTIFIED item exposes no stats at all - neither its rolled affixes
+    nor its base implicits - so tooltips, comparison rows and stat lists can
     simply test the result for emptiness.
     """
     totals = {}
@@ -754,7 +754,7 @@ def comparison_rows(hover_slot, equip_slot):
 
     Returns a list of (text, sign) tuples where sign is +1 (upgrade),
     -1 (downgrade) or 0 (no change). Text is the hovered item's stat line
-    only (e.g. "+33 Max Health", "-4% Ability Crit") — no "(up)"/"(down)"/
+    only (e.g. "+33 Max Health", "-4% Ability Crit") - no "(up)"/"(down)"/
     "(eq ...)" words: callers colour the row by sign and draw an arrow icon
     after it (sign 0 = no arrow). ASCII-only text for the project's font."""
     if (isinstance(hover_slot, dict) and hover_slot.get('instance_data')
@@ -795,7 +795,7 @@ def equipped_item_levels(inventory):
 
 
 def character_level(inventory):
-    """CHARACTER LEVEL — the average item level of the character's gear.
+    """CHARACTER LEVEL - the average item level of the character's gear.
 
     THE SINGLE SOURCE OF TRUTH for this value. Both display sites (the
     inventory panel header and the top-left HUD readout) call this one
@@ -803,7 +803,7 @@ def character_level(inventory):
 
     Rounding: ROUNDED to the nearest integer, halves rounding UP
     (i.e. floor(x + 0.5)), applied here once so both sites agree. Returns 0
-    when nothing is equipped — no division by zero on an empty loadout.
+    when nothing is equipped - no division by zero on an empty loadout.
 
     SCOPE: DISPLAY-ONLY, pending an owner decision. This value is rendered
     and nothing else. It is deliberately NOT an input to loot generation,
@@ -821,12 +821,12 @@ def character_level(inventory):
 def format_character_level(inventory):
     """The exact string both display sites render (shared formatting).
 
-    Compact form: ``LVL 21``. Owner rule — the long "CHARACTER LEVEL" phrase
+    Compact form: ``LVL 21``. Owner rule - the long "CHARACTER LEVEL" phrase
     is never drawn; both sites render this one string verbatim, so the compact
     label cannot drift between them.
 
     Owner rule (revision): an EMPTY loadout displays ``LVL 0``, exactly like any
-    other value. There is no placeholder and no special case — the label is
+    other value. There is no placeholder and no special case - the label is
     always ``LVL`` followed by the number.
     """
     return f'LVL {character_level(inventory)}'
@@ -852,7 +852,7 @@ def aggregate_item_bonuses(inventory):
     Returns a dict keyed by the same bonus keys consumed by
     ``compute_derived_stats`` / ``compute_perk_bonuses`` (e.g.
     ``'fire_damage_pct'``, ``'max_energy_shield'``). Only affixes carrying a
-    ``perk`` field (the DESCEND_PERKS-style affixes) are included — the
+    ``perk`` field (the DESCEND_PERKS-style affixes) are included - the
     classic affixes applied directly by ``_equipped_bonuses()`` are excluded
     so they are not double-counted.
 

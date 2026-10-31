@@ -1,5 +1,5 @@
 #version 330
-// Fire-light shader — Godot-style port: log falloff + dual scrolling noise
+// Fire-light shader - Godot-style port: log falloff + dual scrolling noise
 // churn + noise-perturbed edges + fire color curve. Rendered as a
 // multiplicative light map over the scene (0 = dark, 1 = lit).
 out vec4 fragColor;
@@ -20,7 +20,7 @@ uniform float u_mode;         // 0 = reveal map (multiplied over scene),
 
 const int MAX_LIGHTS = 8;
 
-// Falloff shaping — real-bulb look: small white-hot core, smooth wide fade.
+// Falloff shaping - real-bulb look: small white-hot core, smooth wide fade.
 // FALL_RATE : main gaussian rate. Lower = orange fade reaches farther out
 //             (radius scales with 1/sqrt(FALL_RATE); 0.65 ≈ 1.27× the old 1.05).
 // CORE_RATE : white-core gaussian rate. Higher = smaller core
@@ -36,7 +36,7 @@ float sample_noise(vec2 uv) {
     return texture(u_noise, uv).r;
 }
 
-// Godot f1 port — two scrolling noise octaves multiplied = flame churn
+// Godot f1 port - two scrolling noise octaves multiplied = flame churn
 float churn(vec2 uv, float t) {
     float a = sample_noise(uv + vec2(t, 0.0));
     float b = sample_noise(uv * 1.3 + vec2(t * 0.8, 0.0));
@@ -71,7 +71,7 @@ void main() {
                                                    -u_time * 0.05));
         float dd = max(dist + (nn - 0.5) * 0.25, 0.0);
 
-        // Main gaussian keeps the smooth in→out fade (churn animates it —
+        // Main gaussian keeps the smooth in→out fade (churn animates it -
         // flame life); the churn floor keeps pools from guttering to black.
         float power = min(strength * 2.2, 1.0);
         float l = min((exp(-dd * dd * FALL_RATE) + exp(-dd * dd * 10.0) * 0.3)
@@ -91,7 +91,7 @@ void main() {
     }
 
     if (u_mode < 0.5) {
-        // Dim map — MULTIPLIED over the scene: the unlit world drops to
+        // Dim map - MULTIPLIED over the scene: the unlit world drops to
         // the ambient dim level; light lifts it back toward full brightness.
         fragColor = vec4(clamp(vec3(u_ambient) + reveal * 0.55, 0.0, 1.0), 1.0);
     } else if (u_mode < 1.5) {

@@ -14,19 +14,19 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Gem system — gems grant QWER abilities (issue #73 DESIGN PIVOT).
+Gem system - gems grant QWER abilities (issue #73 DESIGN PIVOT).
 
 The ability hotbar is no longer organ-driven: four gem COLORS map onto the
 four action keys, and every gem ability is cast by PRESSING its key:
 
     Q  ->  blue gem   (primary offense: cone actives, aimed with the mouse)
     W  ->  green gem  (mobility actives: dash / blink)
-    E  ->  red gem    (survival actives: lifesteal / fire aura — timed buffs)
+    E  ->  red gem    (survival actives: lifesteal / fire aura - timed buffs)
     R  ->  white gem  (ultimate: any ability, rolled at a higher floor;
                        white = prismatic "all colors at once")
 
 Equipping a gem item into that key's socket (inventory['gem_sockets'])
-grants/sets that slot's ability. Socketing a different gem re-rolls nothing —
+grants/sets that slot's ability. Socketing a different gem re-rolls nothing -
 the ability is rolled when the gem ITEM is generated (itemgen.roll_for) and
 Ace of Diamonds (Gemcutter's Prism) can reroll it later.
 

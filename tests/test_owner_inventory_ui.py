@@ -22,7 +22,7 @@ right-click, and the QWER/T slot styling.
       right-click context menu.
   3. QWER/T slots: the key label is always gray, a filled slot shows its real
      gem at full opacity, an empty slot shows a 0.3 alpha ghost of the gem or
-     flask that belongs in it — and never a ghost behind a filled slot.
+     flask that belongs in it - and never a ghost behind a filled slot.
 
 Ends with a draw smoke test that opens the inventory panel for a real
 Character so the panel, socket and flask render paths all execute.
@@ -246,7 +246,7 @@ def test_socket_refuses_an_occupied_slot():
 
 
 def test_socket_refuses_the_wrong_colour():
-    """A blue gem cannot go into W/E/R — the colour maps to exactly one key."""
+    """A blue gem cannot go into W/E/R - the colour maps to exactly one key."""
     inv = items.make_inventory()
     inv['grid'] = [_grid_entry('gem_blue', col=0, row=0)]
     assert items.socket_gem_from_grid(inv, 0, dest_key='W') is False
@@ -319,7 +319,7 @@ def _ghost_alpha():
 
 
 def _alpha(color):
-    """Alpha of a draw tint — pyray exposes some constants as plain tuples."""
+    """Alpha of a draw tint - pyray exposes some constants as plain tuples."""
     if isinstance(color, (tuple, list)):
         return color[3]
     return color.a
@@ -460,7 +460,7 @@ class _Clicks:
     """Rising-edge queue standing in for systems.input.mouse_pressed.
 
     Tests feed one button edge; the next update() consumes it, and all
-    later calls report False — exactly what the real edge detector counts
+    later calls report False - exactly what the real edge detector counts
     with the 30 Hz fixed timestep.
     """
     def __init__(self):
@@ -501,7 +501,7 @@ def _pipeline(monkeypatch, clicks, mouse):
 
 def test_live_click_pipeline_sockets_green_gem_into_W(monkeypatch):
     """End-to-end through update(): right-click a grid gem, left-click the
-    SOCKET (W) offer — the W socket takes the gem and the grid entry is
+    SOCKET (W) offer - the W socket takes the gem and the grid entry is
     consumed. No direct _ctx injection."""
     mouse, clicks = _Mouse(), _Clicks()
     _pipeline(monkeypatch, clicks, mouse)
@@ -519,7 +519,7 @@ def test_live_click_pipeline_sockets_green_gem_into_W(monkeypatch):
 
     sidx = next(i for i, o in enumerate(ui._ctx_options())
                 if o['type'] == 'socket' and o['enabled'] and 'W' in o['label'])
-    # click the DRAWN menu rect (_ctx_rect clamps to the screen — the old
+    # click the DRAWN menu rect (_ctx_rect clamps to the screen - the old
     # raw-origin click math validated the dead-click-zone bug)
     cx, cy, _, _, item_h, _ = ui._ctx_rect()
     mouse.x = cx + 110
@@ -535,7 +535,7 @@ def test_live_click_pipeline_sockets_green_gem_into_W(monkeypatch):
 
 def test_live_click_pipeline_removes_a_socketed_gem(monkeypatch):
     """End-to-end through update(): right-click the W socket, left-click
-    REMOVE — the gem returns to the backpack and the socket empties."""
+    REMOVE - the gem returns to the backpack and the socket empties."""
     mouse, clicks = _Mouse(), _Clicks()
     _pipeline(monkeypatch, clicks, mouse)
 
@@ -564,7 +564,7 @@ def test_live_click_pipeline_removes_a_socketed_gem(monkeypatch):
 
 
 def test_remove_gem_into_full_backpack_keeps_the_gem(monkeypatch):
-    """Full backpack: sockets are never silently emptied — the gem stays
+    """Full backpack: sockets are never silently emptied - the gem stays
     and the panel shows 'Backpack full!' (regression: the auto-place
     result used to be ignored and the gem was destroyed)."""
     _headless(monkeypatch)

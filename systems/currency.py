@@ -14,16 +14,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-Poker currency — PoE-style stacking currency cards (issue #73 DESIGN PIVOT,
+Poker currency - PoE-style stacking currency cards (issue #73 DESIGN PIVOT,
 re-skinned to poker cards for the western dark fantasy migration).
 
 **The Joker is the ONLY quarter-stacked card** (BLUEPRINT §19.193): its drops
 and starter grant come as 4 quarters, it needs 4/4 to complete, and applying
 consumes 4. Every OTHER card is WHOLE: 1 count = 1 usable card, applying
-consumes 1 — drops, starter grants and vendor recipes all hand out single
+consumes 1 - drops, starter grants and vendor recipes all hand out single
 cards. All cards stack by item id in the inventory (entry['count']).
 
-Semantics (owner's list in issue #73, keyed by the legacy arcana id — the
+Semantics (owner's list in issue #73, keyed by the legacy arcana id - the
 apply logic, drop tables and tests all key off those integers):
 
     0   The Joker           - identify an item (all items drop unidentified)
@@ -47,12 +47,12 @@ from systems.items import (ITEMS, grid_auto_place_instance,
 
 QUARTERS_PER_CARD = 4
 # Fresh-vessel card grant (owner ruling 2026-10-07): one complete Joker
-# (quarters — it's the only stacked card) plus one whole Ace of Hearts +
+# (quarters - it's the only stacked card) plus one whole Ace of Hearts +
 # Queen of Diamonds.
 STARTER_CARD_QUARTERS = {
-    0: 4,   # The Joker — one complete card (4/4 quarters)
-    1: 1,   # Ace of Hearts — one whole card
-    10: 1,  # Queen of Diamonds — one whole card
+    0: 4,   # The Joker - one complete card (4/4 quarters)
+    1: 1,   # Ace of Hearts - one whole card
+    10: 1,  # Queen of Diamonds - one whole card
 }
 
 # Card ids used as currency (legacy arcana ints are the internal keys);
@@ -131,7 +131,7 @@ def quarters_needed(arcana):
     """Counts required to complete/consume one use of an arcana.
 
     The Joker is the ONLY quarter-stacked card (needs QUARTERS_PER_CARD);
-    every other card is whole — 1 count = 1 usable card (§19.193)."""
+    every other card is whole - 1 count = 1 usable card (§19.193)."""
     return QUARTERS_PER_CARD if arcana == 0 else 1
 
 
@@ -145,7 +145,7 @@ def card_complete(entry):
 
 def stack_label(entry):
     """Grid counter. A COMPLETE Joker stack shows its plain quarter count
-    (e.g. '41') so each 4-quarter spend stays visible — the old cap read
+    (e.g. '41') so each 4-quarter spend stays visible - the old cap read
     '4/4' for a 45-stack and identification looked free. Partial stacks
     read 'n/4'; whole cards show their plain count."""
     arcana = arcana_of(entry.get('item', ''))
@@ -170,19 +170,19 @@ def starter_set():
 # Whole-card drops: every card drop event is one COMPLETE card. The Joker is
 # the most likely drop early on (identification income); its weight tapers
 # with depth because vendoring trash (§24, planned) will become the steady
-# Joker source — PoE-style, without any gold economy.
+# Joker source - PoE-style, without any gold economy.
 CARD_DROP_WEIGHTS = {
-    0: 40,   # The Joker         — identification
-    1: 15,   # Ace of Hearts     — common -> uncommon
-    14: 12,  # Queen of Hearts   — organ rot cleanse
-    10: 8,   # Queen of Diamonds — reroll
-    11: 8,   # Ace of Clubs      — balance
-    4: 6,    # King of Pikes     — mythic
-    13: 4,   # Ace of Pikes      — full reroll
-    15: 4,   # Jack of Pikes     — cursed reflection
-    17: 3,   # Ace of Diamonds   — gemcutter's prism
+    0: 40,   # The Joker         - identification
+    1: 15,   # Ace of Hearts     - common -> uncommon
+    14: 12,  # Queen of Hearts   - organ rot cleanse
+    10: 8,   # Queen of Diamonds - reroll
+    11: 8,   # Ace of Clubs      - balance
+    4: 6,    # King of Pikes     - mythic
+    13: 4,   # Ace of Pikes      - full reroll
+    15: 4,   # Jack of Pikes     - cursed reflection
+    17: 3,   # Ace of Diamonds   - gemcutter's prism
 }
-# fool_* identifiers kept from the tarot era — they key the Joker's taper.
+# fool_* identifiers kept from the tarot era - they key the Joker's taper.
 FOOL_TAPER_START_DEPTH = 5    # full Joker weight up to here...
 FOOL_TAPER_RATE = 0.08        # ...then -8% of its weight per extra depth...
 FOOL_TAPER_FLOOR = 0.15       # ...never below 15% of its base weight
@@ -201,7 +201,7 @@ def roll_fraction_drop(depth=1, rng=None):
     Weighted per-card selection (CARD_DROP_WEIGHTS) over the cards that
     pass their depth_min gate; the Joker's weight decays with depth.
     Whole-card drops: a Joker arrives as its 4 quarters, every other card
-    as 1 count — both are exactly one complete card (§23.218)."""
+    as 1 count - both are exactly one complete card (§23.218)."""
     rng = rng or random
     pool = [a for a, c in CURRENCY_CARDS.items() if depth >= c['depth_min']]
     if not pool:
@@ -333,7 +333,7 @@ def apply_card(game, arcana, src, idx):
     elif arc == 13:   # Ace of Pikes
         _reroll(target, seed=random.getrandbits(24), keep_rarity=True)
         result = 'Divine overhaul: new stat roll.'
-    elif arc == 14:   # Queen of Hearts — organ rot cleanse
+    elif arc == 14:   # Queen of Hearts - organ rot cleanse
         if itemgen.cleanse_rot(target):
             result = 'Rot cleansed: the organ is pure again.'
         else:
@@ -344,7 +344,7 @@ def apply_card(game, arcana, src, idx):
                                     cols=INV_COLS, rows=INV_ROWS):
             result = 'A cursed reflection appears.'
         else:
-            return None   # no room — don't consume
+            return None   # no room - don't consume
     elif arc == 17:   # Ace of Diamonds
         inst = target['instance_data']
         new_ab = _reroll_gem_ability(inst)
@@ -361,7 +361,7 @@ def apply_card(game, arcana, src, idx):
 def _reroll(target, seed=None, keep_rarity=False):
     """Queen of Diamonds / Ace of Pikes: destroy the current values and roll
     anew, keeping the item's base, ilvl and (for the Queen) its rarity. Rot
-    is a physical property of the organ — the meter carries over, and a
+    is a physical property of the organ - the meter carries over, and a
     rotten organ stays ROTTEN on its fresh roll (buff + drawback re-applied)."""
     inst = target['instance_data']
     item_id = target.get('item', '')

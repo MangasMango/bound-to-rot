@@ -62,7 +62,7 @@ class DelveFlowMixin:
             # every load produces the same compact layout for a given chart.
             import core.delve_gen as _dg
             _dg.layout_positions(graph)
-            # Depth rows are infinite (§26) — refresh an exhausted row
+            # Depth rows are infinite (§26) - refresh an exhausted row
             _dg.ensure_row_supply(graph, self._delve_chart_rng(),
                                   chart.get('current_node_id'))
             if self._chart_resume:
@@ -96,7 +96,7 @@ class DelveFlowMixin:
             """Chart node picked in the hub.
 
             Resume: clicking the node you're on continues the journey exactly
-            where it left off — the saved layout is never wiped. Picking another
+            where it left off - the saved layout is never wiped. Picking another
             reachable node travels the same chart (the graph persists; only the
             room state resets at the new node).
             """
@@ -138,7 +138,7 @@ class DelveFlowMixin:
                         raise KeyError('old format')
                     if self._delve['state'] == 'dirs':
                         self._delve['state'] = 'ready'
-                    # Old saves predate the chart graph — attach a fresh one.
+                    # Old saves predate the chart graph - attach a fresh one.
                     if 'chart' not in self._delve:
                         self._init_delve_chart()
                     import core.delve_gen as _dg
@@ -230,7 +230,7 @@ class DelveFlowMixin:
             reset_stats(self.stats, **derived)
             if saved is None:
                 # A FRESH run starts at full pools (owner ruling
-                # 2026-10-07); resumes keep their pools — reset_stats
+                # 2026-10-07); resumes keep their pools - reset_stats
                 # preserves them, so no refill happens there.
                 self.stats['health'] = self.stats['max_health']
                 self.stats['energy_shield'] = self.stats.get('max_energy_shield', 0.0)
@@ -366,7 +366,7 @@ class DelveFlowMixin:
         def _update_delve(self, dt: float):
             d = self._delve
 
-            # Checkpoint relic shrine — offer 1-of-3 run boons (§6/§7)
+            # Checkpoint relic shrine - offer 1-of-3 run boons (§6/§7)
             if d.get('_pending_relic_offer') and d['state'] == 'ready':
                 d['_pending_relic_offer'] = False
                 self._open_relic_offer()
@@ -495,7 +495,7 @@ class DelveFlowMixin:
                 if in_dim:
                     dps_mult = min(dps_mult, 0.5)
                 self.stats['health'] = max(0.0, self.stats['health'] - d['darkness_dps'] * dps_mult * dt)
-                # the red flash rides the damage ramp — zero while the
+                # the red flash rides the damage ramp - zero while the
                 # darkness deals zero DPS, not the instant you step out
                 self.hit_flash = max(self.hit_flash, 0.18 * min(1.0, dps_mult))
                 if self.stats['health'] <= 0:
@@ -532,8 +532,8 @@ class DelveFlowMixin:
 
             # Spawn IN THE DARKNESS, past the visible pool edge (owner
             # ruling): gather walkable floor tiles in an annulus around the
-            # pulse — min_r = pool edge (light_r + personal light) + 1, band
-            # of 5 tiles — never closer to the player than ~2.5 tiles. The
+            # pulse - min_r = pool edge (light_r + personal light) + 1, band
+            # of 5 tiles - never closer to the player than ~2.5 tiles. The
             # wave then charges into the player's light (DETECT_RANGE 22
             # tiles means these spawns aggro immediately).
             dark_edge = d['light_r'] + DELVE_PERSONAL_LIGHT
@@ -558,7 +558,7 @@ class DelveFlowMixin:
                         continue   # never drop one in the player's face
                     candidates.append((tc, tr))
             if not candidates:
-                # dark ring unreachable (tiny carpeted area) — fall back to
+                # dark ring unreachable (tiny carpeted area) - fall back to
                 # the widest ring map space allows around the pulse
                 for _tries in range(200):
                     tc = _rnd.randint(max(0, cx - 16), min(cols_len - 1, cx + 16))
@@ -590,7 +590,7 @@ class DelveFlowMixin:
                     accuracy = int(accuracy * 1.3)
                 # dark-spawn sprint: ×1.6 speed while the enemy is still
                 # far from the pulse (past _APPROACH_SLOW_DIST) so slow
-                # slimes keep the wave cadence — decays near the light
+                # slimes keep the wave cadence - decays near the light
                 move_speed = make_move_speed(etype) * _DARK_SPAWN_SPRINT
                 enemy = {
                     'id':               f'dse{self._enemy_id_seq}',
@@ -625,7 +625,7 @@ class DelveFlowMixin:
         def _room_reward_slots(self, node, base_ilvl: int) -> list:
             """Room-clear reward: EXACTLY what the chart promised for this
             node (pre-rolled at chart generation, shown on the chart and the
-            room labels — BLUEPRINT §23) plus the tarot card roll on top.
+            room labels - BLUEPRINT §23) plus the tarot card roll on top.
             Legacy charts whose nodes lack a 'rewards' key fall back to the
             old random roll."""
             rewards = node.get('rewards')
@@ -637,7 +637,7 @@ class DelveFlowMixin:
             # ROT ETERNAL roll (§27): 2% on organ drops at depth 1-10
             for slot in slots:
                 itemgen.try_rot_mythic(slot, max(1, base_ilvl))
-            # Tarot card roll, depth-scaled arcana (§19) — whole-card drops
+            # Tarot card roll, depth-scaled arcana (§19) - whole-card drops
             if _rnd.random() < 0.10:
                 slots.append(currency.roll_card_drop_slot(max(1, base_ilvl), _rnd))
             return slots
@@ -669,7 +669,7 @@ class DelveFlowMixin:
 
         def _sync_chart_rng(self, rng=None):
             """Keep a persistent RNG for lazy chart extension. Its state is not
-            serialized — the full graph is, so determinism comes from the save."""
+            serialized - the full graph is, so determinism comes from the save."""
             if rng is None:
                 rng = _rnd.Random()
             self._delve['_chart_rng_state'] = True
@@ -734,7 +734,7 @@ class DelveFlowMixin:
                 slots.append(itemgen.roll_for(organ, 1, depth))
 
             # Guaranteed equipment from depth 10 (rarity floor per tier).
-            # rarity_floor is a RARITY_ORDER INDEX (int) — map to its name;
+            # rarity_floor is a RARITY_ORDER INDEX (int) - map to its name;
             # feeding the int straight into generate_instance used to raise
             # KeyError the moment equip_guaranteed flipped on (depth 10+).
             if tier['equip_guaranteed']:
@@ -835,7 +835,7 @@ class DelveFlowMixin:
                 return []
             graph = chart['graph']
             _dg.ensure_depth_rows(graph, self._delve_chart_rng(), self._delve['depth'])
-            # Depth rows are infinite (§26) — refresh an exhausted row
+            # Depth rows are infinite (§26) - refresh an exhausted row
             _dg.ensure_row_supply(graph, self._delve_chart_rng(),
                                   chart.get('current_node_id'))
             enterable = set(_dg.enterable_node_ids(graph, chart))
@@ -933,7 +933,7 @@ class DelveFlowMixin:
             child['grid_col'] = new_node['col']
             child['grid_row'] = new_node['row']
             child['state'] = _dg.STATE_AVAILABLE
-            # Any DIRECT edge counts as forward — sideways moves along a row
+            # Any DIRECT edge counts as forward - sideways moves along a row
             # append to the golden route just like descending does (§26).
             was_forward = any({p, c} == {parent['id'], child['id']}
                               for p, c in chart['graph']['edges'])

@@ -1,24 +1,24 @@
 Other Art
 =========
 
-Poker cards (dark & light decks) — "Pixel Poker Cards" by Aspecs Gaming,
+Poker cards (dark & light decks) - "Pixel Poker Cards" by Aspecs Gaming,
 CC0 1.0: https://aspecsgaming.itch.io/mini-pixel-playing-cards
 
-Font — Sancreek by Vernon Adams, SIL Open Font License 1.1:
+Font - Sancreek by Vernon Adams, SIL Open Font License 1.1:
   https://fonts.google.com/specimen/Sancreek
 
-Inventory / HUD panels and orbs (assets/ui) — "RPG Inventory" and
+Inventory / HUD panels and orbs (assets/ui) - "RPG Inventory" and
 "Health Orb 1.1" by itsmars, CC0 1.0:
   https://opengameart.org/content/rpg-inventory
   https://opengameart.org/content/health-orb-11
 
-UI icons — 1-bit Pixel Icons by Nikoichu, CC0 1.0:
+UI icons - 1-bit Pixel Icons by Nikoichu, CC0 1.0:
   https://nikoichu.itch.io/pixel-icons
 
-Ability gem icons — "Icons - Dark Magic" by Cethiel, CC0 1.0:
+Ability gem icons - "Icons - Dark Magic" by Cethiel, CC0 1.0:
   https://opengameart.org/content/icons-dark-magic
 
-UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
+UI/game sound effects - Kenney, CC0 1.0 (credit appreciated, not required):
   https://kenney.nl
 
   Music (assets/ost):
@@ -30,13 +30,13 @@ UI/game sound effects — Kenney, CC0 1.0 (credit appreciated, not required):
     Lobo Loco tracks (Attribution 4.0 International, in-game + hub):
       https://freemusicarchive.org/music/Lobo_Loco/tunnel-games
 
-World tileset (assets/environment) — Desert Tileset by Amstrad,
+World tileset (assets/environment) - Desert Tileset by Amstrad,
 CC BY-SA 3.0 (itself a modification of the Flare grassland tileset,
 also CC BY-SA 3.0):
   https://opengameart.org/content/desert-tileset
   https://opengameart.org/content/grassland-tileset
 
-Menu widgets — "RPG GUI Construction Kit v1.0" by Lamoot, CC BY 3.0:
+Menu widgets - "RPG GUI Construction Kit v1.0" by Lamoot, CC BY 3.0:
   https://opengameart.org/content/rpg-gui-construction-kit-v10
 
 Original art (no third-party source): icon.ico, assets/logo/,

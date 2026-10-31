@@ -25,6 +25,13 @@ PRIVATE_PACKS = (
     'boss', 'enemy', 'none-playable character', 'playable character',
 )
 
+# Loose files with an unconfirmed or non-redistributable licence (the vfx
+# sheets stay local; see assets/vfx/credits.txt and README.md, Assets).
+PRIVATE_PACKS += ('vfx',)
+PRIVATE_FILES = (
+    '+ Update.txt', 'Animation Index.txt', 'Asset Index.txt', 'Licence.txt',
+)
+
 
 def project_version() -> str:
     try:
@@ -49,12 +56,13 @@ def has_private_packs() -> list:
         if any(p.is_file() and p.name.lower() != 'readme.md'
                for p in d.rglob('*')):
             found.append(name)
+    found += [n for n in PRIVATE_FILES if (ROOT / 'assets' / n).exists()]
     return found
 
 
 def hide_packs(packs) -> list:
-    """Move pack folders outside assets/ so PyInstaller can't see them;
-    returns [(hidden, original)] pairs."""
+    """Move pack folders/files outside assets/ so PyInstaller can't see
+    them; returns [(hidden, original)] pairs."""
     stash = ROOT / '.private_packs_tmp'
     stash.mkdir(exist_ok=True)
     moved = []
@@ -65,6 +73,12 @@ def hide_packs(packs) -> list:
             shutil.rmtree(tmp)
         src.rename(tmp)
         moved.append((tmp, src))
+    for name in PRIVATE_FILES:
+        src = ROOT / 'assets' / name
+        if src.exists():
+            tmp = stash / name
+            src.rename(tmp)
+            moved.append((tmp, src))
     return moved
 
 
@@ -112,7 +126,8 @@ def main() -> None:
     if args.no_private_packs:
         print('[build] private packs excluded: this zip is safe to publish.')
     elif packs:
-        print('[build] WARNING: this build bundles NON-REDISTRIBUTABLE packs:')
+        print('[build] WARNING: this build bundles NON-REDISTRIBUTABLE '
+              'pack content:')
         print('[build] WARNING:  ' + ', '.join(packs))
         print('[build] WARNING: do not publish this zip; '
               'rebuild with --no-private-packs for releases.')
