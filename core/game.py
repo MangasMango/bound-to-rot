@@ -145,6 +145,15 @@ RAID_DURATION   = 1800.0
 # perk bonus will feed the max when it lands).
 AMMO_MAX        = 6
 
+# Reload (issue: ammo mechanic). The cylinder auto-reloads the moment the
+# last shot leaves it, or early via R. Base duration 3.0 s, lowered by
+# `reload_speed_pct` (Cunning +1%/pt and '+X% Reload Speed' item affixes),
+# floored so the mechanic keeps a floor of commitment. Attacks are blocked
+# while `_reload_t > 0`; movement is free.
+RELOAD_SECONDS  = 3.0
+RELOAD_MIN      = 1.0
+DRY_FIRE_CD     = 0.6     # min seconds between dry-click sounds
+
 # Skeleton kill drops - (item_id, min_count, max_count, chance)
 SKELETON_DROP_TABLE = [
     ('lungs',         1, 1,  0.035),
@@ -512,10 +521,15 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._fire_aura_dps    = 0.0
         self._aura_tick        = 0.0
 
-        # Revolver ammo (mirrors the full cylinder - the future bullets
-        # system owns this field)
+        # Revolver ammo (mirrors the full cylinder): shot decrements, 0
+        # starts the auto-reload (R reloads early), the reload timer
+        # refills the cylinder and blocks new shots while it runs.
         self._ammo     = AMMO_MAX
         self._ammo_max = AMMO_MAX
+        self._reload_t = 0.0          # remaining reload seconds
+        self._reload_total = 0.0      # the reload's full duration (spin math)
+        self._orb_spin = 0.0          # degrees the cylinder icon is twisted
+        self._dry_fire_t = 0.0        # dry-click sound throttle
 
         # Click-to-move indicator
         self.click_marker = None  # {'col': f, 'row': f, 'timer': f}
@@ -1009,7 +1023,15 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 'orb_fill1':     _utex('orb_fill_1.png'),
                 'orb_mask':      _utex('orb_mask.png'),
                 'orb_angel':     _utex('orb_angel.png'),
-                'orb_mag':       _utex('orb_mag.png'),
+                # Revolver cylinder icons - one per bullet count 0-6
+                # (the missing orb_mag.png is retired; ammo mechanic)
+                'orb_mag_0':     _utex('orb_mag_0.png'),
+                'orb_mag_1':     _utex('orb_mag_1.png'),
+                'orb_mag_2':     _utex('orb_mag_2.png'),
+                'orb_mag_3':     _utex('orb_mag_3.png'),
+                'orb_mag_4':     _utex('orb_mag_4.png'),
+                'orb_mag_5':     _utex('orb_mag_5.png'),
+                'orb_mag_6':     _utex('orb_mag_6.png'),
                 'skill_base':    _utex('skill_base.png'),
                 'belt_slot':     _utex('belt_slot.png'),
                 'golden_frame':  _utex('golden_frame.png'),
@@ -1103,8 +1125,15 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
 
-    def _permadeath(self):
-        """Death is permanent - delete the character (hub or delve)."""
+    def _on_death(self):
+        """Death costs XP, not the character (issue #31, supersedes permadeath).
+
+        The delve is lost (snapshot cleared, waves reset); the character
+        survives with a PoE-style XP penalty and returns through the end
+        screen to the menu."""
+        import systems.xp as xp
+        lost = xp.death_penalty(self.char)
+        self.char_mgr.save()
         self.state = STATE_DEAD
         self.audio.set_music_state('death')
         self._saved_delve = None
@@ -1116,8 +1145,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             'time':        self.tracker.time,
             'loot':        self.tracker.loot,
             'extracted':   False,
+            'xp_lost':     lost,
+            'level':       self.char.level,
         }
-        self.char_mgr.delete(self.char_mgr.active_idx)
 
 
 
@@ -1665,6 +1695,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # ── attack cooldown ───────────────────────────────────────────
         self.attack_cd = max(0.0, self.attack_cd - dt)
 
+        # ── revolver reload lifecycle (ammo mechanic) ─────────────────
+        self._tick_reload(dt)
+
         # ── auto-acquire nearest enemy when idle ──────────────────────
         if self.attack_target is None and self.dest_col is None:
             self.attack_target = self._nearest_enemy(
@@ -1684,18 +1717,22 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     self.player_state  = 'attack'
                     self.player_facing = self._dir_to(tx - self.px, ty - self.py)
                     if self.attack_cd <= 0:
-                        atk_speed = (self.stats.get('_attack_speed_pct', 0.0)
-                                     + equip_effects['attack_speed_pct'])
-                        self.attack_cd = frames.attack_seconds(
-                            frames.PLAYER_BASE_ATTACK_FRAMES, atk_speed)
-                        # the shot releases on SHOT_FIRE_FRAME of the attack
-                        # animation (the recoil pose), not at cooldown expiry
-                        self._pending_shot = {
-                            'target': self.attack_target,
-                            'effects': equip_effects,
-                            'swing_t': 0.0,
-                            'swing_dur': self.attack_cd,
-                        }
+                        # empty / reloading cylinder: dry click only, no shot
+                        if self._reload_t > 0 or self._ammo <= 0:
+                            self._try_dry_fire()
+                        else:
+                            atk_speed = (self.stats.get('_attack_speed_pct', 0.0)
+                                         + equip_effects['attack_speed_pct'])
+                            self.attack_cd = frames.attack_seconds(
+                                frames.PLAYER_BASE_ATTACK_FRAMES, atk_speed)
+                            # the shot releases on SHOT_FIRE_FRAME of the attack
+                            # animation (the recoil pose), not at cooldown expiry
+                            self._pending_shot = {
+                                'target': self.attack_target,
+                                'effects': equip_effects,
+                                'swing_t': 0.0,
+                                'swing_dur': self.attack_cd,
+                            }
 
         elif self.dest_col is not None:
             self._walk_toward(self.dest_col, self.dest_row, dt, speed_mult)
@@ -1903,7 +1940,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self.tracker.time = self.raid_time
 
         if self.stats['health'] <= 0 and not self._god_mode:
-            self._permadeath()
+            self._on_death()
             return
 
         self.audio.update(dt, self.zombies, self.player_state == 'walk', False)
@@ -2312,6 +2349,53 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if self._muzzle_frames:
             self._flash_effects.append({'x': sx, 'y': sy, 'timer': 0.0})
         self.audio.revolver_shot()
+        # the cylinder loses one chamber; the emptied cylinder spins up the
+        # auto-reload immediately (no dead click needed first)
+        self._ammo = max(0, self._ammo - 1)
+        # the icon twists +60 per spent round and eases back to 0
+        self._orb_spin = 60.0
+        if self._ammo <= 0:
+            self._start_reload()
+
+    def reload_duration(self) -> float:
+        """Seconds a full cylinder reload takes (owner ruling: 3.0 s base,
+        lowered by `reload_speed_pct`, floored at RELOAD_MIN)."""
+        speed = max(0.0, self.stats.get('reload_speed_pct', 0.0))
+        return max(RELOAD_MIN, RELOAD_SECONDS / (1.0 + speed))
+
+    def _start_reload(self):
+        """Wheel up the cylinder: 3.0 s (base) of no firing, then full.
+
+        The HUD icon does one fast full 360 turn that unwinds to rest
+        exactly when the reload completes."""
+        if self._reload_t > 0:
+            return
+        self._reload_t = self.reload_duration()
+        self._reload_total = self._reload_t
+        self._orb_spin = 360.0
+        self.audio.ammo_reload()
+
+    def _tick_reload(self, dt):
+        """Reload timer + the cylinder icon spin lifecycle."""
+        self._dry_fire_t = max(0.0, self._dry_fire_t - dt)
+        if self._reload_t <= 0:
+            # no reload running: the icon eases back to rest on 0 deg
+            self._orb_spin = max(0.0, self._orb_spin - dt * 240.0)
+            return
+        self._reload_t -= dt
+        if self._reload_t <= 0:
+            self._reload_t = 0.0
+            self._orb_spin = 0.0    # the turn unwinds exactly to rest
+            self._ammo = self._ammo_max
+        else:
+            # the reload keeps turning: 360 -> 0 over the full duration
+            self._orb_spin = 360.0 * (self._reload_t / self._reload_total)
+
+    def _try_dry_fire(self):
+        """A press with an empty / reloading cylinder: metallic click only."""
+        if self._dry_fire_t <= 0:
+            self._dry_fire_t = DRY_FIRE_CD
+            self.audio.ammo_dry()
 
     def _deliver_player_shot(self, bullet):
         """Apply a pre-rolled ranged hit when its bullet reaches the enemy."""
@@ -2365,7 +2449,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if target['health'] <= 0:
             self.audio.enemy_dead()
             self._log_combat(f"Killed  {etype}", 'kill')
-            self._register_enemy_kill()
+            self._register_enemy_kill(target)
             target['death_timer'] = 0.0
             self._spawn_enemy_drops(target['x'], target['y'],
                                     target.get('enemy_type', 'skeleton'))
@@ -2587,7 +2671,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if len(self._combat_log) > 80:
             self._combat_log.pop(0)
 
-    def _register_enemy_kill(self):
+    def _register_enemy_kill(self, enemy=None):
+        """Single kill funnel (melee, abilities, chains, fire aura).
+
+        `enemy` is the killed enemy dict when the caller has it in scope;
+        its `level` key drives the XP award (issue #31). Falls back to the
+        delve's depth-derived level when unavailable."""
         self.tracker.kills += 1
         now = rl.get_time()
         if now - self._last_kill_t <= ANGEL_STREAK_WINDOW:
@@ -2609,6 +2698,39 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 self._streak_milestone_t = now
                 self._shake_timer        = max(self._shake_timer, STREAK_MILESTONE_SHAKE)
                 self._shake_intensity    = max(self._shake_intensity, 6.0)
+
+        self._award_kill_xp(enemy)
+
+    def _award_kill_xp(self, enemy=None):
+        """Depth-scaled XP for a kill (issue #31): monster level from the
+        enemy dict, streak bonus, over-level diminishing, level-ups."""
+        import systems.xp as xp
+        monster_level = None
+        if enemy is not None:
+            try:
+                monster_level = float(enemy.get('level'))
+            except (TypeError, ValueError):
+                monster_level = None
+        if monster_level is None:
+            from core.delve_gen import effective_level
+            depth = (self._delve or {}).get('depth', 1)
+            monster_level = effective_level(depth)
+        award = xp.award_for_kill(self.char.level, monster_level, self._kill_streak)
+        gained = xp.grant_xp(self.char, award)
+        if gained:
+            self._on_level_up(gained)
+
+    def _on_level_up(self, gained: int):
+        """Level-up juice + recalc: +1 attribute point per level (issue #31).
+
+        Pools are preserved by the reset_stats pipeline (BLUEPRINT §5.42)."""
+        now = rl.get_time()
+        self._log_combat(f'LEVEL UP -> {self.char.level}', 'kill')
+        self._streak_milestone   = f'LEVEL {self.char.level}'
+        self._streak_milestone_t = now
+        self._shake_timer        = max(self._shake_timer, STREAK_MILESTONE_SHAKE)
+        self._shake_intensity    = max(self._shake_intensity, 6.0)
+        self._recalc_derived_stats()
 
     def _add_angel_meter(self, amount):
         # no-op: Angel Form was removed from the combat rework.
@@ -2692,7 +2814,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     lightning_chain_targets.append(z)
                 if z['health'] <= 0:
                     self._log_combat(f"Killed {z.get('enemy_type', 'enemy')} ({ability_id})", 'kill')
-                    self._register_enemy_kill()
+                    self._register_enemy_kill(z)
                     z['death_timer'] = 0.0
                     self._spawn_enemy_drops(z['x'], z['y'], z.get('enemy_type', 'skeleton'))
             # Lightning chain: spread to up to 2 nearby enemies not in primary hit list
@@ -2729,7 +2851,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                                crit=bool(crit))
                         if candidate['health'] <= 0:
                             self._log_combat(f"Killed {candidate.get('enemy_type', 'enemy')} (chain)", 'kill')
-                            self._register_enemy_kill()
+                            self._register_enemy_kill(candidate)
                             candidate['death_timer'] = 0.0
                             self._spawn_enemy_drops(candidate['x'], candidate['y'],
                                                      candidate.get('enemy_type', 'skeleton'))
@@ -2916,7 +3038,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                    color=rl.Color(255, 130, 40, 255))
             if z['health'] <= 0:
                 self._log_combat(f"Killed {z.get('enemy_type', 'enemy')} (fire aura)", 'kill')
-                self._register_enemy_kill()
+                self._register_enemy_kill(z)
                 z['death_timer'] = 0.0
                 self._spawn_enemy_drops(z['x'], z['y'], z.get('enemy_type', 'skeleton'))
 
@@ -2935,25 +3057,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             'type':  'drop',
         })
         self.audio.item_land()
-
-
-
-    _STAT_DESC = {
-        'Health': 'When health reaches 0 you die permanently.',
-        'Energy Shield': 'Absorbs damage before health. Regenerates after not taking damage.',
-        'Evasion': 'Chance to avoid incoming attacks entirely.',
-        'Accuracy': 'Chance to hit enemies with attacks.',
-        'Melee Damage': 'Bonus to physical damage dealt in melee range.',
-        'Dmg Reduction': 'Percentage of incoming damage reduced by armor.',
-        'Fire Resist': 'Reduces fire damage taken by this percentage.',
-        'Cold Resist': 'Reduces cold damage taken by this percentage.',
-        'Lightn Resist': 'Reduces lightning damage taken by this percentage.',
-        'Move Speed': 'Bonus to movement speed.',
-        'Class': 'Your chosen class. Determines starting stats and skill tree position.',
-        'STR / DEX / INT': 'Strength, Dexterity, and Intelligence attributes.',
-    }
-
-
 
 
     def _streak_color(self, streak):

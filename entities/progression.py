@@ -60,7 +60,9 @@ import time as _time
 from config import ASSETS
 
 from systems.items import GRID_COLS, GRID_ROWS, remap_legacy_card_ids
-from entities.descend import (DESCEND_ATTRIBUTES, compute_perk_bonuses,
+from systems.xp import MAX_LEVEL
+from entities.descend import (DESCEND_ATTRIBUTES, ATTR_CAP,
+                              compute_perk_bonuses,
                               get_available_descend_points, is_perk_unlockable,
                               purchase_perk, increase_attribute, DESCEND_PERKS,
                               VESSEL_DEFS, vessel_baseline_stats, LOOKS_OPTIONS)
@@ -73,7 +75,7 @@ CHARS_PATH = os.path.join(_SAVE_DIR, 'characters.json')
 # ── Save schema versioning (issue #126) ────────────────────────────────────
 # The one constant to bump when the save format changes. Bump it, add a
 # _migrate_<n>_to_<n+1> step and register it in _MIGRATIONS below.
-SAVE_SCHEMA_VERSION = 3
+SAVE_SCHEMA_VERSION = 4
 SAVE_FORMAT_VERSION = SAVE_SCHEMA_VERSION   # legacy alias kept for call sites
 
 # Save files written before the framework existed carry no explicit key; the
@@ -255,12 +257,44 @@ def _migrate_2_to_3(data: dict) -> dict:
     return data
 
 
+def _migrate_3_to_4(data: dict) -> dict:
+    """v3 -> v4: leveling and XP return (issue #31).
+
+    Owner rulings 2026-11-02. XP drops from kills, each level grants +1
+    attribute point, the level hard-cap is 70 (7 attributes x cap 10).
+    Vessel attribute baselines are removed: every DESCEND attribute starts
+    at 0 and all spendable points come from level-ups, so the arithmetic is
+    exact. Existing characters join at level 1 with an empty XP bar.
+    Permadeath is replaced by a PoE-style XP loss on death; nothing else in
+    the payload changes.
+    """
+    if not isinstance(data, dict):
+        raise SaveMigrationError('the save file is not valid save data.')
+    characters = data.get('characters')
+    if characters is None:
+        characters = []
+    if not isinstance(characters, list):
+        raise SaveMigrationError('its character roster is not a list.')
+    for entry in characters:
+        if not isinstance(entry, dict):
+            raise SaveMigrationError('one of its characters is not valid save data.')
+        entry.setdefault('level', 1)
+        entry.setdefault('xp', 0)
+        descend = entry.get('descend')
+        if not isinstance(descend, dict):
+            descend = {}
+        entry['descend'] = {a: 0 for a in DESCEND_ATTRIBUTES}
+    data['characters'] = characters
+    return data
+
+
 # ── MIGRATION REGISTRY ─────────────────────────────────────────────────────
 # Single place to update for any future schema change: bump
 # SAVE_SCHEMA_VERSION and add the matching step here. Keys are *from* versions.
 _MIGRATIONS: dict[int, callable] = {
     1: _migrate_1_to_2,
     2: _migrate_2_to_3,
+    3: _migrate_3_to_4,
 }
 
 
@@ -411,7 +445,10 @@ def compute_derived_stats(descend: dict, perk_bonuses: dict = None,
     vessel_effects = VESSEL_DEFS.get(looks, {}).get('effects', {})
 
     def _attr(a):
-        return descend.get(a, 0) + ib.get(a, 0)
+        # Owner ruling (issue #31): attributes hard-cap at 10 from ALL
+        # sources - level points, baselines (removed), item affixes, dormant
+        # perk ranks. An attribute affix is dead value once the cap is hit.
+        return min(ATTR_CAP, descend.get(a, 0) + ib.get(a, 0))
 
     dex = _attr('dexterity')
     end = _attr('endurance')
@@ -435,6 +472,9 @@ def compute_derived_stats(descend: dict, perk_bonuses: dict = None,
         'move_speed_pct':        (bonus('move_speed_pct') + dex * 3.0) / 100.0,
         'attack_speed_pct':      (bonus('attack_speed_pct') + dex * 3.0) / 100.0,
         'cooldown_recovery_pct': (cun * 1.0 + bonus('cooldown_recovery_pct')) / 100.0,
+        # Reload speed (ammo mechanic): Cunning +1%/point and the
+        # '+X% Reload Speed' item affix family lower the 3.0 s base reload.
+        'reload_speed_pct':      (cun * 1.0 + bonus('reload_speed_pct')) / 100.0,
         'crit_chance':           min(0.75, (bonus('crit_chance') + nrv * 1.0) / 100.0),
         'ability_crit_chance':   min(0.75, (bonus('ability_crit_chance') + ess * 1.0) / 100.0),
         'block_chance':          min(0.75, (bonus('block_chance') + dex * 1.5) / 100.0),
@@ -460,6 +500,8 @@ class Character:
         self.descend: dict  = vessel_baseline_stats(self.looks)
         self.perks: dict    = {}
         self.available_points: int = 0
+        self.level: int     = 1
+        self.xp: int        = 0
         self.inventory: dict | None = None
         self.stash: list    = []   # single 8x8 bank grid (no tabs)
         self._grid_overflow: list = []
@@ -491,6 +533,8 @@ class Character:
             'descend':        self.descend,
             'perks':          self.perks,
             'available_points': self.available_points,
+            'level':          self.level,
+            'xp':             self.xp,
             'inventory':      self.inventory,
             'stash':          self.stash,
         }
@@ -513,6 +557,19 @@ class Character:
         c.descend = d['descend']
         c.perks = d['perks']
         c.available_points = d['available_points']
+        # Level/XP re-landed with schema v4 (issue #31); read defensively so a
+        # hand-edited or partially-written payload degrades instead of losing
+        # the whole roster.
+        try:
+            level = int(d.get('level', 1))
+        except (TypeError, ValueError):
+            level = 1
+        try:
+            xp = int(d.get('xp', 0))
+        except (TypeError, ValueError):
+            xp = 0
+        c.level = max(1, min(int(MAX_LEVEL), level))
+        c.xp = max(0, xp)
         c.stash = d['stash']
         remap_legacy_card_ids(c.inventory, c.stash)
         return c
@@ -580,7 +637,8 @@ class CharacterManager:
         return newly
 
     def create(self, name: str, looks: str = 'fighter') -> Character:
-        """Create a character with its fixed vessel baseline and no point gates."""
+        """Create a level-1 character. Vessels grant passives only - all
+        attribute points come from level-ups (issue #31)."""
         c = Character(name=name, looks=looks)
         c.descend = vessel_baseline_stats(c.looks)
         c.available_points = 0

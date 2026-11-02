@@ -94,6 +94,10 @@ class FrameRenderMixin:
             self._draw_loading(cw, ch)
         elif self.state == STATE_HUB:
             self._draw_hub(cw, ch)
+            # The D.E.S.C.E.N.D. panel (issue #31) opens in the hub too,
+            # drawn over the hub world while the sim is paused.
+            if self._char_stats_open:
+                self._draw_char_stats(cw, ch)
         elif self.state == STATE_PAUSED:
             pre = getattr(self, '_pre_pause_state', STATE_PLAYING)
             if pre == STATE_HUB:

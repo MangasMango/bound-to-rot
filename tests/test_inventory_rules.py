@@ -1,4 +1,4 @@
-﻿# Copyright (C) 2026 MangasMango
+# Copyright (C) 2026 MangasMango
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ from entities.progression import Character
 from ui.inventory_ui import InventoryUI
 
 
-# â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── helpers ────────────────────────────────────────────────────────────
 
 def _endurance_heart(ilvl=10, endurance=5, identified=True):
     """A heart carrying a rolled +Endurance suffix."""
@@ -88,7 +88,7 @@ def _code_of(src, func_name):
     return body.split('\n    def ', 1)[0]                  # stop at the next method
 
 
-# â”€â”€ rule 1: identification gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── rule 1: identification gate ─────────────────────────────────────────
 
 import unittest
 
@@ -136,7 +136,7 @@ class TestEquipRequiresIdentification(unittest.TestCase):
         self.assertEqual(fired, [])   # no gear change -> no recalc
 
 
-# â”€â”€ rule 2: unidentified items show no stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── rule 2: unidentified items show no stats ────────────────────────────
 
 class TestUnidentifiedShowsNoStats(unittest.TestCase):
 
@@ -191,7 +191,7 @@ class TestUnidentifiedShowsNoStats(unittest.TestCase):
         self.assertEqual(itemgen.aggregate_item_bonuses(inv), {})
 
 
-# â”€â”€ rule 3: derived stats refresh on gear change â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── rule 3: derived stats refresh on gear change ────────────────────────
 
 class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
 
@@ -329,7 +329,7 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         self.assertEqual(game.stats['endurance'], base + 2)
 
 
-# â”€â”€ rule 4: character level (display-only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── rule 4: character level (display-only) ─────────────────────────────
 
 class TestCharacterLevel(unittest.TestCase):
     """CHARACTER LEVEL = average item level of the character's equipped gear.
@@ -367,12 +367,12 @@ class TestCharacterLevel(unittest.TestCase):
         for slot in inv['equipped']:
             inv['equipped'][slot] = None
         self.assertEqual(itemgen.character_level(inv), 0)
-        # owner rule: an empty loadout reads as a normal value, LVL 0
-        self.assertEqual(itemgen.format_character_level(inv), 'LVL 0')
+        # owner rule: an empty loadout reads as a normal value, ILEVEL 0
+        self.assertEqual(itemgen.format_character_level(inv), 'ILEVEL 0')
         # also tolerates junk input
         self.assertEqual(itemgen.character_level(None), 0)
         self.assertEqual(itemgen.character_level({}), 0)
-        self.assertEqual(itemgen.format_character_level({}), 'LVL 0')
+        self.assertEqual(itemgen.format_character_level({}), 'ILEVEL 0')
 
     def test_changes_when_gear_is_equipped_or_removed(self):
         game = _bare_game()
@@ -393,7 +393,7 @@ class TestCharacterLevel(unittest.TestCase):
         self.assertEqual(itemgen.character_level(inv), base)
 
     def test_both_display_sites_read_the_same_value(self):
-        """Identical value from one computation â€” not two implementations."""
+        """Identical value from one computation — not two implementations."""
         inv = items.make_inventory()
         inv['equipped']['heart'] = _endurance_heart(ilvl=12)
         inv['equipped']['kidney'] = _endurance_heart(ilvl=30)
@@ -415,28 +415,29 @@ class TestCharacterLevel(unittest.TestCase):
         inv = items.make_inventory()
         inv['equipped']['heart'] = _endurance_heart(ilvl=12)
         inv['equipped']['kidney'] = _endurance_heart(ilvl=30)
-        self.assertEqual(itemgen.format_character_level(inv), 'LVL 21')
+        self.assertEqual(itemgen.format_character_level(inv), 'ILEVEL 21')
         for path in ('ui/inventory_ui.py', 'core/render/hud_render.py'):
             src = Path(path).read_text(encoding='utf-8')
             self.assertIn('itemgen.format_character_level(inventory)' if
                           path.startswith('ui/') else
                           'itemgen.format_character_level(self.inventory)', src,
                           f'{path} does not render the shared compact label')
-            self.assertNotIn('LVL ', _code_of(src, '_draw_character_level'),
+            self.assertNotIn("'ILEVEL ", _code_of(src, '_draw_character_level'),
                              f'{path} builds its own label')
 
     def test_feeds_no_gameplay_path(self):
         """Scope limit: the value is rendered and nothing else.
 
-        Every reference site in non-test code must be the accessor definition
-        or one of the two drawing sites, and no gameplay module may import or
-        call it. Loot rolling, compute_derived_stats and monster scaling are
-        checked explicitly.
+        Every reference site in non-test code must be the accessor
+        definition or one of the drawing sites (issue #31 adds the
+        D.E.S.C.E.N.D. panel as a third ILEVEL site), and no gameplay
+        module may import or call it. Loot rolling,
+        compute_derived_stats and monster scaling are checked explicitly.
         """
         accessors = ('character_level', 'format_character_level',
                      'equipped_item_levels')
         allowed_files = {'systems/itemgen.py', 'ui/inventory_ui.py',
-                         'core/render/hud_render.py'}
+                         'core/render/hud_render.py', 'ui/descend_ui.py'}
 
         consumers = []
         for path in Path('.').rglob('*.py'):
@@ -458,7 +459,7 @@ class TestCharacterLevel(unittest.TestCase):
             self.assertIn(path, allowed_files,
                           f'character level used outside the draw sites: {path}:{line_no}: {line}')
 
-        # explicit gameplay separations â€” these must never see the value
+        # explicit gameplay separations — these must never see the value
         gameplay = {
             'core/map_gen.py':          'loot / map layout',
             'entities/progression.py':  'derived stat computation',
@@ -478,7 +479,7 @@ class TestCharacterLevel(unittest.TestCase):
             self.assertNotIn('char_level', text,
                              f'{path} still uses the removed char_level plumbing')
 
-# â”€â”€ draw smoke â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── draw smoke ─────────────────────────────────────────────────────────
 
 def _headless(monkeypatch):
     """Neutralise every raylib draw call; capture rendered text."""
@@ -526,7 +527,7 @@ def test_inventory_draw_smoke_with_real_character(monkeypatch):
     ui.draw(inv, 1280, 720)
 
     # ilvl 12 and 30 -> character level 21, drawn in the panel header
-    assert 'LVL 21' in rendered, rendered[:30]
+    assert 'ILEVEL 21' in rendered, rendered[:30]
     assert itemgen.format_character_level(inv) in rendered
 
 
@@ -541,8 +542,8 @@ def test_hud_draws_character_level_top_left(monkeypatch):
     game = SimpleNamespace(inventory=inv)
     HudRenderMixin._draw_character_level(game, 1280, lambda n: n)
 
-    assert 'LVL 21' in rendered, rendered
-    # the shared accessor is rendered verbatim â€” no per-site wording
+    assert 'ILEVEL 21' in rendered, rendered
+    # the shared accessor is rendered verbatim — no per-site wording
     assert itemgen.format_character_level(inv) in rendered
 
 
@@ -576,18 +577,18 @@ def test_level_label_is_compact_not_the_long_phrase(monkeypatch):
     from core.render.hud_render import HudRenderMixin
     HudRenderMixin._draw_character_level(SimpleNamespace(inventory=inv),
                                         1280, lambda n: n)
-    assert rendered == ['LVL 7'], rendered
+    assert rendered == ['ILEVEL 7'], rendered
     assert not any('CHARACTER LEVEL' in t for t in rendered)
 
 
 def test_hud_character_level_handles_empty_equipment(monkeypatch):
-    """Owner rule: an empty loadout renders LVL 0, not a placeholder."""
+    """Owner rule: an empty loadout renders ILEVEL 0, not a placeholder."""
     from core.render.hud_render import HudRenderMixin
     rendered = _headless(monkeypatch)
     game = SimpleNamespace(inventory=items.make_inventory())
     HudRenderMixin._draw_character_level(game, 1280, lambda n: n)
-    assert rendered == ['LVL 0'], rendered
-    assert itemgen.format_character_level(game.inventory) == 'LVL 0'
+    assert rendered == ['ILEVEL 0'], rendered
+    assert itemgen.format_character_level(game.inventory) == 'ILEVEL 0'
 
 
 def test_both_sites_render_lvl_zero_for_an_empty_loadout(monkeypatch):
@@ -608,7 +609,7 @@ def test_both_sites_render_lvl_zero_for_an_empty_loadout(monkeypatch):
     from core.render.hud_render import HudRenderMixin
     HudRenderMixin._draw_character_level(SimpleNamespace(inventory=inv),
                                         1280, lambda n: n)
-    assert rendered.count('LVL 0') == 2, rendered
+    assert rendered.count('ILEVEL 0') == 2, rendered
     assert not any(t.strip() == '--' for t in rendered), rendered
 
 
@@ -621,7 +622,7 @@ def test_tooltip_draw_path_runs_headless(monkeypatch):
     assert 'Unidentified' in lines
 
 
-# ── right-click stash moves (kept from the retired drag suite) ─────────
+# -- right-click stash moves (kept from the retired drag suite) ---------
 
 def _slot_entry(item_id, col=0, row=0, count=1):
     return {'item': item_id, 'count': count, 'col': col, 'row': row}
@@ -659,7 +660,7 @@ def test_ctx_put_in_bank_when_full_leaves_item():
 
     ui._exec({'type': 'to_bank', 'source': 'grid', 'index': 0}, inv, {})
 
-    assert len(inv['grid']) == 1, 'no space — item stays in the backpack'
+    assert len(inv['grid']) == 1, 'no space � item stays in the backpack'
     assert not stash_calls
 
 
@@ -682,7 +683,7 @@ def test_ctx_put_in_backpack_moves_item():
     assert stash_calls
 
 
-# ── comparison rows: stat line + arrow, no (up)/(down)/(eq) words ────
+# -- comparison rows: stat line + arrow, no (up)/(down)/(eq) words ----
 
 class TestComparisonArrowFormat(unittest.TestCase):
     """Owner ruling 2026-10-07: rows show only the stat line (e.g.
@@ -719,7 +720,7 @@ class TestComparisonArrowFormat(unittest.TestCase):
             self.assertIn('_cmp_sign', src, path)
 
 
-# ── DESCEND click-through removed (owner ruling 2026-10-07) ──────────
+# -- DESCEND click-through removed (owner ruling 2026-10-07) ----------
 
 class TestDescendClickThroughRemoved(unittest.TestCase):
     def test_no_click_through_remains(self):

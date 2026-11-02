@@ -187,6 +187,11 @@ _PERK_AFFIXES = [
     {'id': 'pk_entropy_grace',   'kind': 'suffix', 'slots': {'heart', 'intestine'},
      'base': 4, 'round': 'int', 'pct': True,  'word': 'of Fate',
      'label': '+{v}% Entropy Grace', 'perk': 'entropy_grace_pct'},
+
+    # Reload speed (ammo mechanic): lowers the 3.0 s cylinder reload
+    {'id': 'pk_reload_speed',    'kind': 'suffix', 'slots': {'lungs', 'intestine'},
+     'base': 6, 'round': 'int', 'pct': True,  'word': 'of Speedload',
+     'label': '+{v}% Reload Speed', 'perk': 'reload_speed_pct'},
 ]
 
 _AFFIXES = _AFFIXES + _PERK_AFFIXES
@@ -795,7 +800,7 @@ def equipped_item_levels(inventory):
 
 
 def character_level(inventory):
-    """CHARACTER LEVEL - the average item level of the character's gear.
+    """ITEM LEVEL readout - the average item level of the character's gear.
 
     THE SINGLE SOURCE OF TRUTH for this value. Both display sites (the
     inventory panel header and the top-left HUD readout) call this one
@@ -805,12 +810,11 @@ def character_level(inventory):
     (i.e. floor(x + 0.5)), applied here once so both sites agree. Returns 0
     when nothing is equipped - no division by zero on an empty loadout.
 
-    SCOPE: DISPLAY-ONLY, pending an owner decision. This value is rendered
-    and nothing else. It is deliberately NOT an input to loot generation,
-    item-level rolling, compute_derived_stats, monster scaling, access
-    gating or difficulty. A previous character level did feed those systems;
-    restoring that behaviour is a separate decision the owner has not made
-    yet, so keep this wired to drawing code only until they do.
+    SCOPE: DISPLAY-ONLY. Renamed ILEVEL with issue #31 - real character
+    levels returned (XP from kills), so the "LVL" label now belongs to
+    char.level (systems/xp.py). This readout is deliberately NOT an input to
+    loot generation, item-level rolling, compute_derived_stats, monster
+    scaling, access gating or difficulty; keep it wired to drawing code only.
     """
     levels = equipped_item_levels(inventory)
     if not levels:
@@ -821,15 +825,16 @@ def character_level(inventory):
 def format_character_level(inventory):
     """The exact string both display sites render (shared formatting).
 
-    Compact form: ``LVL 21``. Owner rule - the long "CHARACTER LEVEL" phrase
-    is never drawn; both sites render this one string verbatim, so the compact
-    label cannot drift between them.
+    Compact form: ``ILEVEL 21``. Owner rule - the long phrase is never
+    drawn; both sites render this one string verbatim, so the compact label
+    cannot drift between them. Renamed LVL -> ILEVEL with issue #31 to make
+    room for the real character level.
 
-    Owner rule (revision): an EMPTY loadout displays ``LVL 0``, exactly like any
-    other value. There is no placeholder and no special case - the label is
-    always ``LVL`` followed by the number.
+    Owner rule (revision): an EMPTY loadout displays ``ILEVEL 0``, exactly
+    like any other value. There is no placeholder and no special case - the
+    label is always ``ILEVEL`` followed by the number.
     """
-    return f'LVL {character_level(inventory)}'
+    return f'ILEVEL {character_level(inventory)}'
 
 
 def equipped_uniques(inventory):

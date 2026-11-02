@@ -101,6 +101,9 @@ class InputMixin:
             return
 
         if self.state == STATE_HUB:
+            # The D.E.S.C.E.N.D. panel (issue #31) is handled inside
+            # _update_hub (its KEY_C edge lives on the 'hub.char_stats'
+            # consumer); the hub sim pauses while the panel is open.
             self._update_hub(dt)
             return
 
@@ -123,7 +126,9 @@ class InputMixin:
                     self._minimap.update(dt)
                 return
             if inp.key_pressed(self,rl.KEY_ESCAPE):
-                if self.inv.open:
+                if self._char_stats_open:
+                    self._char_stats_open = False   # ESC closes the panel first
+                elif self.inv.open:
                     self.inv.close()
                     self.audio.inv_close()
                 else:
@@ -135,8 +140,22 @@ class InputMixin:
                     self.audio.inv_open()
                 else:
                     self.audio.inv_close()
+            opened_now = False
             if inp.key_pressed(self,rl.KEY_C):
-                self._char_stats_open = not self._char_stats_open
+                from ui import descend_ui
+                descend_ui.toggle(self)
+                opened_now = self._char_stats_open
+                if self._char_stats_open:
+                    self._descend_plus_rects = []
+            # The DESCEND panel is modal (issue #31): while it is open the
+            # game is paused - clicks go to the panel and the sim stops.
+            if self._char_stats_open:
+                from ui import descend_ui
+                if descend_ui.handle_key(self, opened_now):
+                    descend_ui.handle_click(
+                        self, rl.get_mouse_x(), rl.get_mouse_y(),
+                        rl.get_render_width(), rl.get_render_height())
+                    return
             if inp.key_pressed(self,rl.KEY_L):
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
@@ -151,6 +170,16 @@ class InputMixin:
             if inp.key_pressed(self,rl.KEY_T) and not self.inv.open \
                     and not self._delve_chart_is_open():
                 self._use_flask()
+            # R: spin the cylinder early (ammo mechanic). Runs on its own
+            # per-consumer edge ('game.reload') - the R gem-slot edge above
+            # consumed the shared 'self' edge, so R used to cast the gem
+            # instead of reloading. Priority: a socketed white gem owns R;
+            # empty slots fall back to reload.
+            if inp.key_pressed('game.reload', rl.KEY_R) \
+                    and not self._delve_chart_is_open() \
+                    and gems.socketed_ability(self.inventory, 'R') is None:
+                if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
+                    self._start_reload()
             self.inv.update(self.inventory, self.stats)
             self._update_game(dt)
 
@@ -160,6 +189,10 @@ class InputMixin:
         # overlaps the Pulse heart on screen, and an unguarded click on the
         # panel used to re-trigger the heart (or worse, `_delve_descend`).
         if self._delve_chart_is_open():
+            return
+        # The DESCEND panel is modal too (issue #31): the game is paused
+        # under it, so no world clicks may fire.
+        if self._char_stats_open:
             return
         if not self.inv.open and not self._hud_over_action(
                 rl.get_mouse_x(), rl.get_mouse_y()):

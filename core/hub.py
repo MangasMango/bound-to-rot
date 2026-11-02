@@ -163,7 +163,20 @@ class HubMixin:
                 else:
                     self.audio.inv_close()
             if inp.key_pressed('hub.char_stats', rl.KEY_C):
-                self._char_stats_open = not self._char_stats_open
+                # The D.E.S.C.E.N.D. panel (issue #31) opens anywhere; the
+                # hub sim pauses while it is up.
+                from ui import descend_ui
+                opened_now = not self._char_stats_open
+                descend_ui.toggle(self)
+                self._descend_opened_now = opened_now
+            if self._char_stats_open:
+                from ui import descend_ui
+                if descend_ui.handle_key(self,
+                                         opened_this_frame=getattr(
+                                             self, '_descend_opened_now', False)):
+                    descend_ui.handle_click(
+                        self, rl.get_mouse_x(), rl.get_mouse_y(), cw, ch)
+                    return
             if inp.key_pressed('hub.combat_log', rl.KEY_L):
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
@@ -250,7 +263,7 @@ class HubMixin:
             # deals zero DPS, not the instant you step out
             self.hit_flash = max(self.hit_flash, 0.18 * min(1.0, dps_mult))
             if self.stats['health'] <= 0:
-                self._permadeath()
+                self._on_death()
 
         def _hub_actor_entities(self):
             """Player + hub NPC + stash entity specs - shared between the scene

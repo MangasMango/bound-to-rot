@@ -121,10 +121,16 @@ class MigrateOlderVersionsTests(unittest.TestCase):
         migrated = prog.migrate_save(_v1_save())
         entry = migrated['characters'][0]
         for key in ('id', 'name', 'looks', 'currency', 'descend',
-                    'perks', 'available_points', 'inventory', 'stash'):
+                    'perks', 'available_points', 'inventory', 'stash',
+                    'level', 'xp'):
             self.assertIn(key, entry)
         self.assertEqual(entry['currency'], 4321)
-        self.assertEqual(entry['descend'], {'strength': 4, 'endurance': 2})
+        # Issue #31: baselines are gone - migration zeroes every attribute
+        # and the character joins the new system at level 1 / empty bar.
+        self.assertEqual(
+            entry['descend'], {a: 0 for a in prog.DESCEND_ATTRIBUTES})
+        self.assertEqual(entry['level'], 1)
+        self.assertEqual(entry['xp'], 0)
         self.assertEqual(entry['perks'], {'p1': 2})
         self.assertEqual(entry['available_points'], 3)
         self.assertEqual(entry['inventory']['grid'][0]['item'], 'sword')
@@ -135,8 +141,13 @@ class MigrateOlderVersionsTests(unittest.TestCase):
 
     def test_retired_fields_are_dropped_by_migration(self):
         entry = prog.migrate_save(_v1_save())['characters'][0]
-        for key in ('level', 'xp', 'unlocked_nodes', 'skill_slots', 'flasks', 'belt'):
+        # level/xp stopped being retired with schema v4 (issue #31); the
+        # pre-framework legacy values must not leak into the new system.
+        for key in ('xp_progress', 'unlocked_nodes', 'skill_slots',
+                    'flasks', 'belt'):
             self.assertNotIn(key, entry)
+        self.assertEqual(entry['level'], 1)
+        self.assertEqual(entry['xp'], 0)
 
     def test_migrated_save_loads_into_real_characters(self):
         manager = prog.CharacterManager.__new__(prog.CharacterManager)
@@ -174,7 +185,9 @@ class MigrateV2ToV3Tests(unittest.TestCase):
     def test_tabs_flatten_into_one_grid_and_relocate_out_of_bounds(self):
         migrated = prog.migrate_save(_v2_save())
         entry = migrated['characters'][0]
-        self.assertEqual(migrated['save_schema_version'], 3)
+        # The v2->v3 step flattens the tabs; migrate_save then stamps the
+        # current schema version (v4 for issue #31).
+        self.assertEqual(migrated['save_schema_version'], prog.SAVE_SCHEMA_VERSION)
         bank = entry['stash']
         self.assertIsInstance(bank, list)
         items = [slot['item'] for slot in bank]
@@ -209,6 +222,25 @@ class MigrateV2ToV3Tests(unittest.TestCase):
         bank = migrated['characters'][0]['stash']
         self.assertEqual(len(bank), prog.GRID_COLS * prog.GRID_ROWS)
         self.assertTrue(all(s['item'] == 'liver' for s in bank))
+
+
+class MigrateV3ToV4Tests(unittest.TestCase):
+    """v3 -> v4: leveling and XP return (issue #31); baselines are gone."""
+
+    def test_v3_save_gains_level_xp_and_zeroed_attributes(self):
+        save = _current_save(version=3)
+        save['characters'][0]['descend'] = {'strength': 4, 'dexterity': 2}
+        migrated = prog.migrate_save(save)
+        self.assertEqual(migrated['save_schema_version'], 4)
+        entry = migrated['characters'][0]
+        self.assertEqual(entry['level'], 1)
+        self.assertEqual(entry['xp'], 0)
+        self.assertEqual(
+            entry['descend'], {a: 0 for a in prog.DESCEND_ATTRIBUTES})
+
+    def test_v4_stamps_match_after_chain(self):
+        migrated = prog.migrate_save(_v1_save())
+        self.assertEqual(migrated['save_schema_version'], prog.SAVE_SCHEMA_VERSION)
 
 
 class IdempotencyTests(unittest.TestCase):

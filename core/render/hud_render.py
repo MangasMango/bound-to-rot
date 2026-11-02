@@ -123,15 +123,17 @@ class HudRenderMixin:
         x_clicked = _btn(x_r, 'X', 20)
         return content, x_clicked
     def _draw_character_level(self, cw: int, scale_font, pad: int = 16):
-        """Top-left LEVEL readout, under the character name.
+        """Top-left ILEVEL readout (renamed from LVL, issue #31).
 
         One of the two display sites for the value. It renders
         ``itemgen.format_character_level(self.inventory)`` verbatim - the same
-        accessor and the same compact ``LVL n`` string the inventory panel header
-        uses - so the two sites cannot drift apart. An empty loadout renders as
-        ``LVL 0`` like any other value; the accessor never divides by zero.
+        accessor and the same compact ``ILEVEL n`` string the inventory panel
+        header uses - so the two sites cannot drift apart. An empty loadout
+        renders as ``ILEVEL 0`` like any other value. Display-only: real
+        character levels live on char.level (systems/xp.py) and are drawn
+        next to the name.
         Aligned to the name column: the x offset matches the name text's
-        offset in _draw_hud so icon / name / level share one grid.
+        offset in _draw_hud so icon / name / ILEVEL share one grid.
         """
         fs = scale_font(16)
         fonts.draw(itemgen.format_character_level(self.inventory),
@@ -416,156 +418,11 @@ class HudRenderMixin:
             rl.draw_rectangle(sx, sy, size, size, rl.Color(0, 0, 0, 0x99))
             rl.draw_rectangle_lines(sx, sy, size, size, rl.Color(0x99, 0x99, 0x99, 220))
     def _draw_char_stats(self, cw, ch):
-        char         = self.char
-        equip_fx     = self._equipped_bonuses()
-        bonuses      = compute_perk_bonuses(
-            char.perks, char.descend,
-            item_bonuses=itemgen.aggregate_item_bonuses(self.inventory))
-        item_attr    = {a: equip_fx.get(a, 0) for a in DESCEND_ATTRIBUTES}
-        derived      = compute_derived_stats(
-            char.descend, bonuses, item_bonuses=item_attr, looks=char.looks)
+        """The D.E.S.C.E.N.D. panel (issue #31): attributes, char points,
+        and the in-depth character stats, on the owner's descend.jpg art."""
+        from ui.descend_ui import draw as _draw_descend_panel
+        _draw_descend_panel(self, cw, ch)
 
-        PANEL_W = 360
-        PAD     = 18
-        LINE_H  = 24
-        FS      = 18
-        FS_HDR  = 28
-
-        dr_pct   = int(equip_fx['damage_reduction'] * 100)
-        spd_pct  = int(equip_fx['move_speed']        * 100)
-        es_val   = derived.get('max_energy_shield', 0)
-
-        atk_spd  = int((self.stats.get('_attack_speed_pct', 0.0) + equip_fx['attack_speed_pct']) * 100)
-        cdr_pct  = int((self.stats.get('_cooldown_recovery_pct', 0.0) + equip_fx['cooldown_recovery_pct']) * 100)
-        crit_pct = int((self.stats.get('_crit_chance', 0.0) + equip_fx['crit_chance']) * 100)
-        abcrit_p = int((self.stats.get('_ability_crit_chance', 0.0) + equip_fx['ability_crit_chance']) * 100)
-
-        # (label, value, icon_name)
-        stat_rows = []
-        def s(label, value, icon): stat_rows.append((label, value, icon))
-
-        s('Health',        f"{int(self.stats['health'])} / {int(self.stats['max_health'])}", 'hp')
-        if es_val > 0:
-            s('Energy Shield', f"{int(self.stats.get('energy_shield', 0))} / {es_val}", 'energy_shield')
-        stat_rows.append(('div', '', ''))
-        s('Evasion',       str(derived['evasion']), 'evasion')
-        s('Accuracy',      str(derived['accuracy']), 'accuracy')
-        s('Melee Dmg',     f"+{int((derived['melee_dmg_mult'] - 1.0) * 100)}%", 'melee')
-        s('Attack Speed',  f"+{atk_spd}%", 'attack_speed')
-        s('Cooldown Red.', f"+{cdr_pct}%", 'cooldown_reduction')
-        s('Crit Chance',   f"{crit_pct}%", 'crit_chance')
-        s('Ability Crit',  f"{abcrit_p}%", 'ability_crit')
-        s('Dmg Reduction', f"{dr_pct}%", 'defense')
-        s('Move Speed',    f"+{spd_pct}%" if spd_pct else "—", 'move_speed')
-        stat_rows.append(('div', '', ''))
-        s('Fire Resist',   f"{int(derived.get('resist_pct', {}).get('fire', 0) * 100)}%", 'fire_resist')
-        s('Cold Resist',   f"{int(derived.get('resist_pct', {}).get('cold', 0) * 100)}%", 'cold_resist')
-        s('Lightn Resist', f"{int(derived.get('resist_pct', {}).get('lightning', 0) * 100)}%", 'lightning_resist')
-        s('Rot Resist',    f"{int(derived.get('resist_pct', {}).get('rot', 0) * 100)}%", 'rot_resist')
-        stat_rows.append(('div', '', ''))
-        s('Vessel',       VESSEL_DEFS[char.looks]['name'], char.looks)
-        for attr in ('dexterity', 'endurance', 'strength', 'cunning', 'essence', 'nerve', 'destiny'):
-            # Derived total (allocation + equipped gear), not the raw
-            # allocation: the allocation screen is gone, so gear is the only
-            # source of attribute growth and must move this number.
-            s(attr.capitalize()[:4], str(int(derived.get(attr, char.descend.get(attr, 0)))), attr)
-
-        equipped = {slot: entry for slot, entry in self.inventory['equipped'].items() if entry}
-        if equipped:
-            stat_rows.append(('div', '', ''))
-            for slot_key, entry in equipped.items():
-                item_name = ITEMS.get(entry['item'], {}).get('name', entry['item'])
-                slot_name = EQUIP_SLOT_LABELS.get(slot_key, slot_key.capitalize())
-                stat_rows.append((slot_name, item_name[:22], slot_key))
-
-        if self._incoming_dmg_by_type:
-            stat_rows.append(('div', '', ''))
-            total_in = sum(self._incoming_dmg_by_type.values())
-            for dtype, dmg in sorted(self._incoming_dmg_by_type.items()):
-                pct = dmg / total_in * 100 if total_in > 0 else 0.0
-                stat_rows.append((f"  {dtype.capitalize()}", f"{int(dmg)}  ({pct:.0f}%)", dtype))
-            stat_rows.append(('  Total Incoming', str(int(total_in)), 'skull'))
-
-        panel_h = PAD * 2 + FS_HDR + 10 + (len(stat_rows) + 1) * LINE_H + 4
-        panel_x = cw // 2 - PANEL_W // 2
-        panel_y = ch // 2 - panel_h // 2
-
-        # D2-style stone panel
-        rl.draw_rectangle(panel_x, panel_y, PANEL_W, panel_h, rl.Color(0, 0, 0, 250))
-        rl.draw_rectangle(panel_x + 2, panel_y + 2, PANEL_W - 4, panel_h - 4, rl.Color(0, 0, 0, 0x99))
-        rl.draw_rectangle_lines_ex(rl.Rectangle(float(panel_x + 1), float(panel_y + 1),
-                                                float(PANEL_W - 2), float(panel_h - 2)),
-                                   1, rl.Color(0xE0, 0xE0, 0xE0, 200))
-        rl.draw_rectangle_lines_ex(rl.Rectangle(float(panel_x), float(panel_y),
-                                                float(PANEL_W), float(panel_h)),
-                                   1, rl.Color(0xFF, 0xFF, 0xFF, 220))
-
-        # Corner white accents
-        cl, cg = 14, 5
-        for cx, cy, dx, dy in [
-            (panel_x + cg, panel_y + cg, 1, 1),
-            (panel_x + PANEL_W - cg, panel_y + cg, -1, 1),
-            (panel_x + cg, panel_y + panel_h - cg, 1, -1),
-            (panel_x + PANEL_W - cg, panel_y + panel_h - cg, -1, -1),
-        ]:
-            rl.draw_line(cx, cy, cx + dx * cl, cy, rl.Color(0xE0, 0xE0, 0xE0, 200))
-            rl.draw_line(cx, cy, cx, cy + dy * cl, rl.Color(0xE0, 0xE0, 0xE0, 200))
-
-        mx, my = rl.get_mouse_x(), rl.get_mouse_y()
-        hovered_label = None
-        row_y = panel_y + PAD
-
-        # Header row
-        hdr_text = char.name
-        icons.draw(char.looks, panel_x + PAD, row_y + 4, 22)
-        tw = fonts.measure(hdr_text, FS_HDR)
-        fonts.draw(hdr_text, panel_x + PANEL_W // 2 - tw // 2, row_y, FS_HDR,
-                   rl.Color(0xFF, 0xFF, 0xFF, 255))
-        row_y += FS_HDR + 4
-        rl.draw_line(panel_x + PAD, row_y, panel_x + PANEL_W - PAD, row_y,
-                     rl.Color(0xE0, 0xE0, 0xE0, 180))
-        row_y += 8
-
-        for label, value, icon_name in stat_rows:
-            if label == 'div':
-                rl.draw_line(panel_x + PAD, row_y + LINE_H // 2,
-                             panel_x + PANEL_W - PAD, row_y + LINE_H // 2,
-                             rl.Color(40, 50, 40, 160))
-                row_y += LINE_H
-                continue
-
-            if icon_name:
-                icons.draw(icon_name, panel_x + PAD, row_y + 3, 16)
-                lx = panel_x + PAD + 24
-            else:
-                lx = panel_x + PAD
-
-            fonts.draw(label, lx, row_y + (LINE_H - FS) // 2, FS,
-                       rl.Color(140, 170, 140, 255))
-            value_x = panel_x + PANEL_W - PAD - fonts.measure(value, FS)
-            fonts.draw(value, value_x, row_y + (LINE_H - FS) // 2, FS,
-                       rl.Color(220, 220, 200, 255))
-            hit_rect = rl.Rectangle(float(panel_x + PAD), float(row_y),
-                                    float(PANEL_W - 2 * PAD), float(LINE_H))
-            if label in self._STAT_DESC and rl.check_collision_point_rec(
-                    rl.Vector2(float(mx), float(my)), hit_rect):
-                hovered_label = label
-            row_y += LINE_H
-
-        # Tooltip for hovered stat
-        if hovered_label:
-            desc = self._STAT_DESC[hovered_label]
-            tw = fonts.measure(desc, 17) + 16
-            th = 30
-            tx = min(mx + 16, cw - tw - 8)
-            ty = min(my - th - 8, ch - th - 8)
-            rl.draw_rectangle(int(tx), int(ty), int(tw), int(th), rl.Color(0, 0, 0, 0x99))
-            rl.draw_rectangle_lines(int(tx), int(ty), int(tw), int(th), rl.Color(0xE0, 0xE0, 0xE0, 255))
-            fonts.draw(desc, int(tx + 8), int(ty + (th - 17) // 2), 17, rl.Color(0xE0, 0xE0, 0xE0, 255))
-
-        hint = "C  close"
-        fonts.draw(hint, panel_x + PANEL_W // 2 - fonts.measure(hint, 17) // 2,
-                   panel_y + panel_h - PAD - 4, 17, rl.Color(0x99, 0x99, 0x99, 200))
     def _draw_combat_log(self, cw, ch):
         if not self._combat_log_open or not self._combat_log:
             return
@@ -804,10 +661,32 @@ class HudRenderMixin:
         icons.draw(self.char.looks, ci_x, ci_y, scale_px(30))
         name_fs = scale_font(18)
         nm = self.char.name
-        fonts.draw(nm, ci_x + scale_font(36), ci_y + scale_px(4), name_fs,
+        fonts.draw(nm, ci_x + scale_font(36), ci_y + scale_px(2), name_fs,
                    rl.WHITE)
-        # (the old unspent-points hint above the name was a dead leveling
-        # leftover: points are permanently 0 and no spend keybind exists)
+
+        # ── LEVEL + XP bar (issue #31): the real character level now that
+        # leveling returned; XP accrues from kills (systems/xp.py).
+        from systems import xp as hud_xp
+        real_level = int(getattr(self.char, 'level', 1))
+        cur_xp, need_xp = hud_xp.level_progress(self.char)
+        lv_fs = scale_font(15)
+        lv_x = ci_x + scale_font(36)
+        fonts.draw(f'LEVEL {real_level}', lv_x, ci_y + scale_px(28),
+                   lv_fs, rl.Color(255, 215, 120, 255))
+        unspent = int(getattr(self.char, 'available_points', 0))
+        if unspent > 0:
+            pts_msg = f'+{unspent} charpoint{"s" if unspent != 1 else ""} available - press C'
+            pts_fs = scale_font(13)
+            fonts.draw(pts_msg, ci_x, ci_y + scale_px(58), pts_fs,
+                       rl.Color(120, 220, 120, 255))
+        bar_w = scale_px(150)
+        bar_h = scale_px(5)
+        bar_x2 = lv_x
+        bar_y2 = ci_y + scale_px(46)
+        frac = 1.0 if not need_xp else min(1.0, cur_xp / need_xp)
+        rl.draw_rectangle(bar_x2, bar_y2, bar_w, bar_h, rl.Color(0, 0, 0, 160))
+        rl.draw_rectangle(bar_x2, bar_y2, int(bar_w * frac), bar_h,
+                          rl.Color(218, 165, 32, 255))
 
         # ── buff / debuff indicators (top-left below character info) ───
         buff_y = ci_y + scale_px(96)
@@ -1045,11 +924,12 @@ class HudRenderMixin:
         _draw_orb(hx, orb_top, ORB, hp_pct, 'orb_fill0', 200, 30, 30,
                   label=f"Life : {int(self.stats['health'])} / {int(self.stats['max_health'])}")
 
-        # 2b) right side: in place of the retired mana orb, the decorative
-        #     orb_mag ring on the same ornate backdrop, the mirrored angel
-        #     statue and the revolver AMMO readout.
+        # 2b) right side: the revolver cylinder orb - one of the six
+        #     bullet-count icons orb_mag_0..6 shows the rounds left, on the
+        #     same ornate backdrop with the mirrored angel statue.
         mag_x = hud_x + hud_w - ORB_MARGIN - ORB
-        mag_t = _tex('orb_mag')
+        n_bullets = max(0, min(6, int(getattr(self, '_ammo', AMMO_MAX))))
+        mag_t = _tex(f'orb_mag_{n_bullets}')
         if mag_t and mag_t.id > 0:
             panel_t2 = ui.get('orb_panel')
             if panel_t2 and panel_t2.id > 0:
@@ -1063,10 +943,25 @@ class HudRenderMixin:
                                  float(orb_top + ORB / 2 - ph2 // 2 + PANEL_DROP),
                                  float(pw2), float(ph2)),
                     rl.Vector2(0, 0), 0.0, rl.WHITE)
-            rl.draw_texture_pro(mag_t,
-                rl.Rectangle(0, 0, float(mag_t.width), float(mag_t.height)),
-                rl.Rectangle(float(mag_x), float(orb_top), float(ORB), float(ORB)),
-                rl.Vector2(0, 0), 0.0, rl.WHITE)
+            # the cylinder rotating around its own centre: +60 deg per spent
+            # round easing back to 0, a full 360 unwind while reloading.
+            # raylib pivots on dst POSITION (rtextures.c:4874-4925: corners
+            # are pivot + R*(offset - origin)), so the rotated call must
+            # place dst.position at the orb's CENTRE with origin = half the
+            # rect - passing the top-left here made the icon orbit that
+            # corner instead.
+            spin = float(getattr(self, '_orb_spin', 0.0))
+            if abs(spin) > 0.05:
+                rl.draw_texture_pro(mag_t,
+                    rl.Rectangle(0, 0, float(mag_t.width), float(mag_t.height)),
+                    rl.Rectangle(float(mag_x + ORB / 2), float(orb_top + ORB / 2),
+                                 float(ORB), float(ORB)),
+                    rl.Vector2(ORB / 2, ORB / 2), spin, rl.WHITE)
+            else:
+                rl.draw_texture_pro(mag_t,
+                    rl.Rectangle(0, 0, float(mag_t.width), float(mag_t.height)),
+                    rl.Rectangle(float(mag_x), float(orb_top), float(ORB), float(ORB)),
+                    rl.Vector2(0, 0), 0.0, rl.WHITE)
         # mirrored angel statue pinned to the container's right edge -
         # its arm overlays the ring, exactly like the left statue does
         # on the Life orb. +20 screen px nudges it toward the screen edge.
@@ -1082,10 +977,13 @@ class HudRenderMixin:
                 rl.Rectangle(float(ax2), float(ang_y2), float(ang_w2), float(ang_h2)),
                 rl.Vector2(0, 0), 0.0, rl.WHITE)
         # revolver ammo readout - same size/placement family as the Life
-        # text; the future bullets system mutates self._ammo
+        # text; the ammo mechanic mutates self._ammo / self._reload_t
         ammo_cur = int(getattr(self, '_ammo', AMMO_MAX))
         ammo_max = int(getattr(self, '_ammo_max', AMMO_MAX))
-        ammo = f'Ammo : {ammo_cur} / {ammo_max}'
+        if float(getattr(self, '_reload_t', 0.0)) > 0:
+            ammo = 'Reloading...'
+        else:
+            ammo = f'Ammo : {ammo_cur} / {ammo_max}'
         ammo_fs = bfont(46)
         ammo_w = fonts.measure(ammo, ammo_fs)
         fonts.draw(ammo,
@@ -1446,8 +1344,17 @@ class HudRenderMixin:
             GREEN_COLOR if results.get('extracted') else rl.Color(180, 60, 60, 255))
 
         if self.state == STATE_DEAD:
-            fonts.draw("Permanent death — this character has been deleted.",
-                       cw // 2 - fonts.measure("Permanent death — this character has been deleted.", 18) // 2,
+            from systems.xp import MAX_LEVEL
+            lost = int(results.get('xp_lost', 0))
+            level = int(results.get('level', 0))
+            if level >= MAX_LEVEL:
+                tail = 'Death at the cap — no XP was lost.'
+            elif lost > 0:
+                tail = f'Death cost {lost} XP. Your vessel dropped to Hub; the character survives.'
+            else:
+                tail = 'Your vessel dropped to Hub; the character survives.'
+            fonts.draw(tail,
+                       cw // 2 - fonts.measure(tail, 18) // 2,
                        panel_y + PANEL_H + 8, 18, rl.Color(200, 100, 100, 200))
 
         hint = "PRESS ENTER TO CONTINUE"

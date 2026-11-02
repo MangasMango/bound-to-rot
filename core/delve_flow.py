@@ -500,7 +500,7 @@ class DelveFlowMixin:
                 self.hit_flash = max(self.hit_flash, 0.18 * min(1.0, dps_mult))
                 if self.stats['health'] <= 0:
                     self.raid_running = False
-                    self._permadeath()
+                    self._on_death()
                     return
 
         def _delve_spawn_wave(self, depth: int):

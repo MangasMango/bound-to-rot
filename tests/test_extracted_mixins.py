@@ -128,6 +128,7 @@ def test_mouse_dispatch_turns_right_click_into_move_intent(monkeypatch):
         inv=SimpleNamespace(open=False), _minimap_open=False, px=1.0, py=1.0,
         map=[[0]], iso=SimpleNamespace(screen_to_world=lambda x, y, w, h: (3.0, 2.0)),
         attack_target=None, interact_target=None, drop_target=None,
+        _char_stats_open=False,
         _drop_label_rects=[], _delve=None,
         _delve_chart_is_open=lambda: False,
         _hud_over_action=lambda x, y: False,
