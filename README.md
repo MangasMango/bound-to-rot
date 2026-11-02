@@ -46,7 +46,7 @@ If you'd like to report a bug or suggest a feature, open an [issue](https://gith
 ## Building
 
 If you'd rather compile on your own, follow these instructions.
-First, make sure you have [Python 3.12+](https://www.python.org/downloads/) installed; **older versions will not work.** Open a terminal in the project directory, install the dependencies with `uv sync` (or `pip install .`), then run the following commands.
+First, make sure you have [Python 3.12+](https://www.python.org/downloads/) installed; **older versions will not work.** Open a terminal in the project directory, install the dependencies with `uv sync` (or `pip install .`; alternatively `pip install -r requirements.txt`, generated from the lockfile), then run the following commands.
 
 ### Windows
 
