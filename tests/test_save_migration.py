@@ -231,7 +231,7 @@ class MigrateV3ToV4Tests(unittest.TestCase):
         save = _current_save(version=3)
         save['characters'][0]['descend'] = {'strength': 4, 'dexterity': 2}
         migrated = prog.migrate_save(save)
-        self.assertEqual(migrated['save_schema_version'], 4)
+        self.assertEqual(migrated['save_schema_version'], prog.SAVE_SCHEMA_VERSION)
         entry = migrated['characters'][0]
         self.assertEqual(entry['level'], 1)
         self.assertEqual(entry['xp'], 0)

@@ -257,6 +257,19 @@ HUB_CLICK_RADIUS   = 0.5
 HUB_INTERACT_RANGE = 0.3
 DELVE_CLICK_RADIUS = 0.2
 
+# The Delve Heart is tall entity art standing well above its tile. Iso
+# projection maps a click on its upper body to tiles far away from the base
+# diamond, so no tile-space HUB_CLICK_RADIUS bubble can cover the art — the
+# vendor/stash sprites hug the ground and work fine that way. The heart is
+# therefore hit-tested in SCREEN space against its drawn art (same technique
+# as the delve pulse hitbox in core/input.py):
+#   centre = tile centre lifted by HEART_CLICK_RISE tile px (sits on the
+#   visible heart's mass, biased up so the top edge stays clickable)
+#   radius = HEART_CLICK_SPAN × the heart's 256px-entity canvas, already a
+#   touch larger than the visible outline so edge clicks land
+HEART_CLICK_RISE   = 1.0    # hitbox centre lift, in tile px (fraction of a tile)
+HEART_CLICK_SPAN   = 0.35   # hitbox radius, fraction of the entity canvas
+
 # The hub waypoints. 'scale' matches the drawn entity size (labels
 # anchor to the art's top edge); 'label_dy' fine-tunes label height.
 # The anvil (blacksmith) is an inert waypoint - its shop died with the
@@ -663,6 +676,17 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def init(self):
         from ui.menus import Settings
+        from core.iso_engine import DEFAULT_SCALE
+        # Default-zoom ruling (iso_engine comment): zoom 3 is tuned for
+        # 1920x1080 - smaller windows boot proportionally so the span of
+        # visible world (view agency) is identical at any default size.
+        try:
+            _ch = float(rl.get_screen_height())
+            _cw = float(rl.get_screen_width())
+            _fit = min(_ch / 1080.0, _cw / 1920.0)
+            self.iso.scale = max(MIN_SCALE, min(MAX_SCALE, DEFAULT_SCALE * _fit))
+        except Exception:
+            self.iso.scale = DEFAULT_SCALE
         _saved = Settings()
         _fn = getattr(_saved, 'font_name', 'Sancreek-Regular.ttf')
         _font_path = os.path.join(_ASSETS, 'fonts', _fn)
@@ -2017,11 +2041,23 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 best_d, best = d, gi
         return best
 
+    def _heart_screen_hit(self, obj, mx: float, my: float, cw: int, ch: int):
+        """Delve Heart screen-space hitbox: see HEART_CLICK_RISE/SPAN.
+        Tall iso art can't be covered by a tile-space click bubble, so the
+        click is measured against the drawn art instead of the base tile."""
+        ts = max(1, int(ISO_W * self.iso.scale))
+        ent_px = ENTITY_BASE * self.iso.scale
+        sx, sy = self.iso.world_to_screen(obj['x'], obj['y'], cw, ch)
+        return (math.hypot(mx - (sx + ts // 2),
+                           my - (sy + ts // 2 - int(ts * HEART_CLICK_RISE)))
+                < ent_px * HEART_CLICK_SPAN)
+
     def _hover_interactable(self, objects, radius: float, cw: int, ch: int):
         """Nearest interactable under the mouse, within `radius` tiles.
 
         `objects` is a list of dicts with world-position keys 'x'/'y'
         (hub objects and delve ground-item interactables share the shape).
+        The hub Delve Heart is screen-hit instead (see _heart_screen_hit).
         Purely visual - no player-distance check; the hover glow means
         "the art is under your cursor", not "you can use it yet".
         """
@@ -2031,7 +2067,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         tile_col, tile_row = self.iso.screen_to_world(mx, my, cw, ch)
         best, best_d = None, radius
         for obj in objects:
-            d = math.hypot(obj['x'] - tile_col, obj['y'] - tile_row)
+            if obj.get('type') == 'delve':
+                if not self._heart_screen_hit(obj, mx, my, cw, ch):
+                    continue
+                d = 0.0   # on-art; beats any tile-space hit this frame
+            else:
+                d = math.hypot(obj['x'] - tile_col, obj['y'] - tile_row)
             if d < best_d:
                 best_d, best = d, obj
         return best
@@ -2200,10 +2241,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def _spawn_enemy_drops(self, x, y, enemy_type='skeleton'):
         table = SLIME_DROP_TABLE if enemy_type == 'slime' else SKELETON_DROP_TABLE
+        # DST-owned loot rarity (leveling rework plan §2.1): Destiny points
+        # raise the rarity weights of every enemy drop.
+        drop_rarity_mod = self.stats.get('loot_rarity_mod', 0.0)
         for item_id, mn, mx, chance in table:
             if _rnd.random() < chance:
                 count = _rnd.randint(mn, mx)
-                slot  = itemgen.roll_for(item_id, count, self._current_item_level())
+                slot  = itemgen.roll_for(item_id, count, self._current_item_level(),
+                                         rarity_mod=drop_rarity_mod)
                 # ROT ETERNAL roll (§27): 2% on organ drops at depth 1-10
                 if self._delve is not None:
                     itemgen.try_rot_mythic(slot, self._delve.get('depth', 1), _rnd)
@@ -2319,10 +2364,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             result = {'damage': 0, 'evaded': False, 'crit': False,
                       'crushing': False, 'strikes': None, 'immune': True}
         else:
-            flat_dmg = equip_effects['melee_damage']
+            flat_dmg = equip_effects['attack_damage']
             if self._angel_timer > 0:
                 flat_dmg = int(flat_dmg * 1.5) + 1
-            ranged_dmg = int((ATTACK_DAMAGE * self.stats.get('melee_dmg_mult', 1.0)
+            ranged_dmg = int((ATTACK_DAMAGE * self.stats.get('attack_damage_mult', 1.0)
                               + flat_dmg) * self._outgoing_dmg_mult('physical'))
             crit_chance = min(0.75, self.stats.get('_crit_chance', 0.0)
                               + equip_effects['crit_chance'])
@@ -2471,7 +2516,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             'damage_reduction': 0.0, 'move_speed': 0.0,
             'max_health': 0, 'max_health_pct': 0.0,
             'evasion': 0,
-            'melee_damage': 0,
+            'attack_damage': 0,
             'attack_speed_pct': 0.0, 'cooldown_recovery_pct': 0.0,
             'crit_chance': 0.0, 'ability_crit_chance': 0.0,
             'crushing_blow_chance': 0.0, 'block_chance': 0.0,

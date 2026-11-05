@@ -153,6 +153,7 @@ def draw(game, cw: int, ch: int):
     gy, gh = GRID_Y, GRID_H
     row_h = gh / 7.0
     plus_rects = []
+    name_rects = []   # hover these -> "what this attribute buys" tooltip
     mouse = (rl.get_mouse_x(), rl.get_mouse_y())
     points_avail = int(getattr(char, 'available_points', 0))
 
@@ -175,6 +176,9 @@ def draw(game, cw: int, ch: int):
         name_fs = fs(24)
         fonts.draw(label, fx(GRID_X + 14), y0 + (rh - name_fs) // 2,
                    name_fs, IVORY)
+        name_rects.append((attr, rl.Rectangle(
+            float(fx(GRID_X + 6)), float(y0),
+            float(fx(ROW_SPLIT - 6) - fx(GRID_X + 6)), float(rh))))
 
         # Column 3 (narrow cell) - the RANK WORD ... and the (+) on the
         # right when a point can actually be spent (owner ruling: the +
@@ -263,12 +267,104 @@ def draw(game, cw: int, ch: int):
     fonts.draw(hint, cw - hw - fs(20), ch - hint_fs - fs(14), hint_fs,
                rl.Color(150, 140, 120, 200))
 
+    # Hover an attribute NAME: the tooltip lists the exclusive levers one
+    # point buys (plan §2.1 - each attribute owns one item-unreachable
+    # domain). Drawn LAST so it floats above everything in the panel.
+    hovered_attr = next(
+        (a for a, r in name_rects if _rect_has(r, mouse)), None)
+    if hovered_attr:
+        _draw_attribute_tooltip(game, hovered_attr, mouse, cw, ch)
+
     game._descend_plus_rects = plus_rects
 
 
 def _rect_has(rect, pt) -> bool:
     return rect.x <= pt[0] <= rect.x + rect.width and \
         rect.y <= pt[1] <= rect.y + rect.height
+
+
+# Hover data (leveling rework plan §2.1): one exclusive lever set per
+# attribute, written as "what ONE more point buys". Icons come from
+# ICON_MAP (BLUEPRINT §42 - never bare stat text).
+ATTR_EFFECT_LINES = {
+    'dexterity': [
+        ('move_speed', 'Move Speed', '+3%'),
+        ('attack_speed', 'Attack Speed', '+3%'),
+        ('evasion', 'Evasion', '+3% of base'),
+        ('accuracy', 'Accuracy', '+4'),
+        ('defense', 'Block Chance', '+1.5%'),
+    ],
+    'endurance': [
+        ('hp', 'Max Health', '+6'),
+        ('energy_shield', 'Max Energy Shield', '+3'),
+        ('darkness_resist', 'Darkness Resistance', '+2%'),
+    ],
+    'strength': [
+        ('melee', 'Attack Damage', '+5%'),
+        ('hp', 'Max Health', '+8'),
+    ],
+    'cunning': [
+        ('cooldown_reduction', 'Cooldown Recovery', '+3%'),
+        ('refresh', 'Reload Speed', '+3%'),
+    ],
+    'essence': [
+        ('ability_crit', 'Ability Crit Chance', '+1%'),
+        ('luck', 'Entropy Grace', '+1%'),
+    ],
+    'nerve': [
+        ('crit_chance', 'Crit Chance', '+1%'),
+        ('light', 'Anima Light Radius', '+0.5 tiles'),
+    ],
+    'destiny': [
+        ('luck', 'Entropy Grace', '+1.5%'),
+        ('loot', 'Loot Rarity', '+2%'),
+    ],
+}
+
+
+def _draw_attribute_tooltip(game, attr, mouse, cw: int, ch: int):
+    """"What does another point of this attribute buy?" - a floating card
+    anchored to the cursor, one iconed stat line per owned lever."""
+    from ui import icons
+    lines = ATTR_EFFECT_LINES.get(attr, [])
+    if not lines:
+        return
+    
+    fs_line = 15
+    icon_px = 18
+    head_fs = 13
+    pad = 10
+    icon_gap = 6
+    line_h = fs_line + 6
+
+    label = ATTR_LABEL[attr]
+    head_txt = f'{label} - each point buys'
+    w = fonts.measure(head_txt, head_fs)
+    for _icon, stat_text, amount in lines:
+        w = max(w, fonts.measure(f'{stat_text}  {amount}', fs_line)
+                + icon_px + icon_gap)
+    w += pad * 2
+    h = pad + head_fs + 6 + line_h * len(lines) + pad - 4
+
+    mx, my = mouse
+    tx = int(mx + 22)
+    ty = int(my - h // 2)
+    tx = max(6, min(tx, cw - w - 6))
+    ty = max(6, min(ty, ch - h - 6))
+
+    rl.draw_rectangle(tx, ty, w, h, rl.Color(14, 14, 12, 236))
+    rl.draw_rectangle_lines_ex(rl.Rectangle(float(tx), float(ty), float(w),
+                                           float(h)),
+                               1, rl.Color(218, 165, 32, 230))
+    fonts.draw(head_txt, tx + pad, ty + pad, head_fs, GOLD)
+    ly = ty + pad + head_fs + 6
+    for icon_key, stat_text, amount in lines:
+        icons.draw(icon_key, tx + pad, ly + 1, icon_px, white=True)
+        fonts.draw(stat_text, tx + pad + icon_px + icon_gap,
+                   ly, fs_line, rl.Color(238, 230, 212, 255))
+        aw = fonts.measure(amount, fs_line)
+        fonts.draw(amount, tx + w - pad - aw, ly, fs_line, GOLD)
+        ly += line_h
 
 
 def handle_click(game, mx: int, my: int, cw: int, ch: int) -> bool:
@@ -320,7 +416,8 @@ def _stats_lines(game, derived):
     lines += [
         ('Evasion',      str(int(derived.get('evasion', 0)))),
         ('Accuracy',     str(int(derived.get('accuracy', 0)))),
-        ('Melee Dmg',    f"+{int((derived.get('melee_dmg_mult', 1.0) - 1.0) * 100)}%"),
+        ('Attack Dmg',   f"+{int((derived.get('attack_damage_mult', 1.0) - 1.0) * 100)}%"),
+        ('Loot Rarity',  f"+{int(derived.get('loot_rarity_mod', 0.0))}%"),
         ('Attack Speed', f'+{atk}%'),
         ('Cooldown Red.', f'+{cdr}%'),
         ('Crit Chance',  f'{crit}%'),

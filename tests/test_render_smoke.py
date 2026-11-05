@@ -201,8 +201,7 @@ def test_hud_draws_with_current_character_in_hub_and_delve(monkeypatch):
 
     HudRenderMixin._draw_hud(game, 1280, 720)
     assert "LEVEL 3" in rendered_text
-    assert "ILEVEL" not in rendered_text       # empty loadout -> ILEVEL 0
-    assert "ILEVEL 0" in rendered_text
+    assert "ILEVEL" not in rendered_text       # HUD ILEVEL site retired (2026-11)
 
     game._delve = {"depth": 7, "dark_timer": 2.5}
     rendered_text.clear()

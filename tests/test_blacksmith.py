@@ -383,9 +383,10 @@ def test_forge_preview_matches_dismantle_outputs():
         == [preview[0]['item']]
 
     assert ui.dismantle(inv)
-    # the receipt mirrors the preview; the real organ is in the backpack
-    assert [(e['item'], e['count']) for e in ui._forge_out] \
-        == [(preview[0]['item'], 1)]
+    # owner ruling 2026-11: the results grid CLEANS UP once the outputs
+    # have landed in the backpack - no stale mirror receipt remains
+    assert ui._forge_out is None
+    # the previewed output is the organ that actually landed in the pack
     assert any(e['item'] == preview[0]['item'] for e in inv['grid'])
 
 
@@ -399,11 +400,15 @@ def test_dismantle_sends_outputs_straight_to_backpack():
 
     assert ui.dismantle(inv)
     assert ui._forge_grid == [], 'consumed offerings burn'
-    inst = ui._forge_out[0]['instance_data']
-    assert ui._forge_out[0]['item'] in recipes.ORGAN_SLOTS
+    # the results grid clears; verify the produced stats via the backpack
+    assert ui._forge_out is None
+    organ_outs = [e for e in inv['grid']
+                  if items.ITEMS.get(e['item'], {}).get('equipSlot')]
+    assert len(organ_outs) == 1
+    inst = organ_outs[0]['instance_data']
+    assert organ_outs[0]['item'] in recipes.ORGAN_SLOTS
     assert inst['rarity'] == 'legendary'
     assert inst['ilvl'] == 9, 'output ilvl is the max of the inputs'
-    # the REAL item is in the backpack; the receipt is a mirror
     organ_outs = [e for e in inv['grid']
                   if items.ITEMS.get(e['item'], {}).get('equipSlot')]
     assert len(organ_outs) == 1
@@ -411,16 +416,21 @@ def test_dismantle_sends_outputs_straight_to_backpack():
     assert calls
 
 
-def test_dismantle_receipt_matches_backpack_items():
-    """What the receipt shows is exactly what was received."""
+def test_dismantle_results_grid_clears_after_receipt():
+    """Owner ruling 2026-11: outputs land straight in the backpack, so the
+    results grid empties instead of showing identical ghost copies."""
     ui = _forge_ui()
     inv = items.make_inventory()
     inv['grid'] = []   # drop the starter cards so the diff is exact
     ui._forge_grid = [_organ('lungs', 'common'), _organ('heart', 'common')]
+    # (ungs + heart is the Joker-card recipe: the output lands straight in
+    # the backpack as cards; whatever the match produces must arrive)
+    expected = [o for g in ui._forge_match()['groups'] for o in g['outputs']]
+    expected = [(o['item'], o['count']) for o in expected]
     assert ui.dismantle(inv)
     before = [(e['item'], e['count']) for e in inv['grid']]
-    shown = [(e['item'], e['count']) for e in ui._forge_out]
-    assert sorted(shown) == sorted(before)
+    assert ui._forge_out is None, 'results grid cleaned up'
+    assert sorted(before) == sorted(expected), 'outputs landed in the backpack'
 
 
 def test_dismantle_full_backpack_consumes_nothing():

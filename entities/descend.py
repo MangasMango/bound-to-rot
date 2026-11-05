@@ -142,7 +142,7 @@ DESCEND_PERKS: dict[str, dict] = {
 
     # ── Strength column ─────────────────────────────────────────────────
     'str1': _perk('Iron Body',       '+max HP per rank',                    3, _ef(('maxHealth', 4)),            'strength', 1),
-    'str2': _perk('Heavy Hitter',    '+melee damage % per rank',            3, _ef(('melee_dmg_mult_pct', 3)),   'strength', 2),
+    'str2': _perk('Heavy Hitter',    '+attack damage % per rank',           3, _ef(('attack_damage_mult_pct', 3)), 'strength', 2),
     'str3': _perk('Brute Force',     '+phys dmg %, +phys pen %, rank 3: -magic dmg %', 3,
                   _ef(('physical_damage_pct', 3), ('physical_penetration_pct', 2)),
                   'strength', 3),

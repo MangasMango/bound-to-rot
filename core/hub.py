@@ -203,7 +203,15 @@ class HubMixin:
                 mx, my = rl.get_mouse_x(), rl.get_mouse_y()
                 tile_col, tile_row = self.iso.screen_to_world(mx, my, cw, ch)
                 for obj in self._hub_objects:
-                    if math.hypot(obj['x'] - tile_col, obj['y'] - tile_row) < HUB_CLICK_RADIUS:
+                    # the heart is hit-tested screen-space on its drawn art
+                    # (tile-space bubbles can't cover tall iso art); the
+                    # blacksmith/stash keep their HUB_CLICK_RADIUS diamonds
+                    if obj['type'] == 'delve':
+                        hit = self._heart_screen_hit(obj, mx, my, cw, ch)
+                    else:
+                        hit = math.hypot(obj['x'] - tile_col,
+                                         obj['y'] - tile_row) < HUB_CLICK_RADIUS
+                    if hit:
                         self.dest_col = obj['x']
                         self.dest_row = obj['y']
                         self._hub_pending_interact = obj

@@ -45,7 +45,7 @@ def _game():
     manager.active = prog.Character('ammo', 'Gunner', 'knight')
     game.char_mgr = manager
     game.stats = {'reload_speed_pct': 0.0, 'accuracy': 300,
-                  '_crit_chance': 0.0, 'melee_dmg_mult': 1.0,
+                  '_crit_chance': 0.0, 'attack_damage_mult': 1.0,
                   'crushing_blow_pct': 0.0}
     game.px, game.py = 0.0, 0.0
     game.inventory = None
@@ -65,7 +65,7 @@ def _game():
 
 
 def _effects():
-    return {'melee_damage': 0, 'crit_chance': 0.0,
+    return {'attack_damage': 0, 'crit_chance': 0.0,
             'crushing_blow_chance': 0.0, 'knockback': 0.0}
 
 
@@ -245,9 +245,10 @@ class ReloadSpeedStatTests(unittest.TestCase):
     def test_cunning_feeds_reload_speed(self):
         derived = prog.compute_derived_stats(
             {'cunning': 4}, {}, item_bonuses={}, looks='knight')
-        self.assertAlmostEqual(derived['reload_speed_pct'], 0.04)
+        self.assertAlmostEqual(derived['reload_speed_pct'], 0.12)
 
-    def test_item_affix_feeds_reload_speed(self):
+    def test_item_affix_still_feeds_the_bonus_bucket(self):
+        # retired affix: the bucket still sums, but nothing rolls the id
         derived = prog.compute_derived_stats(
             {}, {'reload_speed_pct': 12.0}, item_bonuses={}, looks='knight')
         self.assertAlmostEqual(derived['reload_speed_pct'], 0.12)
@@ -256,7 +257,7 @@ class ReloadSpeedStatTests(unittest.TestCase):
         derived = prog.compute_derived_stats(
             {'cunning': 2}, {'reload_speed_pct': 8.0}, item_bonuses={},
             looks='knight')
-        self.assertAlmostEqual(derived['reload_speed_pct'], 0.10)
+        self.assertAlmostEqual(derived['reload_speed_pct'], 0.14)
 
     def test_reset_stats_exposes_the_key(self):
         from entities.player_stats import reset_stats
@@ -264,10 +265,11 @@ class ReloadSpeedStatTests(unittest.TestCase):
         reset_stats(s, reload_speed_pct=0.31)
         self.assertAlmostEqual(s['reload_speed_pct'], 0.31)
 
-    def test_affix_exists_in_generation_pool(self):
+    def test_reload_affix_is_retired(self):
+        # plan §2.1 ruling: reload speed is CUN-owned - no item affix rolls it
         import systems.itemgen as itemgen
         ids = {a['id'] for a in itemgen._AFFIXES}
-        self.assertIn('pk_reload_speed', ids)
+        self.assertNotIn('pk_reload_speed', ids)
 
     def test_dry_and_reload_pools_use_the_revolver_sounds(self):
         """Owner naming: revolverCock1/2 for the empty cylinder, and

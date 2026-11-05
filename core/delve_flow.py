@@ -515,7 +515,10 @@ class DelveFlowMixin:
 
             # Super-linear depth curve (§5): depth 50 fights like ~66
             enemy_level = _dg.effective_level(depth)
-            enemy_count = min(20, 5 + depth) + d.get('_enemy_count_bonus', 0)
+            # Wave cap 40 (leveling rework, plan §2.2 wave-lever ruling:
+            # denser waves buy the 150 h pacing; capped at 40 so "5 + depth"
+            # keeps meaning below depth 35 and frame cost stays sane).
+            enemy_count = min(40, 5 + depth) + d.get('_enemy_count_bonus', 0)
             enemy_count = int(enemy_count * zone_mods.get('enemy_count_mult', 1.0))
             enemy_count = max(1, enemy_count)
             enemy_hp_mult = (d.get('_enemy_hp_mult', 1.0)
@@ -631,8 +634,11 @@ class DelveFlowMixin:
             rewards = node.get('rewards')
             if rewards is None:   # old save without pre-rolled rewards
                 rewards = self._legacy_random_reward(base_ilvl)
+            # DST-owned loot rarity (leveling rework plan §2.1) - room
+            # rewards ride the same Destiny curve as enemy drops
+            rarity_mod = self.stats.get('loot_rarity_mod', 0.0)
             slots = [itemgen.roll_for(reward['item'], reward.get('count', 1),
-                                      max(1, base_ilvl))
+                                      max(1, base_ilvl), rarity_mod=rarity_mod)
                      for reward in rewards]
             # ROT ETERNAL roll (§27): 2% on organ drops at depth 1-10
             for slot in slots:
@@ -731,7 +737,9 @@ class DelveFlowMixin:
             # Chest roll (organ drops, like delve_gen.REWARD_TABLES)
             if _rnd.random() < 0.8:
                 organ = _rnd.choice(['lungs', 'liver', 'heart', 'kidney', 'intestine'])
-                slots.append(itemgen.roll_for(organ, 1, depth))
+                slots.append(itemgen.roll_for(organ, 1, depth,
+                                              rarity_mod=self.stats.get(
+                                                  'loot_rarity_mod', 0.0)))
 
             # Guaranteed equipment from depth 10 (rarity floor per tier).
             # rarity_floor is a RARITY_ORDER INDEX (int) - map to its name;

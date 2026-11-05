@@ -45,3 +45,4 @@ skin_*.png
 /assets/ost/*.wav
 /steam-assets
 *.zip
+/.pi

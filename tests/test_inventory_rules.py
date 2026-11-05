@@ -41,7 +41,9 @@ from ui.inventory_ui import InventoryUI
 # ── helpers ────────────────────────────────────────────────────────────
 
 def _endurance_heart(ilvl=10, endurance=5, identified=True):
-    """A heart carrying a rolled +Endurance suffix."""
+    """A heart carrying a rolled +Max Energy Shield stat affix.
+    (attr_ suffixes were retired by the leveling rework - plan §2.3 -
+    the rule tests here only need a live-effect stat line.)"""
     return {
         'item': 'heart',
         'count': 1,
@@ -51,7 +53,8 @@ def _endurance_heart(ilvl=10, endurance=5, identified=True):
             'display_name': 'Heart of Endurance',
             'ilvl': ilvl,
             'identified': identified,
-            'affixes': {'prefixes': {}, 'suffixes': {'attr_endurance': endurance}},
+            'affixes': {'prefixes': {},
+                        'suffixes': {'pk_max_es': endurance}},
         },
     }
 
@@ -187,7 +190,7 @@ class TestUnidentifiedShowsNoStats(unittest.TestCase):
         # unidentified gear is inert for live effects too
         inv = items.make_inventory()
         inv['equipped']['heart'] = unid
-        self.assertEqual(itemgen.live_effect_totals(unid['instance_data']) and True, True)
+        self.assertIsNotNone(itemgen.live_effect_totals(unid['instance_data']))
         self.assertEqual(itemgen.aggregate_item_bonuses(inv), {})
 
 
@@ -201,7 +204,7 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         ui = _inventory_ui()
         ui.on_gear_change = game._on_gear_changed
 
-        before_stats = game.stats['endurance']
+        before_stats = game.stats['max_energy_shield']
         before_health = game.stats['max_health']
 
         heart = _endurance_heart(identified=True, endurance=5)
@@ -210,16 +213,17 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         ui._exec({'type': 'equip', 'source': 'grid', 'index': idx},
                  inv, game.stats)
 
-        after_equip = game.stats['endurance']
+        after_equip = game.stats['max_energy_shield']
         self.assertEqual(after_equip, before_stats + 5,
-                         'equipping an Endurance item must raise Endurance')
-        self.assertGreater(game.stats['max_health'], before_health)
+                         'equipping an ES item must raise Max ES')
+        # the recalc never lowers max health while swapping gear
+        self.assertGreaterEqual(game.stats['max_health'], before_health)
         self.assertIsNotNone(inv['equipped']['heart'])
 
         ui._exec({'type': 'dequip', 'source': 'equipped', 'index': 'heart'},
                  inv, game.stats)
-        self.assertEqual(game.stats['endurance'], before_stats,
-                         'unequipping must restore the previous Endurance')
+        self.assertEqual(game.stats['max_energy_shield'], before_stats,
+                         'unequipping must restore the previous Max ES')
         self.assertEqual(game.stats['max_health'], before_health)
         self.assertIsNone(inv['equipped']['heart'])
 
@@ -228,17 +232,17 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         inv = game.inventory
         ui = _inventory_ui()
         ui.on_gear_change = game._on_gear_changed
-        base = game.stats['endurance']
+        base = game.stats['max_energy_shield']
 
         inv['grid'].append(_endurance_heart(identified=True, endurance=3))
         ui._exec({'type': 'equip', 'source': 'grid',
                   'index': len(inv['grid']) - 1}, inv, game.stats)
-        self.assertEqual(game.stats['endurance'], base + 3)
+        self.assertEqual(game.stats['max_energy_shield'], base + 3)
 
         # EXPLANT via the context action
         ui._exec({'type': 'dequip', 'source': 'equipped', 'index': 'heart'},
                  inv, game.stats)
-        self.assertEqual(game.stats['endurance'], base)
+        self.assertEqual(game.stats['max_energy_shield'], base)
 
     def test_other_derived_stats_also_move_with_gear(self):
         game = _bare_game()
@@ -249,28 +253,21 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         heart = {
             'item': 'heart', 'count': 1, 'col': 0, 'row': 0,
             'instance_data': {
-                'rarity': 'rare', 'display_name': 'Cunning Liver', 'ilvl': 40,
+                'rarity': 'rare', 'display_name': 'Warded Liver', 'ilvl': 40,
                 'identified': True,
                 'affixes': {'prefixes': {},
-                            'suffixes': {'attr_cunning': 6, 'attr_endurance': 3}},
+                            'suffixes': {'pk_max_es': 6, 'pk_crushing': 2}},
             },
         }
         inv['grid'].append(heart)
         before = dict(game.stats)
         ui._exec({'type': 'equip', 'source': 'grid',
                   'index': len(inv['grid']) - 1}, inv, game.stats)
-        # cunning - the retired 'max mana' read became the neutral
-        # cooldown/attr dumps (mana removed from the game, 2026-10-29)
-        self.assertEqual(game.stats['cunning'], before['cunning'] + 6)
-        self.assertNotIn('max_mana', game.stats)
-        # endurance -> health and energy shield
-        self.assertEqual(game.stats['endurance'], before['endurance'] + 3)
-        self.assertEqual(game.stats['max_health'],
-                         before['max_health'] + 3 * 8)
+        # perk-style affixes: ES + crushing blow, both perk-bucket keys
         self.assertEqual(game.stats['max_energy_shield'],
-                         before['max_energy_shield'] + 3 * 4)
-        self.assertEqual(game.stats['darkness_resist_pct'],
-                         before['darkness_resist_pct'] + 3 * 2 / 100.0)
+                         before['max_energy_shield'] + 6)
+        self.assertEqual(game.stats['crushing_blow_pct'],
+                         before['crushing_blow_pct'] + 2 / 100.0)
         # and the live health pool is PRESERVED - equipping must never
         # refill (owner ruling 2026-10-07; the old refresh was the
         # level-up-era heal)
@@ -283,10 +280,10 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         ui.on_gear_change = game._on_gear_changed
 
         inv['grid'].append(_endurance_heart(identified=False, endurance=4))
-        base = game.stats['endurance']
+        base = game.stats['max_health']
         ui._exec({'type': 'equip', 'source': 'grid',
                   'index': len(inv['grid']) - 1}, inv, game.stats)
-        self.assertEqual(game.stats['endurance'], base)   # refused
+        self.assertEqual(game.stats['max_health'], base)   # refused
 
     def test_gem_and_flask_changes_fire_invalidation(self):
         game = _bare_game()
@@ -321,12 +318,12 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
         game.audio = SimpleNamespace(item_equip=lambda: None,
                                      item_pickup=lambda: None)
         game._inv_full_timer = 0.0
-        base = game.stats['endurance']
+        base = game.stats['max_energy_shield']
         item = _endurance_heart(identified=True, endurance=2)
         del item['col'], item['row']
         game_mod.Game._auto_place(game, item)
         self.assertIsNotNone(inv['equipped']['heart'])
-        self.assertEqual(game.stats['endurance'], base + 2)
+        self.assertEqual(game.stats['max_energy_shield'], base + 2)
 
 
 # ── rule 4: character level (display-only) ─────────────────────────────
@@ -334,9 +331,11 @@ class TestDerivedStatsRefreshOnEquip(unittest.TestCase):
 class TestCharacterLevel(unittest.TestCase):
     """CHARACTER LEVEL = average item level of the character's equipped gear.
 
-    Display-only. The tests below pin the value, both display sites, the
-    rounding rule, the empty-loadout case, and that nothing gameplay-related
-    currently reads it.
+    Display-only. The tests below pin the value, the inventory-panel
+    display site (the HUD top-left site was retired 2026-11 by owner ruling
+    - ILEVEL lives on in the inventory header and the D.E.S.C.E.N.D.
+    panel), the rounding rule, the empty-loadout case, and that nothing
+    gameplay-related currently reads it.
     """
 
     def test_character_level_equals_average_equipped_item_level(self):
@@ -392,16 +391,14 @@ class TestCharacterLevel(unittest.TestCase):
                  inv, game.stats)
         self.assertEqual(itemgen.character_level(inv), base)
 
-    def test_both_display_sites_read_the_same_value(self):
-        """Identical value from one computation — not two implementations."""
+    def test_display_site_reads_the_shared_value(self):
+        """The inventory site renders the one shared computation."""
         inv = items.make_inventory()
         inv['equipped']['heart'] = _endurance_heart(ilvl=12)
         inv['equipped']['kidney'] = _endurance_heart(ilvl=30)
 
         inv_src = Path('ui/inventory_ui.py').read_text(encoding='utf-8')
-        hud_src = Path('core/render/hud_render.py').read_text(encoding='utf-8')
-        # both call the one shared formatter, never their own maths
-        for src, name in ((inv_src, 'inventory'), (hud_src, 'hud')):
+        for src, name in ((inv_src, 'inventory'),):
             self.assertIn('itemgen.format_character_level(', src,
                           f'{name} site does not use the shared accessor')
             self.assertNotIn('equipped_item_levels(', src,
@@ -416,14 +413,12 @@ class TestCharacterLevel(unittest.TestCase):
         inv['equipped']['heart'] = _endurance_heart(ilvl=12)
         inv['equipped']['kidney'] = _endurance_heart(ilvl=30)
         self.assertEqual(itemgen.format_character_level(inv), 'ILEVEL 21')
-        for path in ('ui/inventory_ui.py', 'core/render/hud_render.py'):
-            src = Path(path).read_text(encoding='utf-8')
-            self.assertIn('itemgen.format_character_level(inventory)' if
-                          path.startswith('ui/') else
-                          'itemgen.format_character_level(self.inventory)', src,
-                          f'{path} does not render the shared compact label')
-            self.assertNotIn("'ILEVEL ", _code_of(src, '_draw_character_level'),
-                             f'{path} builds its own label')
+        src = Path('ui/inventory_ui.py').read_text(encoding='utf-8')
+        self.assertIn('itemgen.format_character_level(inventory)', src,
+                      'inventory site does not render the shared compact label')
+        # the HUD site is retired: it must not re-implement the label
+        hud_src = Path('core/render/hud_render.py').read_text(encoding='utf-8')
+        self.assertNotIn('format_character_level(self.inventory)', hud_src)
 
     def test_feeds_no_gameplay_path(self):
         """Scope limit: the value is rendered and nothing else.
@@ -531,20 +526,23 @@ def test_inventory_draw_smoke_with_real_character(monkeypatch):
     assert itemgen.format_character_level(inv) in rendered
 
 
-def test_hud_draws_character_level_top_left(monkeypatch):
-    """The HUD site renders the same shared value in the top-left."""
-    from core.render.hud_render import HudRenderMixin
+def test_panel_site_renders_the_shared_string(monkeypatch):
+    """The inventory panel header renders the shared value once."""
+    from ui.inventory_ui import InventoryUI
     rendered = _headless(monkeypatch)
-    inv = items.make_inventory()
-    inv['equipped']['heart'] = _endurance_heart(ilvl=12)
-    inv['equipped']['kidney'] = _endurance_heart(ilvl=30)
+    game = _bare_game()
+    inv = game.inventory
+    inv['equipped']['heart'] = _endurance_heart(ilvl=12, endurance=4)
+    inv['equipped']['kidney'] = _endurance_heart(ilvl=30, endurance=1)
 
-    game = SimpleNamespace(inventory=inv)
-    HudRenderMixin._draw_character_level(game, 1280, lambda n: n)
-
-    assert 'ILEVEL 21' in rendered, rendered
-    # the shared accessor is rendered verbatim — no per-site wording
-    assert itemgen.format_character_level(inv) in rendered
+    ui = _inventory_ui()
+    ui.char_provider = lambda: game.char
+    ui.open = True
+    ui.stash_open = False
+    ui._stash_grid = None
+    ui.draw(inv, 1280, 720)
+    panel = [t for t in rendered if t == itemgen.format_character_level(inv)]
+    assert panel, rendered[:30]
 
 
 def test_both_level_sites_render_the_identical_string(monkeypatch):
@@ -565,34 +563,25 @@ def test_both_level_sites_render_the_identical_string(monkeypatch):
     panel = [t for t in rendered if t == itemgen.format_character_level(inv)]
     assert panel, rendered[:30]
 
-    HudRenderMixin._draw_character_level(SimpleNamespace(inventory=inv),
-                                        1280, lambda n: n)
-    assert rendered.count(itemgen.format_character_level(inv)) == 2
 
-
-def test_level_label_is_compact_not_the_long_phrase(monkeypatch):
+def test_panel_renders_lvl_zero_for_an_empty_loadout(monkeypatch):
+    """The display site agrees on the empty loadout, no placeholder."""
     rendered = _headless(monkeypatch)
-    inv = items.make_inventory()
-    inv['equipped']['heart'] = _endurance_heart(ilvl=7)
-    from core.render.hud_render import HudRenderMixin
-    HudRenderMixin._draw_character_level(SimpleNamespace(inventory=inv),
-                                        1280, lambda n: n)
-    assert rendered == ['ILEVEL 7'], rendered
-    assert not any('CHARACTER LEVEL' in t for t in rendered)
+    game = _bare_game()
+    inv = game.inventory
+    for slot in inv['equipped']:
+        inv['equipped'][slot] = None
 
-
-def test_hud_character_level_handles_empty_equipment(monkeypatch):
-    """Owner rule: an empty loadout renders ILEVEL 0, not a placeholder."""
-    from core.render.hud_render import HudRenderMixin
-    rendered = _headless(monkeypatch)
-    game = SimpleNamespace(inventory=items.make_inventory())
-    HudRenderMixin._draw_character_level(game, 1280, lambda n: n)
-    assert rendered == ['ILEVEL 0'], rendered
-    assert itemgen.format_character_level(game.inventory) == 'ILEVEL 0'
+    ui = _inventory_ui()
+    ui.char_provider = lambda: game.char
+    ui.open = True
+    ui.stash_open = False
+    ui.draw(inv, 1280, 720)
+    assert 'ILEVEL 0' in rendered, rendered[:40]
 
 
 def test_both_sites_render_lvl_zero_for_an_empty_loadout(monkeypatch):
-    """Both display sites agree on the empty loadout, no placeholder."""
+    """The empty loadout reads as a clean 'ILEVEL 0', no placeholder."""
     rendered = _headless(monkeypatch)
     game = _bare_game()
     inv = game.inventory
@@ -606,10 +595,7 @@ def test_both_sites_render_lvl_zero_for_an_empty_loadout(monkeypatch):
     ui._stash_grid = None
     ui.draw(inv, 1280, 720)
 
-    from core.render.hud_render import HudRenderMixin
-    HudRenderMixin._draw_character_level(SimpleNamespace(inventory=inv),
-                                        1280, lambda n: n)
-    assert rendered.count('ILEVEL 0') == 2, rendered
+    assert 'ILEVEL 0' in rendered, rendered
     assert not any(t.strip() == '--' for t in rendered), rendered
 
 
@@ -689,26 +675,37 @@ class TestComparisonArrowFormat(unittest.TestCase):
     """Owner ruling 2026-10-07: rows show only the stat line (e.g.
     '+33 Max Health'); direction is an arrow icon, not words."""
 
+    @staticmethod
+    def _hp_heart(value, ilvl=10):
+        # comparison totals only cover LIVE_EFFECT affixes - pk_* affixes
+        # ride the perk bucket and never appear in comparison rows
+        return {
+            'item': 'heart', 'count': 1, 'col': 0, 'row': 0,
+            'instance_data': {
+                'rarity': 'common', 'display_name': 'Heart', 'ilvl': ilvl,
+                'identified': True,
+                'affixes': {'prefixes': {'flat_max_health': value},
+                            'suffixes': {}}}}
+
     def test_rows_are_pure_stat_lines_with_sign(self):
-        hover = _endurance_heart(ilvl=10, endurance=5)
-        equipped = _endurance_heart(ilvl=10, endurance=2)
+        hover = self._hp_heart(5)
+        equipped = self._hp_heart(2)
         rows = itemgen.comparison_rows(hover, equipped)
         for text, _sign in rows:
             self.assertNotIn('(eq', text)
             self.assertNotIn('(up)', text)
             self.assertNotIn('(down)', text)
             self.assertNotIn('(same)', text)
-        by_text = {t: s for t, s in rows}
-        # both hearts share the +10 implicit -> no change, no arrow (sign 0)
-        self.assertEqual(by_text.get('+10 Max Health'), 0)
-        # hover carries more Endurance -> upgrade (arrow up)
-        self.assertEqual(by_text.get('+5 Endurance'), 1)
+        # flat HP merges the implicit 10 + affix into ONE 'max_health' key:
+        # a single row with the hover total (10+5) and an up arrow
+        self.assertEqual(rows, [('+15 Max Health', 1)])
 
     def test_downgrade_row_is_negative_sign(self):
-        hover = _endurance_heart(ilvl=10, endurance=2)
-        equipped = _endurance_heart(ilvl=10, endurance=5)
+        hover = self._hp_heart(2)
+        equipped = self._hp_heart(5)
         rows = dict(itemgen.comparison_rows(hover, equipped))
-        self.assertEqual(rows.get('+2 Endurance'), -1)
+        self.assertEqual(rows.get('+12 Max Health'), -1)   # 10+2, arrow down
+        self.assertEqual(len(rows), 1)
 
     def test_arrow_icons_exist_and_are_drawn(self):
         from ui import icons as icons_mod

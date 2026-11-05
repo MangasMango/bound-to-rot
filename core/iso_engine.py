@@ -42,7 +42,12 @@ DIAMOND_X     = 0          # left edge of diamond bounding box
 DIAMOND_Y     = 16         # top edge of diamond bounding box
 DIAMOND_W     = 64         # diamond width  (step_x = DIAMOND_W/2 per tile)
 DIAMOND_H     = 32         # diamond height (step_y = DIAMOND_H/2 per tile)
-DEFAULT_SCALE = 2.0        # 128px drawn tile (2× native); 32/16 px steps
+# Default zoom 3 (owner ruling 2026-11, supersedes the previous 2.0).
+# Zoom 3 is tuned against 1920x1080 - at other boot resolutions the game
+# scales the default down by height so the player sees the SAME span of
+# world (Game.init applies DEFAULT_SCALE * ch/1080), e.g. 1280x720 boots
+# at 2.0: identical view agency, just fewer pixels on each tile.
+DEFAULT_SCALE = 3.0
 MIN_SCALE     = 1.0        # native 1:1 pixel art
 MAX_SCALE     = 3.0
 FLOOR_PAD     = 1        # px overlap between adjacent floor tiles

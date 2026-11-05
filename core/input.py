@@ -245,9 +245,12 @@ class InputMixin:
                 ent_px = ENTITY_BASE * self.iso.scale
                 raw_sx, raw_sy = self.iso.world_to_screen(
                     self._delve['pulse_x'], self._delve['pulse_y'], cw, ch)
+                # the enlarged hub art pushed the heart's visible mass up:
+                # keep the hitbox a few pixels above the tile centre and a
+                # touch wider than the base sprite so clicks still land
                 pulse_cx = raw_sx + ts // 2
-                pulse_cy = raw_sy + ts // 4
-                if math.hypot(mx_s - pulse_cx, my_s - pulse_cy) < ent_px * 0.6:
+                pulse_cy = raw_sy + ts // 4 - ts // 12
+                if math.hypot(mx_s - pulse_cx, my_s - pulse_cy) < ent_px * 0.7:
                     kids = self._delve_children()
                     if kids:
                         self._open_delve_anima_panel()

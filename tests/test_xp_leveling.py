@@ -53,11 +53,22 @@ class XpCurveTests(unittest.TestCase):
         self.assertGreater(xp.kill_xp(30.0), xp.kill_xp(1.0))
 
     def test_over_level_kills_diminish(self):
+        # Rework ruling (plan §2.2): grace 3 levels, then -12%/level to 5%.
         self.assertEqual(xp.over_level_factor(1, 1.0), 1.0)
-        self.assertEqual(xp.over_level_factor(6, 1.0), 1.0)   # inside grace
-        self.assertLess(xp.over_level_factor(10, 1.0), 1.0)
+        self.assertEqual(xp.over_level_factor(3, 1.0), 1.0)   # grace edge
+        self.assertLess(xp.over_level_factor(5, 1.0), 1.0)   # out of grace
         self.assertEqual(xp.over_level_factor(200, 1.0),
                          xp._OVER_LEVEL_FLOOR)
+
+    def test_requirements_come_from_the_ruled_table(self):
+        # plan §2.2: requirements are a 69-entry table (~150 h to cap),
+        # not the old 40/15/0.35 curve (76 k total).
+        self.assertEqual(len(xp._XP_REQS), xp.MAX_LEVEL - 1)
+        self.assertGreater(sum(xp._XP_REQS), 10_000_000)
+        self.assertEqual(xp.xp_for_level(1), xp._XP_REQS[0])
+
+    def test_kill_xp_slope_is_halved(self):
+        self.assertEqual(xp.kill_xp(10.0), 36)   # 6 + 3*10
 
     def test_streak_bonus_capped_at_half(self):
         self.assertEqual(xp.streak_multiplier(0), 1.0)
@@ -165,29 +176,41 @@ class AttributeAllocationTests(unittest.TestCase):
                              {a: 0 for a in DESCEND_ATTRIBUTES})
 
 
-class HardClampTests(unittest.TestCase):
-    """Owner ruling: attributes hard-clamp at 10 from ALL sources."""
+class AttributeSourceTests(unittest.TestCase):
+    """Rework ruling (plan §2.3): attribute values come from level
+    allocations ONLY - the attr_* item suffixes are retired and
+    compute_derived_stats ignores any item-side attribute keys."""
 
     def _derived(self, descend, items):
         return prog.compute_derived_stats(descend, {}, item_bonuses=items,
                                           looks='knight')
 
-    def test_items_beyond_ten_are_clamped(self):
+    def test_items_never_raise_attributes(self):
         items = {a: 99 for a in DESCEND_ATTRIBUTES}
         d = self._derived({}, items)
         for attr in DESCEND_ATTRIBUTES:
-            self.assertEqual(d[attr], ATTR_CAP)
+            self.assertEqual(d[attr], 0)
 
-    def test_allocation_plus_items_is_clamped(self):
+    def test_allocation_plus_items_uses_allocation_only(self):
         descend = {a: 0 for a in DESCEND_ATTRIBUTES}
         descend['strength'] = 7
         d = self._derived(descend, {'strength': 50})
-        self.assertEqual(d['strength'], ATTR_CAP)
+        self.assertEqual(d['strength'], 7)
 
-    def test_clamped_attributes_drive_derived_stats_at_cap_values(self):
-        items = {a: 99 for a in DESCEND_ATTRIBUTES}
-        d = self._derived({}, items)
-        self.assertEqual(d['max_health'], 50 + ATTR_CAP * 8 * 2)
+    def test_attribute_affix_ids_are_out_of_the_roll_pool(self):
+        import systems.itemgen as itemgen
+        ids = {a['id'] for a in itemgen._AFFIXES}
+        for aid in ('attr_dexterity', 'attr_endurance', 'attr_strength',
+                    'attr_cunning', 'attr_essence', 'attr_nerve',
+                    'attr_destiny', 'pk_melee_mult', 'pk_accuracy',
+                    'pk_entropy_grace', 'pk_reload_speed'):
+            self.assertNotIn(aid, ids)
+
+    def test_DST_owns_loot_rarity(self):
+        descend = {a: 0 for a in DESCEND_ATTRIBUTES}
+        descend['destiny'] = 5
+        d = self._derived(descend, {})
+        self.assertEqual(d['loot_rarity_mod'], 10)
 
 
 class CharacterSerializationTests(unittest.TestCase):

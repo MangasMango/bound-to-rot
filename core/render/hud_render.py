@@ -122,23 +122,9 @@ class HudRenderMixin:
         x_r = rl.Rectangle(float(px + size - 40), float(py - 12), 40.0, 40.0)
         x_clicked = _btn(x_r, 'X', 20)
         return content, x_clicked
-    def _draw_character_level(self, cw: int, scale_font, pad: int = 16):
-        """Top-left ILEVEL readout (renamed from LVL, issue #31).
-
-        One of the two display sites for the value. It renders
-        ``itemgen.format_character_level(self.inventory)`` verbatim - the same
-        accessor and the same compact ``ILEVEL n`` string the inventory panel
-        header uses - so the two sites cannot drift apart. An empty loadout
-        renders as ``ILEVEL 0`` like any other value. Display-only: real
-        character levels live on char.level (systems/xp.py) and are drawn
-        next to the name.
-        Aligned to the name column: the x offset matches the name text's
-        offset in _draw_hud so icon / name / ILEVEL share one grid.
-        """
-        fs = scale_font(16)
-        fonts.draw(itemgen.format_character_level(self.inventory),
-                   pad + scale_font(36), pad + scale_font(36), fs,
-                   rl.Color(220, 190, 90, 235))
+    # The top-left ILEVEL readout was removed (owner ruling 2026-11):
+    # the compact 'ILEVEL n' label lives on in the inventory header and
+    # the D.E.S.C.E.N.D. panel's stat grid only.
 
     def _draw_delve_hud(self, cw: int, ch: int, scale_font):
         """Depth counter and darkness warning overlay."""
@@ -146,11 +132,19 @@ class HudRenderMixin:
             return
         d = self._delve
 
-        # Depth counter - top center
+        # Depth counter - under the minimap, right side (owner ruling:
+        # top-center belongs to the kill streak now). Geometry mirrors the
+        # compass minimap block in _draw_hud (79x82 at scale_px(8)).
+        hud_scale_d = self.menu_sys.settings.hud_scale
+        mm_px   = max(1, int(8 * hud_scale_d))
+        mm_w    = 79
+        mm_h    = 82
         label       = f"Anima Depth {d['depth']}"
-        fs          = scale_font(20)
+        fs          = scale_font(15)
         label_width = fonts.measure(label, fs)
-        fonts.draw(label, cw // 2 - label_width // 2, 14, fs,
+        depth_x     = cw - mm_w - mm_px - 6
+        depth_y     = mm_px + mm_h + 8
+        fonts.draw(label, depth_x + (mm_w - label_width) // 2, depth_y, fs,
                    rl.Color(80, 200, 255, 230))
 
         # Darkness exposure meter - top-right
@@ -534,27 +528,32 @@ class HudRenderMixin:
                 rl.Rectangle(float(hdr_x), float(hdr_y), float(hdr_w), float(hdr_h)),
                 rl.Vector2(0, 0), 0.0, rl.WHITE)
 
-        # Name & level
-        info = f"Lv{elevel} {etype}"
-        iw = fonts.measure(info, scale_font(16))
-        fonts.draw(info, cw // 2 - iw // 2, hdr_y + scale_px(4), scale_font(16),
-                   rl.Color(255, 220, 100, 255))
-
-        # Health bar
+        # Health bar - ON TOP of the header card (owner ruling 2026-11:
+        # bar above the name line, thicker so it reads from afar)
         bar_w = scale_px(160)
-        bar_h = scale_px(10)
+        bar_h = scale_px(15)
         bar_x = cw // 2 - bar_w // 2
-        bar_y = hdr_y + hdr_h - bar_h - scale_px(4)
+        bar_y = hdr_y + scale_px(4)
         rl.draw_rectangle(bar_x, bar_y, bar_w, bar_h, rl.Color(0, 0, 0, 0x99))
         if pct > 0:
             rl.draw_rectangle(bar_x, bar_y, int(bar_w * pct), bar_h,
                               rl.Color(200, 50, 50, 230) if pct > 0.4 else rl.Color(240, 200, 30, 230))
         rl.draw_rectangle_lines(bar_x, bar_y, bar_w, bar_h, rl.Color(60, 30, 30, 180))
+
+        # Name & level - under the health bar
+        info = f"Lv{elevel} {etype}"
+        iw = fonts.measure(info, scale_font(16))
+        fonts.draw(info, cw // 2 - iw // 2, bar_y + bar_h + scale_px(4), scale_font(16),
+                   rl.Color(255, 220, 100, 255))
     def _draw_kill_streak(self, cw, ch):
         hud_scale = self.menu_sys.settings.hud_scale
         def scale_font_local(n): return max(1, int(n * hud_scale))
         t = rl.get_time()
         cx = cw // 2
+
+        def _streak_top_y(cw, ch):
+            # true top-center band, clear of the top-left character info
+            return max(12, int(ch * 0.045))
 
         # "STREAK LOST" sting
         lost_age = t - self._streak_lost_t
@@ -563,7 +562,7 @@ class HudRenderMixin:
             label = 'STREAK LOST'
             fs = scale_font_local(30)
             lw = fonts.measure(label, fs)
-            fonts.draw(label, cx - lw // 2, int(ch * 0.28), fs,
+            fonts.draw(label, cx - lw // 2, _streak_top_y(cw, ch), fs,
                        rl.Color(255, 70, 70, alpha))
             return
 
@@ -573,13 +572,14 @@ class HudRenderMixin:
             return
 
         col = self._streak_color(streak)
+        y_main = _streak_top_y(cw, ch) + scale_font_local(30)
 
         # Background flash behind the text (max juice)
         flash_age = min(age, STREAK_POP_SECS)
         flash_a   = int(90 * (1.0 - flash_age / STREAK_POP_SECS)) * max(1, min(streak, 6) // 2 + 1)
         pad_x, pad_y = 46, 20
         bw, bh = 260 + 14 * min(streak, 12), 64
-        rl.draw_rectangle(cx - bw // 2, int(ch * 0.26) - pad_y, bw, bh,
+        rl.draw_rectangle(cx - bw // 2, y_main - pad_y, bw, bh,
                           rl.Color(col.r, col.g, col.b, min(flash_a, 110)))
 
         # Milestone title word
@@ -604,7 +604,6 @@ class HudRenderMixin:
         ssz  = scale_font_local(int(16 * grow))
         sw   = fonts.measure(sub, ssz)
 
-        y_main = int(ch * 0.27)
         y_sub  = y_main - ssz - 4
         fonts.draw(sub, cx - sw // 2, y_sub, ssz,
                    rl.Color(col.r, col.g, col.b, 230))
@@ -629,13 +628,6 @@ class HudRenderMixin:
         def scale_px(n): return max(1, int(n * hud_scale))
         def scale_font(n): return max(12, int(n * hud_scale))
         ui  = self._ui
-
-        # CHARACTER LEVEL - top-left HUD readout, drawn with the other
-        # top-left character info. Uses the same
-        # itemgen.format_character_level() accessor and formatting as the
-        # inventory panel header, so the two sites always show the identical
-        # value. Display-only; see itemgen.character_level.
-        self._draw_character_level(cw, scale_font, PAD)
 
         self._draw_delve_hud(cw, ch, scale_font)
 
@@ -664,11 +656,11 @@ class HudRenderMixin:
         fonts.draw(nm, ci_x + scale_font(36), ci_y + scale_px(2), name_fs,
                    rl.WHITE)
 
-        # ── LEVEL + XP bar (issue #31): the real character level now that
-        # leveling returned; XP accrues from kills (systems/xp.py).
+        # ── LEVEL readout (issue #31): the real character level now that
+        # leveling returned; XP accrues from kills (systems/xp.py). The
+        # accompanying XP bar draws under the action bar (ARPG placement).
         from systems import xp as hud_xp
         real_level = int(getattr(self.char, 'level', 1))
-        cur_xp, need_xp = hud_xp.level_progress(self.char)
         lv_fs = scale_font(15)
         lv_x = ci_x + scale_font(36)
         fonts.draw(f'LEVEL {real_level}', lv_x, ci_y + scale_px(28),
@@ -676,17 +668,11 @@ class HudRenderMixin:
         unspent = int(getattr(self.char, 'available_points', 0))
         if unspent > 0:
             pts_msg = f'+{unspent} charpoint{"s" if unspent != 1 else ""} available - press C'
-            pts_fs = scale_font(13)
+            pts_fs = scale_font(17)
             fonts.draw(pts_msg, ci_x, ci_y + scale_px(58), pts_fs,
                        rl.Color(120, 220, 120, 255))
-        bar_w = scale_px(150)
-        bar_h = scale_px(5)
-        bar_x2 = lv_x
-        bar_y2 = ci_y + scale_px(46)
-        frac = 1.0 if not need_xp else min(1.0, cur_xp / need_xp)
-        rl.draw_rectangle(bar_x2, bar_y2, bar_w, bar_h, rl.Color(0, 0, 0, 160))
-        rl.draw_rectangle(bar_x2, bar_y2, int(bar_w * frac), bar_h,
-                          rl.Color(218, 165, 32, 255))
+        # the XP bar itself now lives under the action bar (ARPG placement,
+        # see the bottom block).
 
         # ── buff / debuff indicators (top-left below character info) ───
         buff_y = ci_y + scale_px(96)
@@ -1260,6 +1246,21 @@ class HudRenderMixin:
         _divider((left_box[0] + left_box[2] + centre_box[0]) // 2 - bpx(6))
         _divider((centre_box[0] + centre_box[2] + right_box[0]) // 2 - bpx(6))
         _divider(mag_x - bpx(33))          # the orb↔attack/move gap, mirrored
+
+        # ── XP bar (ARPG placement): a thin gold strip glued to the top
+        # edge of the action bar, spanning ONLY the clear middle stretch
+        # between the raised life orb and the right statue stack - the
+        # full-width first attempt rode behind that raised art, so it now
+        # lives where nothing but the slot belt can overlap it (and the
+        # slot belt starts bpx(15) DOWN the panel, below the strip).
+        xp_cur, xp_need = hud_xp.level_progress(self.char)
+        xp_frac = 1.0 if not xp_need else min(1.0, xp_cur / xp_need)
+        xp_h, xp_gap = bpx(6), bpx(2)
+        xp_w = max(0, int(zone_r - zone_l))
+        rl.draw_rectangle(int(zone_l), int(bar_y - xp_h - xp_gap), xp_w,
+                          xp_h, rl.Color(0, 0, 0, 170))
+        rl.draw_rectangle(int(zone_l), int(bar_y - xp_h - xp_gap),
+                          int(xp_w * xp_frac), xp_h, rl.Color(218, 165, 32, 255))
 
         self._draw_kill_streak(cw, ch)
 

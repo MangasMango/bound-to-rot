@@ -126,7 +126,7 @@ _EQUIP_LABELS = {
     'move_speed':       'Move Speed',
     'max_health':       'Max Health',
     'evasion':          'Evasion',
-    'melee_damage':     'Melee Damage',
+    'attack_damage':    'Attack Damage',
 }
 
 

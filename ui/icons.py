@@ -199,7 +199,14 @@ def _load_colored_icon(name: str) -> rl.Texture2D | None:
 
 
 def _load_white_icon(name: str) -> rl.Texture2D | None:
-    """All-white silhouette of an icon: RGB forced to 255, alpha kept.
+    """All-white silhouette of an icon for the dark menu sheets.
+
+    Two source layouts are handled:
+    - 1-bit icons drawn as white art on an OPAQUE black plate (the stat
+      pack): keying on alpha would keep the plate and produce a solid
+      white square. Instead the mask follows LIGHTNESS - white art stays
+      white, the black plate becomes transparent.
+    - icons with real alpha art: RGB forced to 255, alpha kept as-is.
     The recolour happens in memory (PNG round-trip); the coloured cache
     is never touched."""
     if name in _cache_white:
@@ -216,15 +223,38 @@ def _load_white_icon(name: str) -> rl.Texture2D | None:
     png_bytes = None
     try:
         import io
-        import numpy as np
         from PIL import Image
 
         pil = Image.open(path).convert('RGBA')
-        arr = np.asarray(pil).copy()
-        arr[..., :3] = 255
+        pixels = list(pil.getdata())
+
+        dark_opaque = light_opaque = 0
+        for px_r, px_g, px_b, px_a in pixels:
+            if px_a >= 250:
+                lum = (px_r * 299 + px_g * 587 + px_b * 114) // 1000
+                if lum < 100:
+                    dark_opaque += 1
+                else:
+                    light_opaque += 1
+        total_opaque = dark_opaque + light_opaque
+        # 1-bit white-art-on-black-plate style: a substantial opaque dark
+        # region means the art's own background must be dropped.
+        plate_style = (dark_opaque > 0 and light_opaque > 0
+                       and dark_opaque >= total_opaque * 0.25)
+
+        white_pixels = []
+        for px_r, px_g, px_b, px_a in pixels:
+            lum = (px_r * 299 + px_g * 587 + px_b * 114) // 1000
+            if plate_style:
+                keep = px_a >= 120 and lum >= 100
+            else:
+                keep = px_a >= 120
+            white_pixels.append((255, 255, 255, px_a if keep else 0))
+
+        white = Image.new('RGBA', pil.size)
+        white.putdata(white_pixels)
         buf = io.BytesIO()
-        Image.frombuffer('RGBA', pil.size, arr.tobytes(),
-                         'raw', 'RGBA', 0, 1).save(buf, 'PNG')
+        white.save(buf, 'PNG')
         png_bytes = buf.getvalue()
     except Exception:
         return None
