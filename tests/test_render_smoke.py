@@ -111,9 +111,11 @@ def _install_headless_drawing(monkeypatch):
 
 
 def test_runtime_code_has_no_removed_character_progression_reads():
+    """Level/XP are live fields again (issue #31, managed by systems/xp.py);
+    the retired wrapper-era API names must never reappear."""
     removed_reads = (
-        "self.char.level", "self.char.xp", "self.char.xp_progress",
-        "self.char.xp_to_next", "self.char.add_xp", "self.char.gain_xp",
+        "self.char.xp_progress", "self.char.xp_to_next",
+        "self.char.add_xp", "self.char.gain_xp",
     )
     stale = []
     for path in Path('.').rglob('*.py'):
@@ -189,21 +191,24 @@ def test_t_flask_system_still_exists():
 
 
 def test_hud_draws_with_current_character_in_hub_and_delve(monkeypatch):
+    """Leveling returned (issue #31): the HUD shows the real character
+    LEVEL next to the name; the ILEVEL readout stays display-only."""
     game = _game_stub()
     rendered_text = _install_headless_drawing(monkeypatch)
+    game.char.level = 3
+    game.char.xp = 10
+    game.char.available_points = 0
 
     HudRenderMixin._draw_hud(game, 1280, 720)
-    assert not hasattr(game.char, "level")
-    assert not hasattr(game.char, "xp")
-    assert not hasattr(game.char, "xp_progress")
-    assert not any("xp" in text.lower() for text in rendered_text)
+    assert "LEVEL 3" in rendered_text
+    assert "ILEVEL" not in rendered_text       # HUD ILEVEL site retired (2026-11)
 
     game._delve = {"depth": 7, "dark_timer": 2.5}
     rendered_text.clear()
     HudRenderMixin._draw_hud(game, 1280, 720)
     assert "Anima Depth 7" in rendered_text
     assert "Darkness  2.5s" in rendered_text
-    assert not any("xp" in text.lower() for text in rendered_text)
+    assert "LEVEL 3" in rendered_text
 
 
 def test_frame_draw_reaches_hud_in_hub_and_delve(monkeypatch):

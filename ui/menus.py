@@ -806,6 +806,7 @@ class MenuSystem:
             if _inp.key_pressed(self, rl.KEY_DOWN):
                 self._char_sel_idx = (self._char_sel_idx + 1) % n
             if _inp.key_pressed(self, rl.KEY_ENTER):
+                self.char_mgr.migration_note = ''   # §49 notice dismissed
                 self.char_mgr.select(self._char_sel_idx)
                 self._signal = 'start_solo'
 
@@ -828,6 +829,14 @@ class MenuSystem:
                 bk = self.char_mgr.load_error_backup
                 fonts.draw(bk, int(left.x + 10), int(left.y + 22), 11,
                            gui_kit.MUTED)
+
+        # Blueprint §49: a migration that touched the save (e.g. the
+        # leveling-rework affix compensation) is announced, not silent.
+        if getattr(self.char_mgr, 'migration_note', ''):
+            note = self.char_mgr.migration_note
+            for li, line in enumerate(note.splitlines()[:4]):
+                fonts.draw(line, int(left.x + 10),
+                           int(left.y + 40 + li * 15), 12, gui_kit.GOLD)
 
         pad    = 20
         px_    = left.x + pad

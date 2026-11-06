@@ -13,7 +13,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Vessel attributes and legacy perk definitions; progression is item-driven."""
+"""Vessel attributes and legacy perk definitions (issue #31, ADR-006).
+
+Leveling returned (2026-11-02, owner ruling): XP from kills, +1 attribute
+point per level, hard cap 70 = 7 attributes x cap 10. Vessels grant NO
+attribute baselines - every attribute starts at 0 and all spendable points
+come from level-ups, so the arithmetic is exact. Vessel identity is the
+passive in VESSEL_DEFS only. The 28-perk tree stays dormant (thresholdgated on attributes; no purchase path).
+"""
+# fmt: off
+# Vessel baselines were removed by owner ruling (issue #31): 70 level points
+# must exactly fill 7 x 10. vessel_baseline_stats stays for call sites and
+# older tests, but always hands back a zeroed attribute dict.
+# fmt: on
 
 # ── Vessel definitions ───────────────────────────────────────────────────
 
@@ -44,16 +56,19 @@ VESSEL_DEFS = {
 
 # Fixed vessel baselines. Item bonuses drive effectiveness.
 VESSEL_BASELINE_STATS = {
-    'knight':  {'dexterity': 2, 'essence': 1},
-    'warrior': {'endurance': 2, 'strength': 1},
-    'fighter': {'strength': 1, 'endurance': 1, 'dexterity': 1},
+    'knight':  {},
+    'warrior': {},
+    'fighter': {},
 }
 
 
 def vessel_baseline_stats(looks: str) -> dict:
-    """Return a complete fixed attribute baseline for a new vessel."""
+    """Return a zeroed attribute dict - vessels grant no baselines (issue #31).
+
+    Every attribute starts at 0; the 70 level-up points are the only source
+    of allocated attributes, which exactly fills the 7 x 10 caps.
+    """
     baseline = {a: 0 for a in DESCEND_ATTRIBUTES}
-    baseline.update(VESSEL_BASELINE_STATS.get(looks, VESSEL_BASELINE_STATS['knight']))
     return baseline
 
 # Vessel unlock data - framed as piercing the Veils of the Anima.  A depth of 0
@@ -127,7 +142,7 @@ DESCEND_PERKS: dict[str, dict] = {
 
     # ── Strength column ─────────────────────────────────────────────────
     'str1': _perk('Iron Body',       '+max HP per rank',                    3, _ef(('maxHealth', 4)),            'strength', 1),
-    'str2': _perk('Heavy Hitter',    '+melee damage % per rank',            3, _ef(('melee_dmg_mult_pct', 3)),   'strength', 2),
+    'str2': _perk('Heavy Hitter',    '+attack damage % per rank',           3, _ef(('attack_damage_mult_pct', 3)), 'strength', 2),
     'str3': _perk('Brute Force',     '+phys dmg %, +phys pen %, rank 3: -magic dmg %', 3,
                   _ef(('physical_damage_pct', 3), ('physical_penetration_pct', 2)),
                   'strength', 3),

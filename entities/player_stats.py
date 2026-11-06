@@ -14,13 +14,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 def create_stats(max_health=50, evasion=53,
-                 accuracy=0, melee_dmg_mult=1.0, max_energy_shield=0):
+                 accuracy=0, attack_damage_mult=1.0, max_energy_shield=0):
     return {
         'health':             float(max_health),
         'max_health':         float(max_health),
         'evasion':            int(evasion),
         'accuracy':           int(accuracy),
-        'melee_dmg_mult':     float(melee_dmg_mult),
+        'attack_damage_mult':     float(attack_damage_mult),
         'energy_shield':      float(max_energy_shield),
         'max_energy_shield':  float(max_energy_shield),
     }
@@ -35,7 +35,7 @@ def update_stats(s, dt, moving=False):
 
 
 def reset_stats(s, max_health=50, evasion=53,
-                accuracy=0, melee_dmg_mult=1.0, max_energy_shield=0,
+                accuracy=0, attack_damage_mult=1.0, max_energy_shield=0,
                 move_speed_pct=0.0, dexterity=0,
                 attack_speed_pct=0.0, cooldown_recovery_pct=0.0,
                 crit_chance=0.0, ability_crit_chance=0.0,
@@ -55,14 +55,14 @@ def reset_stats(s, max_health=50, evasion=53,
     prev_es       = s.get('energy_shield')
     s.clear()
     s.update(create_stats(max_health, evasion,
-                          accuracy, melee_dmg_mult, max_energy_shield))
+                          accuracy, attack_damage_mult, max_energy_shield))
     s['_base_max_health'] = float(max_health)
     max_health_pct = float(max_health_pct)
     if max_health_pct:
         s['max_health'] = max(1.0, s['max_health'] * (1.0 + max_health_pct / 100.0))
     s['_base_evasion']    = int(evasion)
     s['_base_accuracy']   = int(accuracy)
-    s['_base_melee_dmg_mult'] = float(melee_dmg_mult)
+    s['_base_attack_damage_mult'] = float(attack_damage_mult)
     s['_move_speed_pct']  = float(move_speed_pct)
     s['_dexterity']       = int(dexterity)
     s['_attack_speed_pct'] = float(attack_speed_pct)

@@ -25,10 +25,11 @@ from entities.zombies import enemy_evasion
 from systems.combat import skeleton_accuracy
 
 
-def test_new_save_has_no_character_level_or_xp():
+def test_new_save_starts_at_level_1_with_empty_xp():
+    """Leveling returned with issue #31: a fresh character is level 1, 0 XP."""
     data = Character('fresh', 'Fresh', 'knight').to_dict()
-    assert 'level' not in data
-    assert 'xp' not in data
+    assert data['level'] == 1
+    assert data['xp'] == 0
 
 
 def test_old_format_save_starts_fresh_without_crashing(tmp_path):

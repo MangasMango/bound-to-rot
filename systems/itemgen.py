@@ -88,9 +88,12 @@ _AFFIXES = [
     {'id': 'percent_max_health',          'kind': 'prefix', 'slots': {'liver', 'heart'},
      'base': 0.05, 'round': 2, 'pct': True,  'word': 'Vigorous',
      'label': '+{v}% Maximum Life'},
-    {'id': 'flat_melee_damage',           'kind': 'prefix', 'slots': {'intestine', 'kidney', 'heart'},
+    # Attack damage (renamed from flat_melee_damage, leveling rework):
+    # feeds the same `_fire_bullet` flat slot; the %-multiplier line is
+    # STR-owned and never rolls on items (plan §2.4).
+    {'id': 'flat_attack_damage',          'kind': 'prefix', 'slots': {'intestine', 'kidney', 'heart'},
      'base': 5,    'round': 'int', 'pct': False, 'word': 'Savage',
-     'label': '+{v} Melee Damage'},
+     'label': '+{v} Attack Damage'},
     {'id': 'percent_attack_speed',        'kind': 'prefix', 'slots': {'lungs', 'heart'},
      'base': 0.08, 'round': 2, 'pct': True,  'word': 'Frenzied',
      'label': '+{v}% Attack Speed'},
@@ -99,9 +102,8 @@ _AFFIXES = [
      'label': '+{v}% Ability Critical Strike'},
 
     # ── suffixes ──
-    {'id': 'percent_move_speed',          'kind': 'suffix', 'slots': None,
-     'base': 0.05, 'round': 2, 'pct': True,  'word': 'of Swiftness',
-     'label': '+{v}% Movement Speed'},
+    # Movement speed is DEX-owned (leveling rework §2.1 ruling) - no '-%'
+    # Movement Speed' line; attack speed stays rollable as a prefix.
     {'id': 'crit_chance',                 'kind': 'suffix', 'slots': {'lungs', 'liver', 'intestine'},
      'base': 0.03, 'round': 2, 'pct': True,  'word': 'of Precision',
      'label': '+{v}% Critical Strike'},
@@ -109,18 +111,48 @@ _AFFIXES = [
      'base': 25,   'round': 'int', 'pct': False, 'word': 'of Evasion',
      'label': '+{v} Evasion Rating'},
 
-    # ── attribute suffixes (push a D.E.S.C.E.N.D. attribute beyond its
-    #    point-allocation hardcap; consumed by compute_derived_stats._attr) ──
-    {'id': 'attr_dexterity',  'kind': 'suffix', 'slots': None, 'base': 2, 'round': 'int', 'pct': False, 'word': 'of Dexterity',  'label': '+{v} Dexterity'},
-    {'id': 'attr_endurance',  'kind': 'suffix', 'slots': None, 'base': 2, 'round': 'int', 'pct': False, 'word': 'of Endurance',  'label': '+{v} Endurance'},
-    {'id': 'attr_strength',   'kind': 'suffix', 'slots': None, 'base': 2, 'round': 'int', 'pct': False, 'word': 'of Strength',   'label': '+{v} Strength'},
-    {'id': 'attr_cunning',    'kind': 'suffix', 'slots': None, 'base': 2, 'round': 'int', 'pct': False, 'word': 'of Cunning',    'label': '+{v} Cunning'},
-    {'id': 'attr_essence',    'kind': 'suffix', 'slots': None, 'base': 2, 'round': 'int', 'pct': False, 'word': 'of Essence',    'label': '+{v} Essence'},
-    {'id': 'attr_nerve',      'kind': 'suffix', 'slots': None, 'base': 2, 'round': 'int', 'pct': False, 'word': 'of Nerve',      'label': '+{v} Nerve'},
-    {'id': 'attr_destiny',   'kind': 'suffix', 'slots': None, 'base': 2, 'round': 'int', 'pct': False, 'word': 'of Destiny',    'label': '+{v} Destiny'},
+    # ── attribute suffixes RETIRED (leveling rework §2.3 owner ruling:
+    #    items give STATS only; attribute points come from level-ups and
+    #    hard-cap at 10). The vacated roll space is replaced by the new
+    #    stat suffix families below and the pk_* additions; attribute
+    #    names, loot rarity, CDR, reload, entropy grace and accuracy are
+    #    never rollable on gear.
 ]
 
-# ── perk-style affixes ──────────────────────────────────────────────────
+# New stat-only suffix families replacing the retired attribute lines.
+# Classic LIVE_EFFECT ids (flat_*) map through LIVE_EFFECT_MAP; resist
+# lines mirror the pk_* perk-style shape (percentage-point values).
+_STAT_REPLACEMENT_SUFFIXES = [
+    # flat vitality / shield lines (not attribute-unique domains)
+    {'id': 'flat_vitality',               'kind': 'suffix', 'slots': None,
+     'base': 12,   'round': 'int', 'pct': False, 'word': 'of Vitality',
+     'label': '+{v} Maximum Life'},
+    {'id': 'flat_aegis',                  'kind': 'suffix', 'slots': {'lungs', 'intestine'},
+     'base': 8,    'round': 'int', 'pct': False, 'word': 'of Aegis',
+     'label': '+{v} Maximum Energy Shield'},
+    # resistances - rolled stats, distinct from END's darkness resist
+    {'id': 'pk_rot_resist',               'kind': 'suffix', 'slots': {'heart', 'liver'},
+     'base': 5, 'round': 'int', 'pct': True,  'word': 'of Rot Warding',
+     'label': '+{v}% Rot Resistance', 'perk': 'rot_resist_pct'},
+    {'id': 'pk_fire_resist',              'kind': 'suffix', 'slots': {'lungs', 'liver'},
+     'base': 5, 'round': 'int', 'pct': True,  'word': 'of Ember Ward',
+     'label': '+{v}% Fire Resistance', 'perk': 'fire_resist_pct'},
+    {'id': 'pk_cold_resist',              'kind': 'suffix', 'slots': {'lungs', 'intestine'},
+     'base': 5, 'round': 'int', 'pct': True,  'word': 'of Frost Ward',
+     'label': '+{v}% Cold Resistance', 'perk': 'cold_resist_pct'},
+    {'id': 'pk_light_resist',             'kind': 'suffix', 'slots': {'lungs', 'kidney'},
+     'base': 5, 'round': 'int', 'pct': True,  'word': 'of Grounding',
+     'label': '+{v}% Lightning Resistance', 'perk': 'lightning_resist_pct'},
+    {'id': 'pk_phys_resist',              'kind': 'suffix', 'slots': {'liver', 'intestine'},
+     'base': 4, 'round': 'int', 'pct': True,  'word': 'of Grit',
+     'label': '+{v}% Physical Resistance', 'perk': 'physical_resist_pct'},
+    # crushing blow - strength-flavoured but never attribute-owned
+    {'id': 'pk_crushing',                 'kind': 'suffix', 'slots': {'intestine', 'kidney'},
+     'base': 2, 'round': 'int', 'pct': True,  'word': 'of Rending',
+     'label': '+{v}% Crushing Blow', 'perk': 'crushing_blow_pct'},
+]
+
+# ── perk-style affixes ──────────────────────────────────────────────
 # These mirror the 28 DESCEND_PERKS templates (entities/descend.py). Each
 # carries a `perk` key naming the DESCEND perk-bonus key it feeds
 # (e.g. 'fire_damage_pct'); values are expressed in the SAME units the
@@ -172,24 +204,19 @@ _PERK_AFFIXES = [
      'base': 3, 'round': 'int', 'pct': True,  'word': 'of Glaciation',
      'label': '+{v}% Cold Penetration', 'perk': 'cold_penetration_pct'},
 
-    # Melee multiplier / accuracy / delve light
-    {'id': 'pk_melee_mult',      'kind': 'prefix', 'slots': {'intestine', 'kidney', 'heart'},
-     'base': 4, 'round': 'int', 'pct': True,  'word': 'Savage',
-     'label': '+{v}% Melee Damage', 'perk': 'melee_dmg_mult_pct'},
-    {'id': 'pk_accuracy',        'kind': 'suffix', 'slots': {'lungs', 'liver', 'intestine'},
-     'base': 8, 'round': 'int', 'pct': False, 'word': 'of Precision',
-     'label': '+{v} Accuracy', 'perk': 'accuracy_flat'},
+    # Anima light (NRV-owned domain shares the light line; acceptable
+    # since light radius isn't exclusively attribute-owned per plan §2.1)
     {'id': 'pk_delve_light',     'kind': 'suffix', 'slots': {'lungs', 'liver'},
      'base': 0.5, 'round': 1, 'pct': False, 'word': 'of Luminance',
      'label': '+{v} Anima Light Radius', 'perk': 'delve_light_radius'},
-
-    # Entropy grace
-    {'id': 'pk_entropy_grace',   'kind': 'suffix', 'slots': {'heart', 'intestine'},
-     'base': 4, 'round': 'int', 'pct': True,  'word': 'of Fate',
-     'label': '+{v}% Entropy Grace', 'perk': 'entropy_grace_pct'},
 ]
 
-_AFFIXES = _AFFIXES + _PERK_AFFIXES
+# Retirements (plan §2.1-§2.4, owner rulings 2026-11):
+#   pk_melee_mult      - the % attack multiplier is STR-owned (option 2)
+#   pk_accuracy        - accuracy is attribute-only (DEX line)
+#   pk_entropy_grace   - grace is ESS/DST-owned
+#   pk_reload_speed    - reload is CUN-owned
+_AFFIXES = _AFFIXES + _STAT_REPLACEMENT_SUFFIXES + _PERK_AFFIXES
 _AFFIX_BY_ID = {a['id']: a for a in _AFFIXES}
 _PREFIXES = [a for a in _AFFIXES if a['kind'] == 'prefix']
 _SUFFIXES = [a for a in _AFFIXES if a['kind'] == 'suffix']
@@ -247,26 +274,20 @@ ROT_MYTHIC_DROP_CHANCE = 0.02
 ROT_MYTHIC_DEPTH_MAX = 10
 
 # Affix ids that map to a live player effect today. Everything else is
-# display-only until its stat hook exists.
+# display-only until its stat hook exists. Attribute point suffixes were
+# retired with the leveling rework (plan §2.3) - items give stats only.
 LIVE_EFFECT_MAP = {
     'local_damage_reduction': 'damage_reduction',
     'percent_move_speed':     'move_speed',
     'flat_max_health':         'max_health',
     'percent_max_health':      'max_health_pct',
     'flat_evasion':            'evasion',
-    'flat_melee_damage':       'melee_damage',
+    'flat_attack_damage':      'attack_damage',
     'percent_attack_speed':    'attack_speed_pct',
     'crit_chance':             'crit_chance',
     'ability_crit_chance':     'ability_crit_chance',
-    # attribute suffixes -> D.E.S.C.E.N.D. attribute names (consumed by
-    # compute_derived_stats._attr so items push beyond the point cap)
-    'attr_dexterity':          'dexterity',
-    'attr_endurance':          'endurance',
-    'attr_strength':           'strength',
-    'attr_cunning':            'cunning',
-    'attr_essence':            'essence',
-    'attr_nerve':              'nerve',
-    'attr_destiny':            'destiny',
+    'flat_vitality':           'max_health',
+    'flat_aegis':              'max_energy_shield',
     # rot drawback suffixes - stored NEGATIVE, so the summed effect subtracts
     'rot_drawback_max_life':      'max_health',
     'rot_drawback_move_speed':    'move_speed',
@@ -290,16 +311,23 @@ def _scale(base, ilvl, rarity, rng=None):
     return base * (1 + ilvl / 100.0) * M_RARITY[rarity] * _v_rand(rng)
 
 
-def roll_rarity(ilvl, rng=None):
-    """Weighted rarity choice; higher ilvl skews rarer."""
+def roll_rarity(ilvl, rng=None, rarity_mod=0.0):
+    """Weighted rarity choice; higher ilvl skews rarer.
+
+    `rarity_mod` (percentage points, DST-owned - leveling rework plan §2.1:
+    Destiny raises the rarity of every non-common band; no item affix ever
+    rolls rarity) scales the uncommon-and-up weights upward against a
+    fixed common weight, so each Destiny point pushes drops up the ladder
+    without ever being able to zero out commons."""
     rng = rng or random
+    boost = max(0.0, 1.0 + rarity_mod / 100.0)
     weights = {
         'common':    max(4.0, 60.0 - ilvl * 0.5),
-        'uncommon':  30.0,
-        'rare':      10.0 + ilvl * 0.25,
-        'epic':      3.0 + ilvl * 0.18,
-        'legendary': 0.3 + ilvl * 0.05,
-        'mythic':    0.05 + ilvl * 0.01,
+        'uncommon':  30.0 * boost,
+        'rare':      (10.0 + ilvl * 0.25) * boost,
+        'epic':      (3.0 + ilvl * 0.18) * boost,
+        'legendary': (0.3 + ilvl * 0.05) * boost,
+        'mythic':    (0.05 + ilvl * 0.01) * boost,
     }
     roll = rng.uniform(0, sum(weights.values()))
     acc = 0.0
@@ -310,14 +338,15 @@ def roll_rarity(ilvl, rng=None):
     return 'common'
 
 
-def generate_instance(item_id, ilvl, rarity=None, equip_slot=None, base_name=None, seed=None):
+def generate_instance(item_id, ilvl, rarity=None, equip_slot=None, base_name=None,
+                      seed=None, rarity_mod=0.0):
     """Return an `instance_data` dict for an equippable base item.
 
     When `seed` is provided, all random rolls are deterministic from that seed.
     """
     rng = _rng(seed)
     if rarity is None:
-        rarity = roll_rarity(ilvl, rng)
+        rarity = roll_rarity(ilvl, rng, rarity_mod=rarity_mod)
     n_pre, suf_min, suf_max = _AFFIX_RULES[rarity]
     n_suf = rng.randint(suf_min, suf_max)
 
@@ -613,7 +642,7 @@ def balanced_affix_values(inst):
     return out
 
 
-def roll_for(item_id, count, ilvl, seed=None):
+def roll_for(item_id, count, ilvl, seed=None, rarity_mod=0.0):
     """Build a loot/grid slot dict, attaching instance_data to equippables.
 
     Abilities are generated only for gems; ordinary gear never grants a
@@ -626,7 +655,8 @@ def roll_for(item_id, count, ilvl, seed=None):
     eq = defn.get('equipSlot')
     if eq:
         inst = generate_instance(
-            item_id, ilvl, equip_slot=eq, base_name=defn.get('name', item_id), seed=seed)
+            item_id, ilvl, equip_slot=eq, base_name=defn.get('name', item_id),
+            seed=seed, rarity_mod=rarity_mod)
         slot['instance_data'] = inst
         return slot
     # Gems: roll an ability for the QWER key slot the gem color binds to.
@@ -696,18 +726,14 @@ STAT_META = {
     'max_health':             ('Max Health', False),
     'max_health_pct':         ('Max Health %', True),
     'evasion':                ('Evasion', False),
-    'melee_damage':           ('Melee Damage', False),
+    'attack_damage':          ('Attack Damage', False),
     'attack_speed_pct':       ('Attack Speed', True),
     'cooldown_recovery_pct':  ('Cooldown Recovery', True),
     'crit_chance':            ('Critical Strike', True),
     'ability_crit_chance':    ('Ability Crit', True),
-    'dexterity':              ('Dexterity', False),
-    'endurance':              ('Endurance', False),
-    'strength':               ('Strength', False),
-    'cunning':                ('Cunning', False),
-    'essence':                ('Essence', False),
-    'nerve':                  ('Nerve', False),
-    'destiny':                ('Destiny', False),
+    # Attribute point entries retired (plan §2.3): items no longer roll,
+    # carry or display raw attribute lines.
+    'max_energy_shield':      ('Max ES', False),
 }
 
 
@@ -795,7 +821,7 @@ def equipped_item_levels(inventory):
 
 
 def character_level(inventory):
-    """CHARACTER LEVEL - the average item level of the character's gear.
+    """ITEM LEVEL readout - the average item level of the character's gear.
 
     THE SINGLE SOURCE OF TRUTH for this value. Both display sites (the
     inventory panel header and the top-left HUD readout) call this one
@@ -805,12 +831,11 @@ def character_level(inventory):
     (i.e. floor(x + 0.5)), applied here once so both sites agree. Returns 0
     when nothing is equipped - no division by zero on an empty loadout.
 
-    SCOPE: DISPLAY-ONLY, pending an owner decision. This value is rendered
-    and nothing else. It is deliberately NOT an input to loot generation,
-    item-level rolling, compute_derived_stats, monster scaling, access
-    gating or difficulty. A previous character level did feed those systems;
-    restoring that behaviour is a separate decision the owner has not made
-    yet, so keep this wired to drawing code only until they do.
+    SCOPE: DISPLAY-ONLY. Renamed ILEVEL with issue #31 - real character
+    levels returned (XP from kills), so the "LVL" label now belongs to
+    char.level (systems/xp.py). This readout is deliberately NOT an input to
+    loot generation, item-level rolling, compute_derived_stats, monster
+    scaling, access gating or difficulty; keep it wired to drawing code only.
     """
     levels = equipped_item_levels(inventory)
     if not levels:
@@ -821,15 +846,16 @@ def character_level(inventory):
 def format_character_level(inventory):
     """The exact string both display sites render (shared formatting).
 
-    Compact form: ``LVL 21``. Owner rule - the long "CHARACTER LEVEL" phrase
-    is never drawn; both sites render this one string verbatim, so the compact
-    label cannot drift between them.
+    Compact form: ``ILEVEL 21``. Owner rule - the long phrase is never
+    drawn; both sites render this one string verbatim, so the compact label
+    cannot drift between them. Renamed LVL -> ILEVEL with issue #31 to make
+    room for the real character level.
 
-    Owner rule (revision): an EMPTY loadout displays ``LVL 0``, exactly like any
-    other value. There is no placeholder and no special case - the label is
-    always ``LVL`` followed by the number.
+    Owner rule (revision): an EMPTY loadout displays ``ILEVEL 0``, exactly
+    like any other value. There is no placeholder and no special case - the
+    label is always ``ILEVEL`` followed by the number.
     """
-    return f'LVL {character_level(inventory)}'
+    return f'ILEVEL {character_level(inventory)}'
 
 
 def equipped_uniques(inventory):

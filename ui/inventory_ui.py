@@ -941,13 +941,10 @@ class InventoryUI:
         for i in consumed:
             if i < len(self._forge_grid):
                 self._forge_grid.pop(i)
-        # receipt: mirror the received items into the results grid (display
-        # only - copies; the real items are already in the backpack)
-        receipt = list(self._forge_out or [])
-        for out in out_slots:
-            self._place_smart(receipt, out,
-                              recipes_mod.FORGE_COLS, recipes_mod.FORGE_ROWS)
-        self._forge_out = receipt
+        # Owner ruling 2026-11: the real output already landed in the
+        # backpack, so the results grid CLEAN UP instead of keeping a
+        # stale mirror receipt (the old behaviour left ghost copies).
+        self._forge_out = None
         self._forge_cache = (None, None)
         self._forge_changed()
         return True

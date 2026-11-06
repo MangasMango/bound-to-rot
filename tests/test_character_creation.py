@@ -13,14 +13,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Creation baseline and UI flow tests for issue #103."""
+"""Creation baseline and UI flow tests (issue #103, updated for #31)."""
 
 import unittest
 from unittest import mock
 
-from entities.descend import (DESCEND_ATTRIBUTES, VESSEL_BASELINE_STATS,
-                             vessel_baseline_stats)
+from entities.descend import DESCEND_ATTRIBUTES, vessel_baseline_stats
 from entities.progression import Character, CharacterManager
+from systems.xp import MAX_LEVEL
 from ui.menus import MenuSystem
 
 
@@ -33,16 +33,19 @@ class CharacterCreationBaselineTests(unittest.TestCase):
         manager.save = mock.Mock()
         return manager
 
-    def test_every_vessel_creates_with_fixed_baseline_and_no_points(self):
-        for looks, expected in VESSEL_BASELINE_STATS.items():
+    def test_every_vessel_creates_zeroed_at_level_1(self):
+        # Owner ruling (issue #31): vessels grant NO attribute baselines -
+        # every attribute starts at 0 and points come from level-ups only.
+        for looks in ('knight', 'warrior', 'fighter'):
             with self.subTest(looks=looks):
                 manager = self._manager()
                 char = manager.create('Vessel Pilot', looks)
                 self.assertEqual(char.descend, vessel_baseline_stats(looks))
-                self.assertEqual({k: v for k, v in char.descend.items() if v},
-                                 expected)
+                self.assertEqual({k: v for k, v in char.descend.items() if v}, {})
                 self.assertEqual(set(char.descend), set(DESCEND_ATTRIBUTES))
                 self.assertEqual(char.available_points, 0)
+                self.assertEqual(char.level, 1)
+                self.assertEqual(char.xp, 0)
 
     def test_start_creates_directly_without_allocation_state(self):
         manager = self._manager()
@@ -64,10 +67,19 @@ class CharacterCreationBaselineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Character.from_dict({'id': 'legacy', 'name': 'Legacy', 'xp': 99})
 
-    def test_new_character_save_has_no_level_or_xp(self):
+    def test_new_character_save_carries_level_and_xp(self):
         data = Character('fresh', 'Fresh', 'knight').to_dict()
-        self.assertNotIn('level', data)
-        self.assertNotIn('xp', data)
+        self.assertEqual(data['level'], 1)
+        self.assertEqual(data['xp'], 0)
+
+    def test_from_dict_clamps_nonsense_level_xp(self):
+        c = Character.from_dict({'id': 'x', 'name': 'X', 'looks': 'knight',
+                                 'descend': {}, 'perks': {},
+                                 'available_points': 0,
+                                 'inventory': None, 'stash': [],
+                                 'level': 9999, 'xp': -5})
+        self.assertEqual(c.level, MAX_LEVEL)
+        self.assertEqual(c.xp, 0)
 
 
 if __name__ == '__main__':

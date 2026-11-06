@@ -26,7 +26,7 @@ If you'd like to report a bug or suggest a feature, open an [issue](https://gith
 - **Anima** | an endless isometric descent. Depth drives everything: monster level, item level and reward quality.
 - **The Pulse** | your mobile light anchor. Leave its light radius and darkness starts eating you alive. Clear a wave and the Pulse opens the **chart**: pick your next checkpoint, claim a 1-of-3 relic boon.
 - **Vessels** | Pyrrhian (knight) - the only vessel for now. Myronian (warrior) and Theran (fighter) are work in progress.
-- **Permadeath** | dying in the Anima deletes the character. Only your account-wide best depth survives.
+- **Leveling (Fallout-style)** | XP drops from kills; deeper = deadlier enemies = more XP. Spend each level's char point in the D.E.S.C.E.N.D. panel (`C`): 7 attributes, hard-capped at 10, level cap 70. Death costs 10% of your current level's XP - the character survives, the delve does not. Items remain the other half of your power.
 - **Items & Tarot** | gear drops unidentified and is revealed with tarot cards, which double as crafting currency (upgrade, force mythic, reroll). Gems socketed into **Q / W / E / R** grant abilities; a **T** flask gives one charge per wave.
 
 ### Controls

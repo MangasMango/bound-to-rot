@@ -97,6 +97,10 @@ def test_input_dispatch_turns_key_press_into_inventory_intent(monkeypatch):
     game._console_open = False
     game._char_stats_open = False
     game._combat_log_open = False
+    # iso zoom rides _zoom_ref -> effective_scale (needs a game iso)
+    from core.iso_engine import effective_scale
+    game._zoom_ref = 3.0
+    game.iso = SimpleNamespace(scale=effective_scale(3.0))
     game._update_mouse_transform = lambda: None
     game._update_game = lambda dt: None
     game.menu_sys = SimpleNamespace(
@@ -128,6 +132,7 @@ def test_mouse_dispatch_turns_right_click_into_move_intent(monkeypatch):
         inv=SimpleNamespace(open=False), _minimap_open=False, px=1.0, py=1.0,
         map=[[0]], iso=SimpleNamespace(screen_to_world=lambda x, y, w, h: (3.0, 2.0)),
         attack_target=None, interact_target=None, drop_target=None,
+        _char_stats_open=False,
         _drop_label_rects=[], _delve=None,
         _delve_chart_is_open=lambda: False,
         _hud_over_action=lambda x, y: False,

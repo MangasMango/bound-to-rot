@@ -153,6 +153,14 @@ class AudioSystem:
         self._load_pool_a('bullet_impact', [f'ingame-sfx/impactGlass_heavy_{i:03d}.ogg'
                                             for i in range(5)])
 
+        # Revolver cylinder: a dry trigger on an empty chamber plays one of
+        # the two cock sounds; the reload spin-up plays one of the two
+        # reload sounds at random (ammo mechanic)
+        self._load_pool_a('ammo_dry', ['ingame-sfx/revolverCock1.ogg',
+                                       'ingame-sfx/revolverCock2.ogg'])
+        self._load_pool_a('ammo_reload', ['ingame-sfx/revolverReload1.ogg',
+                                          'ingame-sfx/revolverReload2.ogg'])
+
         # Crate destruction
         self._load_pool_a('crate_break', [f'ingame-sfx/impactWood_heavy_{i:03d}.ogg' for i in range(5)] +
                                           [f'ingame-sfx/impactPlank_medium_{i:03d}.ogg' for i in range(5)])
@@ -324,6 +332,14 @@ class AudioSystem:
 
     def bullet_impact(self):
         self._play_random('bullet_impact', 0.8)
+
+    def ammo_dry(self):
+        """Trigger press on an empty / reloading cylinder - metallic click."""
+        self._play_random('ammo_dry', 0.6)
+
+    def ammo_reload(self):
+        """Cylinder reload starts (or an R spin-up) - belt-handling ratchet."""
+        self._play_random('ammo_reload', 0.7)
 
     # ── world sounds ─────────────────────────────────────────────────
 
