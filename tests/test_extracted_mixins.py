@@ -97,6 +97,10 @@ def test_input_dispatch_turns_key_press_into_inventory_intent(monkeypatch):
     game._console_open = False
     game._char_stats_open = False
     game._combat_log_open = False
+    # iso zoom rides _zoom_ref -> effective_scale (needs a game iso)
+    from core.iso_engine import effective_scale
+    game._zoom_ref = 3.0
+    game.iso = SimpleNamespace(scale=effective_scale(3.0))
     game._update_mouse_transform = lambda: None
     game._update_game = lambda dt: None
     game.menu_sys = SimpleNamespace(

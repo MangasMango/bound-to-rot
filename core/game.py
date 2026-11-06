@@ -30,6 +30,7 @@ import pyray as rl
 
 from core.iso_engine import (IsoRenderer, IsoSprite, MOVE_DIR, DIRS, DIR_ANGLE,
                     angle_to_dir, MIN_SCALE, MAX_SCALE, ISO_W, ENTITY_BASE,
+                    DEFAULT_SCALE, effective_scale,
                     is_walkable, make_atlas_prop, make_baked_path_tiles)
 from systems.audio import AudioSystem
 from ui.inventory_ui import InventoryUI
@@ -676,17 +677,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def init(self):
         from ui.menus import Settings
-        from core.iso_engine import DEFAULT_SCALE
-        # Default-zoom ruling (iso_engine comment): zoom 3 is tuned for
-        # 1920x1080 - smaller windows boot proportionally so the span of
-        # visible world (view agency) is identical at any default size.
-        try:
-            _ch = float(rl.get_screen_height())
-            _cw = float(rl.get_screen_width())
-            _fit = min(_ch / 1080.0, _cw / 1920.0)
-            self.iso.scale = max(MIN_SCALE, min(MAX_SCALE, DEFAULT_SCALE * _fit))
-        except Exception:
-            self.iso.scale = DEFAULT_SCALE
+        # Default-zoom ruling (iso_engine comment): the stored _zoom_ref is
+        # the 1080p-reference number; the per-frame update applies the
+        # resolution fit, so first frame already matches this boot line.
+        self._zoom_ref = DEFAULT_SCALE
+        self.iso.scale = effective_scale(self._zoom_ref)
         _saved = Settings()
         _fn = getattr(_saved, 'font_name', 'Sancreek-Regular.ttf')
         _font_path = os.path.join(_ASSETS, 'fonts', _fn)
@@ -3200,14 +3195,24 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 self.char_mgr.save()
                 output = f'{perk_id} rank = {rank}'
         elif command == 'zoom':
+            # Zoom semantics are 1080p-reference (owner ruling 2026-11):
+            # `zoom 3` means "the tile span zoom 3 gives on 1920x1080" and
+            # at 1280x720 lands on effective scale 2.0 - same view agency,
+            # not the same pixel size. The per-frame update re-applies the
+            # fit on every window resize.
             if len(parts) >= 2:
                 try:
-                    self.iso.scale = max(MIN_SCALE, min(MAX_SCALE, float(parts[1])))
-                    output = f'Scale {self.iso.scale:.2f}'
+                    ref_zoom = max(1.0, min(3.0, float(parts[1])))
+                    self._zoom_ref = ref_zoom
+                    self.iso.scale = effective_scale(self._zoom_ref)
+                    output = (f'Zoom {ref_zoom:.2f} → world scale '
+                              f'{self.iso.scale:.2f}')
                 except ValueError:
-                    output = 'Usage: zoom <1..3>'
+                    output = 'Usage: zoom <1..3> (1080p reference)'
             else:
-                output = f'Zoom: {self.iso.scale:.2f}'
+                ref = float(getattr(self, '_zoom_ref', DEFAULT_SCALE))
+                output = (f'Zoom {ref:.2f} (1080p reference) → world scale '
+                          f'{self.iso.scale:.2f}')
         elif command == 'weather':
             if len(parts) >= 2 and parts[1] in ('on', 'off'):
                 self._weather_enabled = (parts[1] == 'on')

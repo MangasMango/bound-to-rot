@@ -45,6 +45,13 @@ class InputMixin:
         self.audio.set_sfx_volume(s.volume / 100.0)
         self.audio.set_music_volume(s.music_volume / 100.0)
         self.audio.tick(dt)
+        # Iso zoom is a 1080p-REFERENCE number (owner ruling 2026-11): the
+        # effective world scale rides the window size every frame, so the
+        # span of visible tiles stays identical at ANY resolution - and
+        # stays right through a live window resize.
+        from core.iso_engine import DEFAULT_SCALE, effective_scale
+        self.iso.scale = effective_scale(
+            float(getattr(self, '_zoom_ref', DEFAULT_SCALE)))
         self._update_mouse_transform()
 
         if inp.key_pressed(self,rl.KEY_GRAVE) and self.state != STATE_EDITOR:
