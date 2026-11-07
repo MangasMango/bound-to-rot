@@ -36,6 +36,7 @@ instant stop). States:
 
 import os
 import random
+import time
 import pyray as rl
 
 _PUBLIC = os.path.join(os.path.dirname(__file__), 'public')
@@ -43,6 +44,10 @@ _ASSETS = ASSETS
 
 def _p(rel):  return os.path.join(_PUBLIC, rel)
 def _a(rel):  return os.path.join(_ASSETS, rel)
+
+def _now_secs():
+    """Monotonic wall clock for sound-rate guards."""
+    return time.perf_counter()
 
 # Track registry: logical music state -> asset path (relative to assets/).
 _MUSIC_FILES = {
@@ -57,6 +62,10 @@ _GAME_PLAYLIST = (
     'ost/western_ingame3.ogg',
 )
 GAME_MUSIC_STATE = 'game'   # logical state name for the delve playlist
+
+# Death-cue rate guard (see enemy_dead): with x10 hordes and fire-aura DoT
+# bursts the 6-voice death pool could stack dozens of howls per second.
+DEATH_SFX_MIN_INTERVAL = 0.25   # seconds - max ~4 death cues per second
 
 FADE_SECONDS = 2.5    # crossfade length for every music transition
 
@@ -88,6 +97,7 @@ class AudioSystem:
         self._step_t      = 0.0
         self._enemy_t     = {}
         self._enemy_alert = set()
+        self._last_enemy_dead = float('-inf')   # death-cue rate guard
 
     # ── init ─────────────────────────────────────────────────────────
 
@@ -139,12 +149,30 @@ class AudioSystem:
                                        'ingame-sfx/bookFlip2.ogg',
                                        'ingame-sfx/bookFlip3.ogg'])
 
-        # Enemy hurt / death
+        # Enemy hurt / death. Death picks one of the six monster death
+        # howls at random (the tin-pot clank was the only death sfx at
+        # 400-body waves - 6 variants spread the repetition).
         self._load_pool_a('enemy_hurt', ['ingame-sfx/metalPot1.ogg', 'ingame-sfx/metalPot2.ogg'])
-        self._load_a('enemy_dead', 'ingame-sfx/metalPot3.ogg')
+        self._load_pool_a('enemy_dead', [f'ingame-sfx/monsters/monster_death{i}.ogg'
+                                         for i in range(1, 7)])
 
         # Enemy melee hit on player
         self._load_a('enemy_hit', 'ingame-sfx/impactPunch_medium_000.ogg')
+
+        # Gem ability casts: one pool per cast family - cones swing, dash
+        # cocks the revolver, blink clicks home, lifesteal flips a leeching
+        # page, fire aura tolls the doom bell. Consumed by ability_cast()
+        # (the abilities themselves were completely silent before).
+        self._load_pool_a('cast_swing', ['ingame-sfx/chop.ogg'])
+        self._load_pool_a('cast_dash', ['ingame-sfx/revolverCock1.ogg',
+                                        'ingame-sfx/revolverCock2.ogg'])
+        self._load_pool_a('cast_blink', ['ingame-sfx/metalClick.ogg',
+                                         'ingame-sfx/metalLatch.ogg'])
+        self._load_pool_a('cast_buff', ['ingame-sfx/bookFlip1.ogg',
+                                        'ingame-sfx/bookFlip2.ogg',
+                                        'ingame-sfx/bookFlip3.ogg'])
+        self._load_pool_a('cast_aura', ['ingame-sfx/impactBell_heavy_000.ogg',
+                                        'ingame-sfx/impactBell_heavy_003.ogg'])
 
         # Gunslinger - revolver shot + bullet impacts on undead (bone crack)
         self._load_pool_a('revolver_shot', ['ingame-sfx/revolverShoot1.ogg'])
@@ -372,8 +400,33 @@ class AudioSystem:
     def enemy_hurt(self):
         self._play_random('enemy_hurt', 0.7)
 
+    def ability_cast(self, ability_id):
+        """Cast feedback per ability family (issue: casts were silent).
+
+        Cone flavour carries the damage type, but the cast cue is one
+        shared swing so the HUD keypress reads instantly; mobility and
+        buff families get their own identity."""
+        if ability_id.startswith('cone_'):
+            self._play_random('cast_swing', 0.75)
+        elif ability_id == 'dash':
+            self._play_random('cast_dash', 0.7)
+        elif ability_id == 'blink':
+            self._play_random('cast_blink', 0.7)
+        elif ability_id == 'lifesteal':
+            self._play_random('cast_buff', 0.65)
+        elif ability_id == 'fire_aura':
+            self._play_random('cast_aura', 0.75)
+
     def enemy_dead(self):
-        self._play('enemy_dead', 0.8)
+        # Rate guard: with x10 hordes and fire-aura DoT bursts, mass kills
+        # could stack dozens of howls per second. Cap the voice rate and
+        # drop the excess - death cues mark the *rhythm* of kills, not the
+        # count.
+        now = _now_secs()
+        if now - self._last_enemy_dead < DEATH_SFX_MIN_INTERVAL:
+            return
+        self._last_enemy_dead = now
+        self._play_random('enemy_dead', 0.8)
 
     def enemy_attack_sound(self):
         self._play('enemy_hit', 0.8)

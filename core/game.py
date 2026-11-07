@@ -41,7 +41,8 @@ from entities.descend import (compute_perk_bonuses, VESSEL_DEFS, VESSEL_UNLOCKS,
                      increase_attribute, purchase_perk)
 from ui.menus import MenuSystem, _btn, _KeyEdge
 from entities.zombies import (update_zombies, DETECT_RANGE, MELEE_RANGE,
-                              default_status_fields, enemy_evasion, make_move_speed)
+                              default_status_fields, enemy_evasion, make_move_speed,
+                              enemy_display_name)
 from entities.player_stats import create_stats, update_stats, reset_stats
 from systems.items import (make_inventory, add_to_stash, add_instance_to_stash,
                    grid_auto_place, grid_auto_place_instance, ITEMS, EQUIP_SLOT_LABELS,
@@ -346,7 +347,14 @@ _HUB_PROP_SPOTS = [
     ('cactus2',    107.2,  100.6, 0.8, 'S'),
 ]
 
-DELVE_PULSE_SPEED  = 0.9   # tiles/sec baseline
+DELVE_PULSE_SPEED  = 2.2   # tiles/sec baseline (was 0.9 - issue #53: the
+                           # heart slid at real walking pace; #11's enlarged
+                           # rooms tripled the node-to-node distances)
+
+# Horde default (owner ruling, issue #53): every delve wave spawns x10 by
+# default; the console 'horde' lever only overrides per delve ('horde 0'
+# restores this default, 'horde 1' forces the old stock pacing for QA).
+HORDE_DEFAULT_MULT = 10.0
 DELVE_LIGHT_RADIUS   = 5.5   # tiles illuminated by the pulse (scaled for the
                              # native tile density - visual parity with the
                              # old 2.0-tile pool on the big LoP tiles)
@@ -1828,7 +1836,18 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                       'evasion': self.stats['evasion'],
                       'entropy_grace_pct': self.stats.get('entropy_grace_pct', 0.0)}
         players = [player_ref]
-        incoming_dmg_by_type = update_zombies(dt, self.zombies, players, self.map)
+        # Dark charge (issue #53 review): the charge boundary is the visible
+        # pool edge (pool light + personal light) - bodies past it close on
+        # the light way faster. Outside a delve (hub fights) no light
+        # geometry is passed and the charge never applies.
+        delve = self._delve
+        if delve is not None:
+            incoming_dmg_by_type = update_zombies(
+                dt, self.zombies, players, self.map,
+                light_center=(delve['pulse_x'], delve['pulse_y']),
+                light_radius=delve.get('light_r', 0.0) + DELVE_PERSONAL_LIGHT)
+        else:
+            incoming_dmg_by_type = update_zombies(dt, self.zombies, players, self.map)
         total_incoming = sum(incoming_dmg_by_type.values())
         if total_incoming > 0 and not self._god_mode:
             for dmg_type, amount in incoming_dmg_by_type.items():
@@ -2455,7 +2474,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if target is None or target.get('health', 0) <= 0:
             return
         result = bullet['result']
-        etype = target.get('enemy_type', 'enemy')
+        etype = enemy_display_name(target.get('enemy_type'))
         if result.get('immune'):
             self._spawn_dmg_number(target['x'], target['y'],
                                    -1, color=rl.Color(150, 150, 220, 255))
@@ -2498,7 +2517,6 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                    0, color=rl.Color(180, 180, 180, 200))
             self._log_combat(f"Missed  → {etype}", 'miss')
         if target['health'] <= 0:
-            self.audio.enemy_dead()
             self._log_combat(f"Killed  {etype}", 'kill')
             self._register_enemy_kill(target)
             target['death_timer'] = 0.0
@@ -2822,6 +2840,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             cds[slot] = cd_list[tier] * (1.0 - min(0.5, cdr))
 
         self._add_angel_meter(ANGEL_METER_PER_CAST)
+        # Cast cue regardless of hit outcome (see audio.ability_cast - the
+        # casts were silent before; skill kills now sfx through the damage
+        # pipeline).
+        self.audio.ability_cast(ability_id)
 
         cw = rl.get_screen_width()
         ch = rl.get_screen_height()
@@ -2852,7 +2874,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             lightning_chain_targets = []
             for z in hit_z:
                 if _is_enemy_immune(z, dmg_type):
-                    self._log_combat(f"Immune  → {z.get('enemy_type', 'enemy')} ({ability_id})", 'miss')
+                    self._log_combat(f"Immune  → {enemy_display_name(z.get('enemy_type'))} ({ability_id})", 'miss')
                     continue
                 # Lightning has high variance: random in [1, base_dmg * 2]
                 actual_dmg = _rnd.randint(1, dmg * 2) if dmg_type == 'lightning' else dmg
@@ -2864,7 +2886,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 if dealt <= 0:
                     continue
                 combat.apply_status_to_enemy(z, dmg_type, dealt)
-                self._log_combat(f"{ability_id} hit {z.get('enemy_type', 'enemy')} for {dealt}"
+                self._log_combat(f"{ability_id} hit {enemy_display_name(z.get('enemy_type'))} for {dealt}"
                                  f"{'  CRIT' if crit else ''}", 'crit' if crit else 'hit')
                 if crit:
                     self._spawn_crit_sparkles(z['x'], z['y'])
@@ -2874,7 +2896,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 if dmg_type == 'lightning':
                     lightning_chain_targets.append(z)
                 if z['health'] <= 0:
-                    self._log_combat(f"Killed {z.get('enemy_type', 'enemy')} ({ability_id})", 'kill')
+                    self._log_combat(f"Killed {enemy_display_name(z.get('enemy_type'))} ({ability_id})", 'kill')
                     self._register_enemy_kill(z)
                     z['death_timer'] = 0.0
                     self._spawn_enemy_drops(z['x'], z['y'], z.get('enemy_type', 'skeleton'))
@@ -2902,7 +2924,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                         if dealt <= 0:
                             continue
                         combat.apply_status_to_enemy(candidate, 'lightning', dealt)
-                        self._log_combat(f"Chain hit {candidate.get('enemy_type', 'enemy')} for {dealt}"
+                        self._log_combat(f"Chain hit {enemy_display_name(candidate.get('enemy_type'))} for {dealt}"
                                          f"{'  CRIT' if crit else ''}", 'crit' if crit else 'hit')
                         if crit:
                             self._spawn_crit_sparkles(candidate['x'], candidate['y'])
@@ -2911,7 +2933,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                                color=rl.Color(255, 220, 40, 255) if crit else rl.Color(255, 230, 50, 255),
                                                crit=bool(crit))
                         if candidate['health'] <= 0:
-                            self._log_combat(f"Killed {candidate.get('enemy_type', 'enemy')} (chain)", 'kill')
+                            self._log_combat(f"Killed {enemy_display_name(candidate.get('enemy_type'))} (chain)", 'kill')
                             self._register_enemy_kill(candidate)
                             candidate['death_timer'] = 0.0
                             self._spawn_enemy_drops(candidate['x'], candidate['y'],
@@ -2919,7 +2941,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                         chains_from_source += 1
                         if chains_from_source >= 2:
                             break
-            if hit_z:
+            if hit_z or lightning_chain_targets:
                 self.audio.hitmarker()
 
         elif ability_id == 'dash':
@@ -3038,7 +3060,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         responsible for kill bookkeeping via z['health']."""
         if _is_enemy_immune(z, dmg_type):
             self._spawn_dmg_number(z['x'], z['y'], -1, color=rl.Color(150, 150, 220, 255))
-            self._log_combat(f"Immune  → {z.get('enemy_type', 'enemy')}", 'miss')
+            self._log_combat(f"Immune  → {enemy_display_name(z.get('enemy_type'))}", 'miss')
             return 0
         dr = z.get('damage_reduction', 0.0)
         if dmg_type == 'physical':
@@ -3053,6 +3075,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         dmg = int(dmg * (1.0 - resist))
         z['health'] = max(0.0, z['health'] - dmg)
         z['hit_count'] = z.get('hit_count', 0) + 1
+        if dmg > 0 and z['health'] <= 0:
+            # Death cue in ONE place so every damage source (bullets, cone
+            # abilities, lightning chains, fire aura ticks) carries it; the
+            # bullet path previously owned the only call and every skill
+            # kill was silent.
+            self.audio.enemy_dead()
         return dmg
 
     def _apply_lifesteal(self, damage):
@@ -3093,12 +3121,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             if dealt <= 0:
                 continue
             combat.apply_status_to_enemy(z, 'fire', burst_dmg)
-            self._log_combat(f"Fire aura hit {z.get('enemy_type', 'enemy')} for {dealt}", 'hit')
+            self._log_combat(f"Fire aura hit {enemy_display_name(z.get('enemy_type'))} for {dealt}", 'hit')
             self._spawn_flame(z['x'], z['y'], color=rl.Color(255, 100, 20, 255))
             self._spawn_dmg_number(z['x'], z['y'], dealt,
                                    color=rl.Color(255, 130, 40, 255))
             if z['health'] <= 0:
-                self._log_combat(f"Killed {z.get('enemy_type', 'enemy')} (fire aura)", 'kill')
+                self._log_combat(f"Killed {enemy_display_name(z.get('enemy_type'))} (fire aura)", 'kill')
                 self._register_enemy_kill(z)
                 z['death_timer'] = 0.0
                 self._spawn_enemy_drops(z['x'], z['y'], z.get('enemy_type', 'skeleton'))
@@ -3242,9 +3270,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             if not in_raid or self._delve is None:
                 output = 'Not in raid'
             elif len(parts) < 2:
-                mult = self._delve.get('_horde_mult', 1.0)
-                output = (f'Horde x{mult:g} (usage: horde <1..10>, '
-                          f'horde 1 resets) - applies from the next wave')
+                mult = self._delve.get('_horde_mult', HORDE_DEFAULT_MULT)
+                output = (f'Horde x{mult:g} (default x{HORDE_DEFAULT_MULT:g}; '
+                          'usage: horde <1..10>, horde 0 restores default) '
+                          '- applies from the next wave')
+            elif parts[1].isdigit() and int(parts[1]) == 0:
+                # 0 restores the owner-ruling default by dropping the override.
+                self._delve.pop('_horde_mult', None)
+                output = f'Wave size back to default x{HORDE_DEFAULT_MULT:g}'
             elif parts[1].isdigit():
                 mult = max(1, min(10, int(parts[1])))
                 self._delve['_horde_mult'] = mult

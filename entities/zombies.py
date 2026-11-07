@@ -22,7 +22,7 @@ from systems import frames
 # Enemy chase speeds ride the same tile-scale compensation as the player's
 # MOVE_SPEED (native desert tiles are ~2.7x smaller on screen than the old
 # LoP canvas) so the chase feel matches the pre-swap pacing.
-ZOMBIE_SPEED = 0.6
+ZOMBIE_SPEED = 0.9    # was 0.6 (issue #53: hordes close as a front, not a crawl)
 DETECT_RANGE   = 22.0       # tiles - enemies acquire the player inside this radius
 HIT_DAMAGE     = 10
 MAX_HEALTH     = 100
@@ -37,7 +37,11 @@ ATTACK_CD      = 1.1
 ATTACK_FPS     = 10
 ATTACK_FRAMES  = 8
 
-SLIME_SPEED     = 0.22
+SLIME_SPEED     = 0.45   # was 0.33 (issue #53 review) - at x10 wave defaults
+                         # the spawn ring is ~16 tiles deep and slime tails
+                         # were minutes behind; a higher base plus a higher,
+                         # longer slime sprint restores the wave cadence. In
+                         # fight the slow-tank identity still holds (< zombie).
 SLIME_HEALTH    = 150
 SLIME_DAMAGE    = 12
 SLIME_ATTACK_CD = 10
@@ -59,6 +63,28 @@ SLIME_ATTACK_CD_S   = frames.attack_seconds(SLIME_BASE_ATTACK_FRAMES)
 # Enemies surround the player instead of stacking into a single pile, ramp up
 # to full speed rather than snapping into motion, give up the chase and walk
 # home once the player escapes, and slide along walls instead of sticking.
+# Dark charge (issue #53 review: "way faster outside the light radius").
+# Bodies in the darkness border on the pole much faster and snap back to
+# chase speed the moment they cross into the pool edge. The old
+# spawn-baked sprint (per-type fade distances from the player) is gone -
+# close speed is now a pure function of light distance: self-easing at
+# the boundary, readable at a glance and delivering the wave cadence for
+# every body type alike.
+DARK_CHARGE_MULT = 3.0    # movement multiplier while outside the light
+
+
+def _out_of_light(z, light_center, light_radius):
+    """True while z stands outside the pulse's light radius.
+
+    No geometry (hub fights and legacy callers) counts as lit, so the
+    charge multiplier never applies outside the delve."""
+    if light_center is None or light_radius <= 0.0:
+        return False
+    dx = z['x'] - light_center[0]
+    dy = z['y'] - light_center[1]
+    return dx * dx + dy * dy > light_radius * light_radius
+
+
 SEPARATION_RADIUS   = 0.45   # tiles - enemies repel each other inside this radius
 SEPARATION_STRENGTH = 0.55   # how strongly repulsion blends into pursuit
 SPEED_RAMP_TIME     = 0.35   # seconds to accelerate from standstill to full speed
@@ -117,6 +143,28 @@ def enemy_evasion(enemy_type, level):
     return int(base * (1.0 + max(1, int(level)) / 10.0))
 
 
+# ── player-facing names (owner ruling, horde pass #53) ─────────────────
+# Internal enemy_type keys ('skeleton', 'slime', ...) are load-bearing:
+# the sprite folder tree (assets/enemy/<key>), combat helpers and frame
+# tuning tables all key off them, and assets are human-managed. The rename
+# lives at the UI layer only.
+ENEMY_DISPLAY_NAMES = {
+    'skeleton': 'Undead',
+    'slime': 'Slow Undead',
+}
+
+
+def enemy_display_name(enemy_type, fallback='enemy'):
+    """Player-facing enemy name for nameplates and combat logs.
+
+    Internal keys are never rendered raw: mapped entries win, anything
+    unknown falls back to a capitalized key so new enemies display
+    reasonably without a mapping entry."""
+    if not enemy_type:
+        return fallback
+    return ENEMY_DISPLAY_NAMES.get(enemy_type, str(enemy_type).capitalize())
+
+
 def make_move_speed(enemy_type):
     """Per-enemy speed with slight variance so groups don't march in lockstep."""
     base = SLIME_SPEED if enemy_type == 'slime' else ZOMBIE_SPEED
@@ -145,12 +193,16 @@ def _step_enemy(z, dir_x, dir_y, move_dist, map_data):
     return False
 
 
-def _separation_vector(z, alive_zombies):
+def _separation_vector(z, body_grid):
     """Repulsion away from nearby enemies. Blended into pursuit so groups fan
-    out and surround the player instead of stacking into a single pile."""
+    out and surround the player instead of stacking into a single pile.
+
+    Queries run through the frame's shared spatial hash (issue #53): the
+    old enemy-vs-everything scan was O(n²) and at a 400-body horde that
+    meant 160k pair checks per frame."""
     sep_x = 0.0
     sep_y = 0.0
-    for other in alive_zombies:
+    for other in _nearby_bodies(body_grid, z):
         if other is z:
             continue
         off_x = z['x'] - other['x']
@@ -163,6 +215,92 @@ def _separation_vector(z, alive_zombies):
         sep_x += (off_x / dist) * push
         sep_y += (off_y / dist) * push
     return sep_x, sep_y
+
+
+# ── body push (issue #53) ────────────────────────────────────────────────
+# Steering separation (SEPARATION_* above) asks bodies to spread WHILE moving;
+# it cannot resolve an overlap that already exists (spawn stacking, knockback
+# collisions). Body push is a positional pass that moves overlapping pairs
+# directly apart so a horde closes as a front instead of a column. Both
+# passes share one spatial hash; cell edge >= both repulsion radii so a
+# 3x3 neighbourhood can never miss a query body.
+SEPARATION_CELL     = 0.5        # tiles - hash cell edge (>= SEPARATION_RADIUS)
+PUSH_MIN_SEP        = 0.42       # tiles - resting body-to-body distance
+PUSH_SEPARATION_TPS = 2.5        # tiles/sec - shove speed cap so nudges read
+                                 # as jostling, never teleporting through
+
+
+def _build_body_grid(alive):
+    """Bucket alive enemies into a uniform spatial hash (cell-keyed dict)."""
+    grid = {}
+    for body in alive:
+        key = (int(body['x'] // SEPARATION_CELL), int(body['y'] // SEPARATION_CELL))
+        grid.setdefault(key, []).append(body)
+    return grid
+
+
+def _nearby_bodies(grid, body):
+    """All alive bodies in body's 3x3 hash neighbourhood."""
+    col = int(body['x'] // SEPARATION_CELL)
+    row = int(body['y'] // SEPARATION_CELL)
+    out = []
+    for dc in (-1, 0, 1):
+        for dr in (-1, 0, 1):
+            bucket = grid.get((col + dc, row + dr))
+            if bucket is not None:
+                out.extend(bucket)
+    return out
+
+
+def _resolve_body_push(alive, grid, dt):
+    """Positional overlap resolution (issue #53).
+
+    Each overlapping pair is evaluated once (canonical hash offsets) and
+    both bodies are moved symmetrically apart, capped at
+    PUSH_SEPARATION_TPS so a shove stays a nudge. Frozen bodies never
+    budge (matches the knockback convention) - the other one takes the
+    full correction."""
+    if len(alive) < 2 or dt <= 0.0:
+        return
+    max_step = PUSH_SEPARATION_TPS * dt
+    for (col, row), members in grid.items():
+        for dc, dr in ((0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+            if dc == 0 and dr == 0:
+                cohort = members
+                same = True
+            else:
+                cohort = grid.get((col + dc, row + dr))
+                if cohort is None:
+                    continue
+                same = False
+            for idx, a in enumerate(cohort):
+                for jdx, b in enumerate(cohort):
+                    if same and jdx <= idx:
+                        continue
+                    dx = b['x'] - a['x']
+                    dy = b['y'] - a['y']
+                    dist_sq = dx * dx + dy * dy
+                    if dist_sq >= PUSH_MIN_SEP * PUSH_MIN_SEP or dist_sq <= 1e-9:
+                        continue
+                    frozen_a = a.get('frozen_timer', 0.0) > 0.0
+                    frozen_b = b.get('frozen_timer', 0.0) > 0.0
+                    if frozen_a and frozen_b:
+                        continue
+                    dist = math.sqrt(dist_sq)
+                    step = min((PUSH_MIN_SEP - dist) * 0.5, max_step)
+                    nx = dx / dist
+                    ny = dy / dist
+                    if frozen_a:
+                        b['x'] += nx * step
+                        b['y'] += ny * step
+                    elif frozen_b:
+                        a['x'] -= nx * step
+                        a['y'] -= ny * step
+                    else:
+                        a['x'] -= nx * step
+                        a['y'] -= ny * step
+                        b['x'] += nx * step
+                        b['y'] += ny * step
 
 
 def init_zombies(map_data):
@@ -218,7 +356,8 @@ def _delve_damage_mult(level: int) -> float:
     return max(0.5, level / 2.0)
 
 
-def update_zombies(dt, zombies, players, map_data):
+def update_zombies(dt, zombies, players, map_data,
+                   light_center=None, light_radius=0.0):
     """
     players: list of dicts with 'x', 'y'.  players[0] is local.
     Returns a dict of typed damage to apply to the local player:
@@ -234,6 +373,10 @@ def update_zombies(dt, zombies, players, map_data):
         _rot_spread_timer = 0.0
 
     alive_zombies = [z for z in zombies if z['health'] > 0]
+    # Shared spatial hash for every neighbour query this frame (issue #53):
+    # the previous enemy-vs-everything separation scan was O(n²) - at a
+    # 400-body horde that was 160k pair checks per frame.
+    body_grid = _build_body_grid(alive_zombies)
 
     if do_rot_spread:
         for z in alive_zombies:
@@ -348,15 +491,6 @@ def update_zombies(dt, zombies, players, map_data):
 
         if target is not None and nearest_dist <= DETECT_RANGE:
             z['state'] = 'chase'
-            # Dark-spawn sprint easing: boost fades back to the base speed
-            # once the enemy closes in on the player (chase front edge).
-            if z.get('sprinting'):
-                base_speed0 = z.get('base_move_speed') or z.get('move_speed')
-                if nearest_dist <= 6.0:
-                    z['move_speed'] += (base_speed0 - z['move_speed']) * min(1.0, dt * 3.0)
-                    if z['move_speed'] <= base_speed0 * 1.01:
-                        z['move_speed'] = base_speed0
-                        z['sprinting'] = False
             # Keep closing until well inside attack reach - the stop distance
             # must stay strictly below MELEE_RANGE or the enemy halts just
             # outside it and never enters 'attack' (regression guard).
@@ -365,7 +499,7 @@ def update_zombies(dt, zombies, players, map_data):
                 # surround the player instead of stacking into one pile.
                 pursuit_x = (target['x'] - z['x']) / nearest_dist
                 pursuit_y = (target['y'] - z['y']) / nearest_dist
-                sep_x, sep_y = _separation_vector(z, alive_zombies)
+                sep_x, sep_y = _separation_vector(z, body_grid)
                 move_x = pursuit_x + sep_x * SEPARATION_STRENGTH
                 move_y = pursuit_y + sep_y * SEPARATION_STRENGTH
                 norm = math.hypot(move_x, move_y)
@@ -376,6 +510,11 @@ def update_zombies(dt, zombies, players, map_data):
                         SLIME_SPEED if z.get('enemy_type') == 'slime' else ZOMBIE_SPEED)
                     # Cold slows stack multiplicatively up to freeze threshold
                     speed_mult = COLD_SLOW_MULT ** cold_stacks if cold_stacks > 0 else 1.0
+                    # Dark charge: bodies in the darkness border the light
+                    # pole much faster (issue #53 review) - with no light
+                    # geometry (hub fights) there is no charge.
+                    if _out_of_light(z, light_center, light_radius):
+                        speed_mult *= DARK_CHARGE_MULT
                     # Smooth acceleration from standstill to full speed
                     z['speed_ramp'] = min(1.0, z.get('speed_ramp', 1.0) + dt / SPEED_RAMP_TIME)
                     move_dist = base_speed * speed_mult * z['speed_ramp'] * dt
@@ -419,6 +558,10 @@ def update_zombies(dt, zombies, players, map_data):
         z['anim_timer'] += dt
         fps = WALK_FPS if z['state'] in ('chase', 'return') else IDLE_FPS
         z['frame'] = int(z['anim_timer'] * fps) % FRAME_COUNT
+
+    # Body push: resolve residual overlaps positionally so a wave closes as
+    # a front and bodies can't share one tile (issue #53).
+    _resolve_body_push(alive_zombies, body_grid, dt)
 
     return incoming_damage
 

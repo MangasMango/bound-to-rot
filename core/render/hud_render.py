@@ -40,7 +40,7 @@ from core.game import (
 from core.iso_engine import ISO_W, ENTITY_BASE
 from entities.progression import compute_derived_stats
 from entities.descend import compute_perk_bonuses
-from entities.zombies import DETECT_RANGE
+from entities.zombies import DETECT_RANGE, enemy_display_name
 from systems import flasks, gems
 from systems import itemgen
 from ui import fonts, icons
@@ -512,7 +512,10 @@ class HudRenderMixin:
         if hovered is None:
             return
 
-        etype = hovered.get('enemy_type', 'skeleton').capitalize()
+        # Player-facing name keys ('Undead' / 'Slow Undead' per the #53
+        # ruling); internal enemy_type keys stay rename-free - sprites,
+        # combat helpers and tuning tables all key off them.
+        etype = enemy_display_name(hovered.get('enemy_type', 'skeleton'))
         elevel = hovered.get('level', 1)
         hp = hovered['health']
         max_hp = hovered['max_health']
