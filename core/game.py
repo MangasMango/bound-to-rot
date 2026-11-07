@@ -3234,6 +3234,23 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 ref = float(getattr(self, '_zoom_ref', DEFAULT_SCALE))
                 output = (f'Zoom {ref:.2f} (1080p reference) → world scale '
                           f'{self.iso.scale:.2f}')
+        elif command == 'horde':
+            # Horde QA lever (rule 44 backdoor): scales every delve wave
+            # for the rest of the delve by pushing _horde_mult in the delve
+            # dict (consumed by _delve_spawn_wave, ✓delve-flow). Not part
+            # of progression; survives pause/resume via the delve snapshot.
+            if not in_raid or self._delve is None:
+                output = 'Not in raid'
+            elif len(parts) < 2:
+                mult = self._delve.get('_horde_mult', 1.0)
+                output = (f'Horde x{mult:g} (usage: horde <1..10>, '
+                          f'horde 1 resets) - applies from the next wave')
+            elif parts[1].isdigit():
+                mult = max(1, min(10, int(parts[1])))
+                self._delve['_horde_mult'] = mult
+                output = f'Wave size x{mult:g} from the next wave on'
+            else:
+                output = 'Usage: horde <1..10>'
         elif command == 'weather':
             if len(parts) >= 2 and parts[1] in ('on', 'off'):
                 self._weather_enabled = (parts[1] == 'on')
@@ -3243,7 +3260,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                           f"· rain: {'yes' if self.weather.get('raining') else 'no'} "
                           f"(intensity {self.weather.get('intensity', 0.0):.2f})")
         elif command == 'help':
-            output = 'god  heal  kill  give <item> [n|rarity]  zoom <n>'
+            output = 'god  heal  kill  give <item> [n|rarity]  zoom <n>  horde <1..10>'
             output += '\ndescend <attr> <0..10>   perk <id> <0..max>   pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
             output += '\npp contrast|sat|bright <v>   pp_bloom samples|quality|threshold|intensity <v>'
             output += '\nweather [on|off] — toggle wet FX (render-only)'

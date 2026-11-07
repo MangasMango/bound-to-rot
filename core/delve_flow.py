@@ -520,6 +520,10 @@ class DelveFlowMixin:
             # keeps meaning below depth 35 and frame cost stays sane).
             enemy_count = min(40, 5 + depth) + d.get('_enemy_count_bonus', 0)
             enemy_count = int(enemy_count * zone_mods.get('enemy_count_mult', 1.0))
+            # Horde QA lever (console `horde <1..10>`): multiplies AFTER the
+            # depth-capped base so a horde wave can exceed the 40-cap, which
+            # exists purely as a frame-cost guard. Default x1 is stock.
+            enemy_count = int(enemy_count * d.get('_horde_mult', 1.0))
             enemy_count = max(1, enemy_count)
             enemy_hp_mult = (d.get('_enemy_hp_mult', 1.0)
                              * self._relic_effects()['enemy_hp_mult'])
@@ -541,7 +545,12 @@ class DelveFlowMixin:
             # tiles means these spawns aggro immediately).
             dark_edge = d['light_r'] + DELVE_PERSONAL_LIGHT
             min_r = dark_edge + 1.0
-            max_r = min_r + 5.0
+            # Wide horde runs would stack hundreds of bodies onto one
+            # 5-tile band (candidates hold one enemy per tile) - widen the
+            # spawn ring with sqrt(mult) (~area scaling) so hordes close in
+            # as a front instead of a concrete column.
+            band = 5.0 * math.sqrt(max(1.0, d.get('_horde_mult', 1.0)))
+            max_r = min_r + band
             cx, cy = int(round(pulse_x)), int(round(pulse_y))
             candidates = []
             cols_len, rows_len = len(self.map), len(self.map[0]) if self.map else 0
@@ -920,6 +929,8 @@ class DelveFlowMixin:
 
             d['_enemy_hp_mult'] = 1.0
             d['_enemy_count_bonus'] = 0
+            # NOTE: _horde_mult is deliberately NOT reset per descend - the
+            # QA lever sticks for the whole delve until `horde 1`.
             effects = self._relic_effects()
             d['light_r'] = max(1.0, d.get('_base_light_r', DELVE_LIGHT_RADIUS)
                                * effects['light_mult'])
