@@ -13,16 +13,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Horde QA lever (console `horde <1..10>`) - wave-size experiment.
+"""Horde lever (console `horde <0..10>`) - wave size, default x10.
 
-Covers the console surface. The lever itself is applied in
-`core.delve_flow._delve_spawn_wave`, which multiplies the depth-capped
-base count AFTER the 40-cap (QA backdoor per rule 44, not progression).
+Owner ruling (issue #53): every delve wave spawns x10 by default;
+HORDE_DEFAULT_MULT in core/game.py is the source of truth and
+`core.delve_flow._delve_spawn_wave` consumes it after the 40-cap. The
+console lever only overrides per delve ('horde 0' restores the default,
+'horde 1' forces the old stock pacing for QA comparisons).
 """
 
 import unittest
 
-from core.game import STATE_HUB, STATE_PLAYING, Game
+from core.game import HORDE_DEFAULT_MULT, STATE_HUB, STATE_PLAYING, Game
 
 
 def _game(state=STATE_PLAYING, delve=True):
@@ -40,9 +42,13 @@ def _exec(game, cmd):
 
 
 class HordeCommand(unittest.TestCase):
-    def test_status_reports_default_and_usage(self):
-        out = _exec(_game(), 'horde')
-        self.assertIn('x1', out)
+    def test_default_is_x10_even_without_an_override(self):
+        """A fresh delve dict reports the owner-ruling default."""
+        game = _game()
+        self.assertEqual(HORDE_DEFAULT_MULT, 10.0)
+        self.assertNotIn('_horde_mult', game._delve)
+        out = _exec(game, 'horde')
+        self.assertIn('x10', out)
         self.assertIn('horde <1..10>', out)
 
     def test_usable_only_inside_a_delve(self):
@@ -51,16 +57,23 @@ class HordeCommand(unittest.TestCase):
         self.assertEqual(_exec(_game(state=STATE_PLAYING, delve=False),
                                'horde 5'), 'Not in raid')
 
-    def test_scales_wave_size(self):
+    def test_explicit_override_sticks(self):
         game = _game()
-        self.assertIn('x10', _exec(game, 'horde 10'))
-        self.assertEqual(game._delve['_horde_mult'], 10)
+        self.assertIn('x5', _exec(game, 'horde 5'))
+        self.assertEqual(game._delve['_horde_mult'], 5)
 
-    def test_zero_resets_to_stock(self):
+    def test_zero_restores_the_default_by_dropping_the_override(self):
         game = _game()
-        _exec(game, 'horde 10')
-        self.assertEqual(_exec(game, 'horde 0'),
-                         'Wave size x1 from the next wave on')
+        _exec(game, 'horde 5')
+        out = _exec(game, 'horde 0')
+        self.assertIn('default x10', out)
+        self.assertNotIn('_horde_mult', game._delve)
+        self.assertIn('x10', _exec(game, 'horde'))
+
+    def test_one_forces_old_stock_pacing(self):
+        """`horde 1` remains a real override for QA comparisons."""
+        game = _game()
+        _exec(game, 'horde 1')
         self.assertEqual(game._delve['_horde_mult'], 1)
 
     def test_above_10_clamps(self):

@@ -19,10 +19,10 @@ from systems import input as inp
 from core.game import *
 from core.game import _rnd, _pick_enemy_dmg_type
 
-# Dark-spawn sprint: enemies spawn past the pool edge and charge with this
-# speed multiplier until they near the light (see zombies.py easing).
-_DARK_SPAWN_SPRINT   = 1.6
-_DARK_SPRINT_END_DST = 6.0   # tiles to the player where the sprint fades
+# Dark-spawn speed: bodies spawn past the pool edge and their approach
+# speed is owned by the DARK_CHARGE_MULT light-distance rule in
+# entities/zombies.py - location-based, no baked-in per-body sprint flag.
+# SLIME_SPRINT_MULT / _DARK_SPAWN_SPRINT retired by the #53 review.
 
 class DelveFlowMixin:
         def _open_anima_panel(self):
@@ -520,10 +520,12 @@ class DelveFlowMixin:
             # keeps meaning below depth 35 and frame cost stays sane).
             enemy_count = min(40, 5 + depth) + d.get('_enemy_count_bonus', 0)
             enemy_count = int(enemy_count * zone_mods.get('enemy_count_mult', 1.0))
-            # Horde QA lever (console `horde <1..10>`): multiplies AFTER the
+            # Horde lever (console `horde <1..10>`): multiplies AFTER the
             # depth-capped base so a horde wave can exceed the 40-cap, which
-            # exists purely as a frame-cost guard. Default x1 is stock.
-            enemy_count = int(enemy_count * d.get('_horde_mult', 1.0))
+            # exists purely as a frame-cost guard. Default x10 is the owner
+            # ruling from issue #53 ('horde 0' drops back to it).
+            enemy_count = int(enemy_count * d.get('_horde_mult',
+                                                  HORDE_DEFAULT_MULT))
             enemy_count = max(1, enemy_count)
             enemy_hp_mult = (d.get('_enemy_hp_mult', 1.0)
                              * self._relic_effects()['enemy_hp_mult'])
@@ -549,7 +551,8 @@ class DelveFlowMixin:
             # 5-tile band (candidates hold one enemy per tile) - widen the
             # spawn ring with sqrt(mult) (~area scaling) so hordes close in
             # as a front instead of a concrete column.
-            band = 5.0 * math.sqrt(max(1.0, d.get('_horde_mult', 1.0)))
+            band = 5.0 * math.sqrt(max(1.0, d.get('_horde_mult',
+                                                   HORDE_DEFAULT_MULT)))
             max_r = min_r + band
             cx, cy = int(round(pulse_x)), int(round(pulse_y))
             candidates = []
@@ -600,10 +603,8 @@ class DelveFlowMixin:
                             if etype == 'slime' else combat.skeleton_accuracy(enemy_level))
                 if is_elite:
                     accuracy = int(accuracy * 1.3)
-                # dark-spawn sprint: ×1.6 speed while the enemy is still
-                # far from the pulse (past _APPROACH_SLOW_DIST) so slow
-                # slimes keep the wave cadence - decays near the light
-                move_speed = make_move_speed(etype) * _DARK_SPAWN_SPRINT
+                # Approach speed lives in zombies.py (DARK_CHARGE_MULT on
+                # light distance) - spawns carry their plain base speed.
                 enemy = {
                     'id':               f'dse{self._enemy_id_seq}',
                     'enemy_type':       etype,
@@ -622,9 +623,8 @@ class DelveFlowMixin:
                     'evasion':          enemy_evasion(etype, enemy_level),
                     'spawn_x':          ex,
                     'spawn_y':          ey,
-                    'move_speed':       move_speed,
+                    'move_speed':       make_move_speed(etype),
                     'base_move_speed':  make_move_speed(etype),
-                    'sprinting':        True,   # dark-spawn approach boost
                     'speed_ramp':       0.0,
                     'dmg_type':         _pick_enemy_dmg_type(enemy_level),
                     'damage_reduction': mit['damage_reduction'],
