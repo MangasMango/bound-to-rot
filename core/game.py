@@ -3244,7 +3244,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                           f"(intensity {self.weather.get('intensity', 0.0):.2f})")
         elif command == 'help':
             output = 'god  heal  kill  give <item> [n|rarity]  zoom <n>'
-            output += '\ndescend <attr> <0..5>   perk <id> <0..max>   pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
+            output += '\ndescend <attr> <0..10>   perk <id> <0..max>   pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
             output += '\npp contrast|sat|bright <v>   pp_bloom samples|quality|threshold|intensity <v>'
             output += '\nweather [on|off] — toggle wet FX (render-only)'
         elif command == 'pp':
