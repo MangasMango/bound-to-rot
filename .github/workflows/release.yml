@@ -1,0 +1,121 @@
+# Release builds for Bound To Rot (manual, milestone-gated).
+#
+# NOTHING is published automatically - not on tags, not on pushes. Building
+# and setting up a GitHub Release requires a manual workflow_dispatch from
+# the Actions tab:
+#
+#   Run workflow -> tag: v0.5.2   confirm: milestone
+#
+# confirm must literally be "milestone", otherwise only the build runs
+# (use a blank confirm as a free dry-run of the build matrix).
+#
+# PyInstaller cannot cross-compile, so a build matrix runs the existing
+# scripts/build_release.py per-OS on demand and (if confirmed) the final
+# job attaches the zips to a GitHub Release as a DRAFT. You still review
+# and hit Publish yourself - the workflow only prepares the draft.
+#
+# Zip layout/naming live in scripts/build_release.py
+# (dist/BoundToRot-<version>-<os>-<arch>.zip, assets bundled).
+
+name: Release (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (must match pyproject version, e.g. v0.5.2)'
+        required: true
+        type: string
+      confirm:
+        description: "Type 'milestone' to create the draft release (empty = dry-run build only)"
+        required: true
+        default: ''
+
+permissions:
+  contents: write         # needed to create/attach the GitHub Release (draft)
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install build dependencies
+        run: python -m pip install --disable-pip-version-check pyinstaller "raylib>=5.5.0" numpy pillow
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+      - name: Check tag matches pyproject version
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          python - <<'PY'
+          import os, sys, tomllib
+          version = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
+          expected = f"v{version}"
+          tag = os.environ['TAG'].strip()
+          if tag != expected:
+              sys.exit(
+                  f"tag mismatch: workflow tag '{tag}' but pyproject "
+                  f"version is '{version}' (expected '{expected}') - "
+                  "bump pyproject.toml first, it names the zips")
+          PY
+
+      - name: Build + zip (dist/BoundToRot-*.zip)
+        run: python scripts/build_release.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BoundToRot-${{ matrix.os }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Prepare draft GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    # The milestone gate: only an exact confirmation string starts a
+    # release; anything else (and tag-push/push events, which can't even
+    # reach this workflow) never publishes.
+    if: inputs.confirm == 'milestone'
+
+    steps:
+      - name: Download all build zips
+        uses: actions/download-artifact@v4
+        with:
+          # both matrix artifacts land here
+          merge-multiple: true
+          path: dist
+
+      - name: Create draft release with the zips
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          gh release create "$TAG" dist/*.zip \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "Bound To Rot $TAG" \
+            --notes "Prebuilt one-file executables for Linux and Windows.
+
+          Contents: the [BoundToRot] executable plus LICENSE / README /
+          asset credits. Linux zips are expected to run on the same or
+          newer distros than the build runner; Windows zips may trigger a
+          SmartScreen prompt on first run (build not code-signed).
+
+          Requirements: no Python needed - the executables are
+          self-contained. Source for this tag lives under git long-ref
+          v$TAG. Review and PUBLISH the draft to make the download live."
+          echo "Draft at: https://github.com/${GITHUB_REPOSITORY}/releases - review notes, then hit Publish"
