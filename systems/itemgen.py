@@ -282,6 +282,7 @@ LIVE_EFFECT_MAP = {
     'flat_max_health':         'max_health',
     'percent_max_health':      'max_health_pct',
     'flat_evasion':            'evasion',
+    'flat_armor':              'flat_damage_reduction',
     'flat_attack_damage':      'attack_damage',
     'percent_attack_speed':    'attack_speed_pct',
     'crit_chance':             'crit_chance',

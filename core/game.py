@@ -136,6 +136,17 @@ _HIT_PACK_RECTS = (
 # KNOCKBACK_DECAY_TIME; item affixes add via the classic 'knockback' key.
 KNOCKBACK_IMPULSE_TPS = 6.0
 KNOCKBACK_DECAY_TIME  = 0.25
+
+# Flat armour (the 'flat_armor' / Reinforced affix, issue #3). PoE-style ratio
+# mitigation on PHYSICAL hits only - elemental hits lean on resist_pct instead.
+# The flat total is bent per-hit by the incoming swing size:
+#     mitigation = flat / (flat + ARMOUR_HIT_K * hit)
+# so chip spam is eaten, big spikes barely register armour, and a hit can
+# never be reduced to zero. K is tuned against the melee damage scale
+# (MELEE_DAMAGE 20 / SLIME_DAMAGE 12, scaled by level/2): a base 20-roll
+# organ sits at ~50% mitigation against a depth-1 melee hit.
+ARMOUR_HIT_K          = 1.0
+ARMOUR_MITIGATION_CAP = 0.90    # per-hit cap, in line with PoE's 90% ceiling
 ATTACK_RATE     = 0.6       # attacks / second
 ATTACK_DAMAGE   = 25
 DEATH_DURATION  = 1.1       # seconds death anim plays before removal
@@ -2543,12 +2554,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def _apply_damage(self, raw_dmg: float, dmg_type: str, damage_reduction: float,
                       flat_damage_reduction: float = 0.0, block_chance: float = 0.0):
-        """Incoming damage pipeline: block → resist → flat DR → % DR → energy shield → health.
+        """Incoming damage pipeline: block → resist → armour → % DR → energy shield → health.
 
         Physical swings can be blocked outright (gear block chance + Dexterity,
         capped at 75%). Elemental and magic damage is reduced by the player's
-        per-type resist_pct; physical ignores resist and leans on armor instead.
-        Flat DR shaves a fixed amount off every hit before the % multiplier."""
+        per-type resist_pct; physical ignores resist and leans on armour instead.
+        Flat armour (flat_damage_reduction) is PoE-style ratio mitigation
+        (ARMOUR_HIT_K / ARMOUR_MITIGATION_CAP): chip hits are eaten, spikes
+        barely register it, and armour can never zero a hit on its own."""
         # Block roll - a blocked hit is negated entirely.
         if dmg_type == 'physical' and block_chance > 0.0 and _rnd.random() < min(0.75, block_chance):
             self._log_combat(f"Blocked {int(raw_dmg)} {dmg_type} dmg", 'dmg_taken')
@@ -2563,10 +2576,18 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             resist = min(0.75, max(0.0, self.stats.get('resist_pct', {}).get(dmg_type, 0.0)))
             actual = raw_dmg * (1.0 - resist)
 
-        # 2) Flat damage reduction, then 3) percentage armor
-        actual = max(0.0, actual - flat_damage_reduction)
+        # 2) Armour ratio mitigation, then 3) percentage armor. Flat armour is
+        #    a ratio over the incoming swing, not a subtraction (issue #3):
+        #    flat / (flat + ARMOUR_HIT_K * hit), capped at
+        #    ARMOUR_MITIGATION_CAP. Applies to PHYSICAL hits only; elemental
+        #    damage was already bent by resist above.
         if dmg_type == 'physical':
-            actual = actual * (1.0 - min(0.75, max(0.0, damage_reduction)))
+            if flat_damage_reduction > 0.0 and actual > 0.0:
+                armour = min(ARMOUR_MITIGATION_CAP,
+                             flat_damage_reduction
+                             / (flat_damage_reduction + ARMOUR_HIT_K * actual))
+                actual *= (1.0 - armour)
+            actual *= (1.0 - min(0.75, max(0.0, damage_reduction)))
 
         energy_shield = self.stats.get('energy_shield', 0.0)
         if energy_shield > 0.0:
