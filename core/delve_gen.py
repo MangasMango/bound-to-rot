@@ -25,8 +25,13 @@ import random
 # ── grid constants (kept for gameplay room carving) ──────────────────
 GRID_W = 200
 GRID_H = 200
-ROOM_MIN = 1
-ROOM_MAX = 2
+# Issue #11: rooms were randint(1, 2) * 2 + 1 = 3..5 tiles per axis, which
+# felt cramped for multi-enemy waves. Owner target: 10-18 tiles per axis;
+# the odd-span carve formula maps that band to randint(5, 8) * 2 + 1 =
+# 11..17. Rooms are spatial metadata on the open-arena grid (node spacing,
+# segment exits, hidden-wing pocket placement) - see generate_segment.
+ROOM_MIN = 5
+ROOM_MAX = 8
 
 DIR_VEC = {
     'N': (0, -1),
@@ -513,8 +518,12 @@ def generate_travel_room(grid: list, from_node: dict, to_node: dict,
 
 # ── direction-based gameplay room generation (original room-crawler) ──
 
-CORRIDOR_LEN_MIN = 3
-CORRIDOR_LEN_MAX = 6
+# Corridor length runs from the parent room's edge to the NEXT room's
+# centre, so scaling it up with the wider rooms (issue #11) keeps adjacent
+# rooms butting against each other instead of overlapping: a corridor of
+# L to room width W = L + 1 >= W leaves the edges touching, never nested.
+CORRIDOR_LEN_MIN = 8
+CORRIDOR_LEN_MAX = 14
 
 
 def _opposite_dir(d):
@@ -831,8 +840,12 @@ def restore_chart_flags(graph: dict, visited: list, looted: list,
 # ── hidden reward wings ─────────────────────────
 
 HIDDEN_WING_CHANCE = 0.35   # chance a carved room attaches a hidden wing
-HIDDEN_WING_MIN_DIST = 6    # pocket center distance from room edge (tiles)
-HIDDEN_WING_MAX_DIST = 9
+# Pocket distance from the parent room's EDGE (tiles). Scaled up with the
+# wider rooms (issue #11) so the 7x7 rubble ring stays outside the room
+# footprint even at its corners - dist >= pocket radius (3) + room corner
+# run-out keeps the ring clear of the enlarged 17-tile rooms.
+HIDDEN_WING_MIN_DIST = 8
+HIDDEN_WING_MAX_DIST = 14
 
 # Depth-tiered hidden loot table (§4): (equip chance, ambush chance,
 # rarity floor). Currency/organ rolls scale with depth in game.py.

@@ -58,7 +58,7 @@ class HelpText(unittest.TestCase):
         """Each bare command word the help shows has a handler branch."""
         text = _exec(_game(), 'help')
         for known in ('god', 'heal', 'kill', 'give', 'zoom', 'descend',
-                      'perk', 'pp', 'pp_bloom', 'weather'):
+                      'perk', 'pp', 'pp_bloom', 'weather', 'horde'):
             self.assertIn(known, text)
 
 
