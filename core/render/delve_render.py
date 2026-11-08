@@ -30,6 +30,10 @@ from core.game import (
     _LIGHT_KIND_STRENGTH,
 )
 from core.iso_engine import ISO_W, ENTITY_BASE
+
+# In-anima PULSE title nudge (issue #22): constant beats an inline magic
+# number because the exact value is eyeball-tuned by the owner at zoom.
+PULSE_LABEL_NUDGE_PX = 60
 from systems import itemgen
 from systems.items import EQUIP_SLOT_LABELS, ITEMS, format_equip_stat
 from ui import fonts, icons
@@ -286,8 +290,14 @@ class DelveRenderMixin:
 
         label = 'PULSE'
         lw = fonts.measure(label, 14)
-        # pulse art keeps the ENTITY canvas scale - hug its visible top
-        fonts.draw(label, cx - lw // 2, sy + ts // 2 - int(ENTITY_BASE * self.iso.scale * 0.3), 14,
+        # Same heart art as the hub. The hub title was already dropped onto
+        # the visible top (label_dy); this one still sat several pixels high.
+        # PULSE_LABEL_NUDGE_PX is the owner-tunable eyeball correction (zoom
+        # clamp 0.2-0.8 means the exact px that straddles the art edge.
+        label_y = (sy + ts // 2
+                   - int(ENTITY_BASE * self.iso.scale * 0.3)
+                   + PULSE_LABEL_NUDGE_PX)
+        fonts.draw(label, cx - lw // 2, label_y, 14,
                    rl.Color(255, 210, 80, 200))
     def _draw_delve_junction(self, cw: int, ch: int):
         """Forward-path choice, hosted inside the Anima panel frame."""
