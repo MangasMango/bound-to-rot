@@ -286,8 +286,12 @@ class DelveRenderMixin:
 
         label = 'PULSE'
         lw = fonts.measure(label, 14)
-        # pulse art keeps the ENTITY canvas scale - hug its visible top
-        fonts.draw(label, cx - lw // 2, sy + ts // 2 - int(ENTITY_BASE * self.iso.scale * 0.3), 14,
+        # Same heart art as the hub. The hub title was already dropped onto
+        # the visible top (label_dy); this one still sat several pixels high.
+        label_y = (sy + ts // 2
+                   - int(ENTITY_BASE * self.iso.scale * 0.3)
+                   + 6)
+        fonts.draw(label, cx - lw // 2, label_y, 14,
                    rl.Color(255, 210, 80, 200))
     def _draw_delve_junction(self, cw: int, ch: int):
         """Forward-path choice, hosted inside the Anima panel frame."""
