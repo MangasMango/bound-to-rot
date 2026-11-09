@@ -124,6 +124,10 @@ class FrameRenderMixin:
         if self._console_open and self.state != STATE_EDITOR:
             self._draw_console(cw, ch)
 
+        rec = getattr(self, 'recorder', None)
+        if rec is not None and rec.active:
+            self._draw_rec_counter(cw, ch)
+
         self._draw_combat_log(cw, ch)
         self._outer_rt = None
         self.iso._outer_rt = None
