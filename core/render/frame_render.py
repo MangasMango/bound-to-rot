@@ -35,6 +35,10 @@ from systems import frames
 from ui import fonts
 
 
+# The chat panel lives in the living states only - menus/loading/dead
+# screens have no chat remnants, the editor has no chat at all.
+_CHAT_DRAW_STATES = (STATE_PLAYING, STATE_HUB, STATE_PAUSED)
+
 OUTLINE_COLOR_IDLE = rl.Color(0, 0, 0, 255)
 OUTLINE_COLOR_HIT = rl.Color(190, 20, 20, 255)
 OUTLINE_SIZE = 1.5
@@ -121,8 +125,8 @@ class FrameRenderMixin:
         elif self.state in (STATE_DEAD, STATE_EXTRACTED):
             self._draw_end_screen(cw, ch)
 
-        if self._console_open and self.state != STATE_EDITOR:
-            self._draw_console(cw, ch)
+        if self.state in _CHAT_DRAW_STATES:
+            self._draw_chat(cw, ch)   # open panel or closed fading remnants
 
         rec = getattr(self, 'recorder', None)
         if rec is not None and rec.active:

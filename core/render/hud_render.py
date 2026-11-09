@@ -43,6 +43,10 @@ from entities.descend import compute_perk_bonuses
 from entities.zombies import DETECT_RANGE, enemy_display_name
 from systems import flasks, gems
 from systems import itemgen
+from systems.chat import (CHAT_BOX_ALPHA, CHAT_CLOSED_LINES,
+                          CHAT_INPUT_PX, CHAT_OPEN_LINES, CHAT_MARGIN,
+                          CHAT_PANEL_MAX_W, CHAT_PANEL_RATIO, CHAT_ROW_PX,
+                          CHAT_TEXT_ALPHA, chat_line_alpha)
 from ui import fonts, icons
 from ui.inventory_ui import _rot_col
 from ui.menus import _btn
@@ -1434,13 +1438,55 @@ class HudRenderMixin:
         fonts.draw(label, cw - fonts.measure(label, 25) - 6,
                    6 + 18 * 4, 25, col)
 
-    def _draw_console(self, cw, ch):
-        PANEL_HEIGHT = 160; panel_y = ch - PANEL_HEIGHT
-        rl.draw_rectangle(0, panel_y, cw, PANEL_HEIGHT, rl.Color(0, 0, 0, 210))
-        rl.draw_line(0, panel_y, cw, panel_y, rl.Color(0xFF, 0xFF, 0xFF, 180))
-        for i, line in enumerate(self._console_log[-7:]):
-            col = rl.Color(0xFF, 0xFF, 0xFF, 220) if line.startswith('>') else rl.Color(0xCC, 0xCC, 0xCC, 220)
-            fonts.draw(line, 10, panel_y + 6 + i * 18, 25, col)
-        import time as _perf_time
-        cursor = '|' if int(_perf_time.time() * 2) % 2 == 0 else ' '
-        fonts.draw('> ' + self._console_buf + cursor, 10, panel_y + PANEL_HEIGHT - 24, 27, rl.WHITE)
+    def _draw_chat(self, cw, ch):
+        """PoE-style chat, bottom-left corner (replaces the old `~` console).
+
+        Closed: only the newest CHAT_CLOSED_LINES rows linger, no box, each
+        row fades with its entry age via chat_line_alpha (PoE look).
+        Open: translucent box, up to CHAT_OPEN_LINES rows above the input
+        row, history does not fade while the chat is open.
+        """
+        import time as _chat_time
+        import time as _blink
+        now = _chat_time.perf_counter()
+        rows = []   # (text, is_echo, birth) - commands white, replies gray
+        for prompt, output, birth in self._chat_log:
+            rows.append((prompt, True, birth))
+            if output:
+                for line in output.split('\n'):
+                    if line:
+                        rows.append((line, False, birth))
+        rows = rows[-(CHAT_OPEN_LINES if self._chat_open
+                      else CHAT_CLOSED_LINES):]
+        if not rows and not self._chat_open:
+            return
+
+        panel_w = min(int(cw * CHAT_PANEL_RATIO), CHAT_PANEL_MAX_W)
+        x = CHAT_MARGIN + 4
+        if not self._chat_open:
+            # floating remnants, newest at the bottom, stacked upward
+            y = ch - CHAT_MARGIN - 14
+            for text, echo, birth in reversed(rows):
+                alpha = chat_line_alpha(birth, now)
+                if alpha <= 0:
+                    break   # older rows are even fainter
+                col = (rl.Color(255, 255, 255, alpha) if echo else
+                       rl.Color(0xCC, 0xCC, 0xCC, alpha))
+                fonts.draw(text, x, y, 25, col)
+                y -= CHAT_ROW_PX
+            return
+
+        # open: box + history rows + input row (no fading while open)
+        n = len(rows)
+        box_h = CHAT_MARGIN * 2 + n * CHAT_ROW_PX + CHAT_INPUT_PX
+        panel_y = ch - CHAT_MARGIN - box_h
+        rl.draw_rectangle(CHAT_MARGIN, panel_y, panel_w, box_h,
+                          rl.Color(0, 0, 0, CHAT_BOX_ALPHA))
+        y = panel_y + CHAT_MARGIN
+        for text, echo, _birth in rows:
+            col = (rl.Color(255, 255, 255, CHAT_TEXT_ALPHA) if echo else
+                   rl.Color(0xCC, 0xCC, 0xCC, CHAT_TEXT_ALPHA))
+            fonts.draw(text, x, y, 25, col)
+            y += CHAT_ROW_PX
+        cursor = '|' if int(_blink.time() * 2) % 2 == 0 else ' '
+        fonts.draw('> ' + self._chat_buf + cursor, x, y, 27, rl.WHITE)

@@ -7,7 +7,6 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Steam](https://img.shields.io/badge/Steam-Store-1B2838?logo=steam&logoColor=white)](https://store.steampowered.com/app/4840980/Bound_to_Rot/)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/s2rgHuctdc)
-[![itch.io Assets](https://img.shields.io/badge/itch.io-Assets-FA5C5C?logo=itch.io&logoColor=white)](https://itch.io/c/8322662/boundtorot)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/MangasMango?logo=githubsponsors&logoColor=white&label=Sponsor&color=ea4aaa)](https://github.com/sponsors/MangasMango)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/mangasmango)
 

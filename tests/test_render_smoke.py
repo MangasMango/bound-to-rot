@@ -220,13 +220,13 @@ def test_frame_draw_reaches_hud_in_hub_and_delve(monkeypatch):
     game._outer_rt = None
     game.iso._outer_rt = None
     game._hover_interact = None
-    game._console_open = False
+    game._chat_open = False
     game._char_stats_open = False
     game._minimap_open = False
     game._minimap = None
     game._draw_combat_log = lambda *_args: None
     game._draw_cursor = lambda: None
-    game._draw_console = lambda *_args: None
+    game._draw_chat = lambda *_args: None
     game._draw_hub = lambda _cw, _ch: hud_calls.append("hub") or HudRenderMixin._draw_hud(game, 1280, 720)
     game._draw_game = lambda _cw, _ch: hud_calls.append("delve") or HudRenderMixin._draw_hud(game, 1280, 720)
     _install_headless_drawing(monkeypatch)
