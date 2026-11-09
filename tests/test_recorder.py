@@ -402,15 +402,17 @@ def test_ffmpeg_presence_is_probed_per_start(monkeypatch, clock, fake_window):
 def _game(recorder):
     game = Game.__new__(Game)
     game.state = STATE_PLAYING
-    game._console_log = []
-    game._console_open = True
+    game._chat_log = []
+    game._chat_open = True
     game.recorder = recorder
     return game
 
 
 def _exec_last_output(game, cmd):
+    """Runs a console command; returns the OUTPUT text of the log entry
+    (triples are (prompt, output, birth) since the PoE chat rename)."""
     game._exec_console(cmd)
-    return game._console_log[-1]
+    return game._chat_log[-1][1]
 
 
 def test_record_gif_starts_default_clip(clock):
@@ -440,7 +442,7 @@ def test_record_mp4_ffmpeg_missing_shows_hint(monkeypatch, clock):
     out = _exec_last_output(game, 'record mp4')
     assert not rec.active
     assert 'record gif' in out         # graceful fallback hint
-    assert game._console_open is True  # no implicit close on refusal
+    assert game._chat_open is True  # no implicit close on refusal
 
 
 def test_bare_record_is_an_mp4_clip(monkeypatch, clock, fake_window):
@@ -497,7 +499,7 @@ def test_repeat_start_is_answered_not_restarted(clock):
     assert 'Already recording' in out
 
 
-def test_record_stop_closes_console_and_saves_clip(tmp_clips_dir, clock):
+def test_record_stop_closes_chat_and_saves_clip(tmp_clips_dir, clock):
     rec = ClipRecorder()
     game = _game(rec)
     _exec_last_output(game, 'record gif')
@@ -506,7 +508,7 @@ def test_record_stop_closes_console_and_saves_clip(tmp_clips_dir, clock):
     out = _exec_last_output(game, 'record stop')
     assert not rec.active
     assert 'Clip saved:' in out
-    assert game._console_open is False
+    assert game._chat_open is False
 
 
 def test_record_stop_without_frames_discards(tmp_clips_dir, clock):
@@ -526,7 +528,7 @@ def test_record_stop_video_muxes_sink(clock):
     rec._feed_video(_img((10, 20, 30)))
     _exec_last_output(game, 'record stop')
     assert sink.finished
-    assert 'Clip saved:' in game._console_log[-1]
+    assert 'Clip saved:' in game._chat_log[-1][1]
 
 
 def test_record_stop_video_without_frames_discards(clock):
@@ -542,20 +544,20 @@ def test_record_stop_when_not_recording(clock):
     assert 'Not recording' in _exec_last_output(_game(rec), 'record stop')
 
 
-def test_record_commands_close_console(clock):
+def test_record_commands_close_chat(clock):
     rec = ClipRecorder()
     game = _game(rec)
     _exec_last_output(game, 'record gif')
-    assert game._console_open is False
+    assert game._chat_open is False
 
 
-def test_invalid_record_keeps_console_open(clock):
+def test_invalid_record_keeps_chat_open(clock):
     rec = ClipRecorder()
     game = _game(rec)
     for bad in ('record avi', 'record gif 999'):
-        game._console_open = True
+        game._chat_open = True
         _exec_last_output(game, bad)
-        assert game._console_open is True
+        assert game._chat_open is True
 
 
 def test_no_window_refuses_video_start(monkeypatch, clock):
@@ -584,5 +586,5 @@ def test_help_advertises_record_family(clock):
         assert member in text
 
 
-def test_rec_modes_match_console_vocabulary():
+def test_rec_modes_match_chat_vocabulary():
     assert set(REC_MODES) == {MODE_GIF, MODE_MP4, MODE_WEBM}

@@ -62,6 +62,7 @@ from systems.shaders import ShaderManager
 from systems import lightgen
 from systems.recorder import (ClipRecorder, MODE_MP4, REC_MODES,
                               REC_MAX_WIDTH, REC_SECONDS_MAX)
+from systems.chat import CHAT_LOG_CAP
 
 _ASSETS = ASSETS
 
@@ -592,16 +593,19 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # clip recorder (dev console `record ...`) - issue #58
         self.recorder = ClipRecorder()
 
-        # Dev console
-        self._console_open = False
-        self._console_buf  = ''
-        self._console_pending = []      # chars drained per render frame
-        self._console_bs    = _KeyEdge()
-        self._console_esc   = _KeyEdge()
-        self._console_enter = _KeyEdge()
-        self._console_log  = []
-        self._console_history     = []
-        self._console_history_idx = -1
+        # PoE-style chat (bottom-left) - replaces the old `~` console.
+        # _exec_console keeps its name: it is the command parser + test
+        # seam, not UI.
+        self._chat_open          = False
+        self._chat_buf           = ''
+        self._chat_pending       = []   # chars drained per render frame
+        self._chat_bs            = _KeyEdge()
+        self._chat_esc           = _KeyEdge()
+        self._chat_enter         = _KeyEdge()
+        self._chat_enter_open    = _KeyEdge()   # open-on-Enter (closed path)
+        self._chat_log           = []   # (prompt, output, birth) triples
+        self._chat_history       = []
+        self._chat_history_idx   = -1
         self._god_mode          = False
         self._char_stats_open   = False
 
@@ -3168,12 +3172,17 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
     def _exec_console(self, cmd):
-        parts = cmd.lower().split()
+        raw = ' '.join(cmd.split())      # normalize whitespace for the echo
+        parts = raw.lower().split()
         if not parts: return
+        if parts[0].startswith('/'):
+            parts[0] = parts[0][1:]      # /god parses as god; echo keeps the /
         command = parts[0]
         in_raid = self.state == STATE_PLAYING
         output  = ''
 
+        # NOTE: chat input arrives WITH its /-prefix (kept in the echo);
+        # program-level callers pass bare command words. Both parse.
         if command == 'god':
             self._god_mode = not self._god_mode
             output = f"God mode {'ON' if self._god_mode else 'OFF'}"
@@ -3293,7 +3302,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             if len(parts) >= 2 and parts[1] == 'stop':
                 if self.recorder.active:
                     path = self.recorder.finish()
-                    self._console_open = False   # same ruling: no console in clips
+                    self._chat_open = False   # same ruling: no console in clips
                     output = (f"Clip saved: {path}" if path else
                               "Clip discarded - too few frames had buffered")
                 else:
@@ -3323,7 +3332,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                         if self.recorder.start(mode, secs):
                             # close the console immediately - owner ruling
                             # 2026-11: the panel must never appear in footage
-                            self._console_open = False
+                            self._chat_open = False
                             output = (f"{mode.upper()} clip: "
                                       f"{self.recorder._duration:.0f}s at "
                                       f"{self.recorder.fps}fps (up to "
@@ -3334,6 +3343,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                       f"Could not start {mode} clip")
                     else:
                         output = f'Usage: record {mode} [1-{REC_SECONDS_MAX:.0f}]'
+        elif command == 'clear':
+            # /clear: wipe chat history; the confirmation row lands as the
+            # new (only) entry so the chat visibly starts fresh
+            self._chat_log.clear()
+            output = 'Chat cleared'
         elif command == 'weather':
             if len(parts) >= 2 and parts[1] in ('on', 'off'):
                 self._weather_enabled = (parts[1] == 'on')
@@ -3343,11 +3357,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                           f"· rain: {'yes' if self.weather.get('raining') else 'no'} "
                           f"(intensity {self.weather.get('intensity', 0.0):.2f})")
         elif command == 'help':
-            output = 'god  heal  kill  give <item> [n|rarity]  zoom <n>  horde <1..10>'
-            output += '\ndescend <attr> <0..10>   perk <id> <0..max>   pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
-            output += '\npp contrast|sat|bright <v>   pp_bloom samples|quality|threshold|intensity <v>'
-            output += '\nweather [on|off] — toggle wet FX (render-only)'
-            output += '\nrecord [gif|webm|mp4] [1-60] — dev clip (%APPDATA%/BTR/clips; bare record = mp4)'
+            output = '/god  /heal  /kill  /give <item> [n|rarity]  /zoom <n>  /horde <1..10>'
+            output += '\n/descend <attr> <0..10>   /perk <id> <0..max>   /pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
+            output += '\n/pp contrast|sat|bright <v>   /pp_bloom samples|quality|threshold|intensity <v>'
+            output += '\n/weather [on|off] — toggle wet FX · /clear — wipe chat history'
+            output += '\n/record [gif|webm|mp4] [1-60] — dev clip (%APPDATA%/BTR/clips; bare /record = mp4)'
+            output += '\nevery command needs its / prefix - plain text is a chat say'
         elif command == 'pp':
             if len(parts) < 2:
                 status = (
@@ -3397,11 +3412,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             except ValueError:
                 output = f'Usage: {command} <value>'
         else:
-            output = f'Unknown: {cmd}'
+            shown = raw[1:] if raw.startswith('/') else raw
+            output = f'Unknown: /{shown}'   # unknowns echo in /-form always
 
-        self._console_log.append(f'> {cmd}')
-        self._console_log.append(output)
-        if len(self._console_log) > 20: self._console_log = self._console_log[-20:]
+        # (prompt, output, birth) triples - birth feeds the closed-chat
+        # fade (systems/chat.chat_line_alpha); retention cap 100 (was 20).
+        self._chat_log.append((f'> {raw}', output, time.perf_counter()))
+        if len(self._chat_log) > CHAT_LOG_CAP:
+            self._chat_log = self._chat_log[-CHAT_LOG_CAP:]
 
 
     # ── GIF clip recording (dev console `record gif`) ─────────────────

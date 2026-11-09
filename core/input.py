@@ -15,10 +15,19 @@
 
 """Input dispatch for :class:`core.game.Game`."""
 
+import time
+
 import pyray as rl
 
 from systems import input as inp
+from systems.chat import CHAT_LOG_CAP
 from core.game import *
+
+
+# States where Enter opens the chat when it is closed. PAUSED is excluded on
+# purpose: its Enter is the menu-confirm key, and menus keep their own
+# semantics regardless (open question #1 of .ai/CHAT_CONSOLE_PLAN.md).
+_CHAT_OPEN_STATES = (STATE_PLAYING, STATE_HUB)
 
 
 class InputMixin:
@@ -34,9 +43,9 @@ class InputMixin:
             if not ch:
                 break
             if 32 <= ch < 127:
-                if self._console_open:
-                    if len(self._console_pending) < 64:
-                        self._console_pending.append(chr(ch))
+                if self._chat_open:
+                    if len(self._chat_pending) < 64:
+                        self._chat_pending.append(chr(ch))
                 else:
                     self.menu_sys.char_name_input.push(chr(ch))
 
@@ -55,8 +64,17 @@ class InputMixin:
         self._update_mouse_transform()
 
         if inp.key_pressed(self,rl.KEY_GRAVE) and self.state != STATE_EDITOR:
-            self._console_open = not self._console_open
-            self._console_buf = ''
+            self._chat_open = not self._chat_open
+            self._chat_buf = ''
+
+        # PoE chat: Enter opens when closed in gameplay states. The submit
+        # latch is primed so the very press that opens the chat cannot also
+        # fire the (empty) submit on the same tick.
+        if (self._chat_enter_open.pressed(rl.KEY_ENTER)
+                and self.state in _CHAT_OPEN_STATES and not self._chat_open):
+            self._chat_open = True
+            self._chat_buf = ''
+            self._chat_enter.mark_down()
 
         if inp.key_pressed(self,rl.KEY_F4):
             self.menu_sys.settings.debug_overlay = not self.menu_sys.settings.debug_overlay
@@ -64,8 +82,16 @@ class InputMixin:
         if inp.key_pressed(self,rl.KEY_F5):
             self._take_screenshot()
 
-        if self._console_open:
-            self._update_console()
+        if self._chat_open:
+            self._update_chat()
+            if self.state == STATE_PLAYING:
+                # PoE behavior: with the chat open the world keeps running
+                # (enemies, timers, weather) and the mouse stays live, but
+                # keyboard gameplay actions (abilities, I/C/L toggles,
+                # reload) are gated to the input line - handled inside the
+                # STATE_PLAYING block via `_chat_open` guards.
+                self.inv.update(self.inventory, self.stats)
+                self._update_game(dt)
             return
 
         if self.state == STATE_LOADING:
@@ -292,32 +318,54 @@ class InputMixin:
                 self._flash_hud('attack')
         return False
 
-    def _update_console(self):
-        if self._console_esc.pressed(rl.KEY_ESCAPE):
-            self._console_open = False
+    def _update_chat(self):
+        """PoE chat input line: Esc abandons; Enter sends when there is text
+        (and always closes, PoE-style); Backspace/Up/Down/history unchanged."""
+        if self._chat_esc.pressed(rl.KEY_ESCAPE):
+            self._chat_open = False
+            self._chat_buf = ''
             return
-        if self._console_bs.pressed(rl.KEY_BACKSPACE) and self._console_buf:
-            self._console_buf = self._console_buf[:-1]
-        for ch in self._console_pending:
-            self._console_buf += ch
-        self._console_pending.clear()
-        if inp.key_pressed(self,rl.KEY_UP) and self._console_history:
-            self._console_history_idx = max(0, self._console_history_idx - 1)
-            if self._console_history_idx < len(self._console_history):
-                self._console_buf = self._console_history[self._console_history_idx]
+        if self._chat_bs.pressed(rl.KEY_BACKSPACE) and self._chat_buf:
+            self._chat_buf = self._chat_buf[:-1]
+        for ch in self._chat_pending:
+            self._chat_buf += ch
+        self._chat_pending.clear()
+        if inp.key_pressed(self,rl.KEY_UP) and self._chat_history:
+            self._chat_history_idx = max(0, self._chat_history_idx - 1)
+            if self._chat_history_idx < len(self._chat_history):
+                self._chat_buf = self._chat_history[self._chat_history_idx]
         if inp.key_pressed(self,rl.KEY_DOWN):
-            if self._console_history_idx < len(self._console_history) - 1:
-                self._console_history_idx += 1
-                self._console_buf = self._console_history[self._console_history_idx]
+            if self._chat_history_idx < len(self._chat_history) - 1:
+                self._chat_history_idx += 1
+                self._chat_buf = self._chat_history[self._chat_history_idx]
             else:
-                self._console_history_idx = len(self._console_history)
-                self._console_buf = ''
-        if self._console_enter.pressed(rl.KEY_ENTER):
-            cmd = self._console_buf.strip()
-            self._console_buf = ''
+                self._chat_history_idx = len(self._chat_history)
+                self._chat_buf = ''
+        if self._chat_enter.pressed(rl.KEY_ENTER):
+            cmd = self._chat_buf.strip()
+            self._chat_buf = ''
+            self._chat_open = False   # send-and-close (PoE)
             if cmd:
-                self._console_history.append(cmd)
-                if len(self._console_history) > 50:
-                    self._console_history = self._console_history[-50:]
-                self._console_history_idx = len(self._console_history)
-                self._exec_console(cmd)
+                self._chat_history.append(cmd)
+                if len(self._chat_history) > 50:
+                    self._chat_history = self._chat_history[-50:]
+                self._chat_history_idx = len(self._chat_history)
+                self._chat_submit(cmd)
+
+    def _chat_submit(self, text):
+        """One submitted chat line. PoE grammar: commands need their
+        /-prefix (`/god`, `/record stop`); anything else is a chat SAY, not
+        a command - `/test` unknowns carry the slash in the echo, plain
+        text never reaches the parser."""
+        cmd = text.strip()
+        if not cmd:
+            return
+        if not cmd.startswith('/'):
+            # a plain chat line - shown, never executed
+            self._chat_log.append((f'<You> {cmd}', '', time.perf_counter()))
+            if len(self._chat_log) > CHAT_LOG_CAP:
+                self._chat_log = self._chat_log[-CHAT_LOG_CAP:]
+            return
+        if len(cmd) <= 1 or not cmd[1:].strip():
+            return   # a bare `/` has no command body - never a parser trip
+        self._exec_console(cmd)   # _exec_console strips + echoes the slash

@@ -304,6 +304,13 @@ class _KeyEdge:
     def __init__(self):
         self._down = False
 
+    def mark_down(self):
+        """Prime the latch as if the key were already held - suppresses the
+        submit edge caused by the very press that opened the chat (Enter
+        opens the chat, so the SAME press must not also fire the submit
+        edge on the next consumer tick)."""
+        self._down = True
+
     def pressed(self, key: int) -> bool:
         down = bool(rl.is_key_down(key))
         edge = down and not self._down

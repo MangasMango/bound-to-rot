@@ -34,15 +34,15 @@ def _game():
     """A Game stripped to what _exec_console touches."""
     game = Game.__new__(Game)
     game.state = STATE_PLAYING
-    game._console_log = []
+    game._chat_log = []
     return game
 
 
 def _exec(game, cmd):
     game._exec_console(cmd)
-    # log layout: [(prompt, output), (command, output), ...] - output of the
-    # executed command is the last appended entry.
-    return game._console_log[-1]
+    # log entries are (prompt, output, birth) triples since the PoE chat
+    # rename - output of the executed command is the last appended entry.
+    return game._chat_log[-1][1]
 
 
 class HelpText(unittest.TestCase):

@@ -94,7 +94,14 @@ def test_input_dispatch_turns_key_press_into_inventory_intent(monkeypatch):
     game.state = game_input.STATE_PLAYING
     game._delve = None
     game._minimap_open = False
-    game._console_open = False
+    game._chat_open = False
+    game._chat_buf = ''
+    game._chat_pending = []
+    from ui.menus import _KeyEdge
+    game._chat_bs = _KeyEdge()
+    game._chat_esc = _KeyEdge()
+    game._chat_enter = _KeyEdge()
+    game._chat_enter_open = _KeyEdge()
     game._char_stats_open = False
     game._combat_log_open = False
     # iso zoom rides _zoom_ref -> effective_scale (needs a game iso)

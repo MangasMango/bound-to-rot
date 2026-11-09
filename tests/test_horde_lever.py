@@ -30,15 +30,15 @@ from core.game import HORDE_DEFAULT_MULT, STATE_HUB, STATE_PLAYING, Game
 def _game(state=STATE_PLAYING, delve=True):
     game = Game.__new__(Game)
     game.state = state
-    game._console_log = []
+    game._chat_log = []
     game._delve = {} if delve else None
     return game
 
 
 def _exec(game, cmd):
     game._exec_console(cmd)
-    # latest appended entry is the output for the executed command
-    return game._console_log[-1]
+    # entries are (prompt, output, birth) triples since the PoE chat rename
+    return game._chat_log[-1][1]
 
 
 class HordeCommand(unittest.TestCase):
