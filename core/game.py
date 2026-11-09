@@ -60,6 +60,8 @@ import core.map_gen as map_gen
 import ui.icons as icons
 from systems.shaders import ShaderManager
 from systems import lightgen
+from systems.recorder import (ClipRecorder, MODE_MP4, REC_MODES,
+                              REC_MAX_WIDTH, REC_SECONDS_MAX)
 
 _ASSETS = ASSETS
 
@@ -586,6 +588,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self.char_mgr      = CharacterManager()
         self.tracker       = RaidTracker()
         self._raid_results = None
+
+        # clip recorder (dev console `record ...`) - issue #58
+        self.recorder = ClipRecorder()
 
         # Dev console
         self._console_open = False
@@ -3284,6 +3289,51 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 output = f'Wave size x{mult:g} from the next wave on'
             else:
                 output = 'Usage: horde <1..10>'
+        elif command == 'record':
+            if len(parts) >= 2 and parts[1] == 'stop':
+                if self.recorder.active:
+                    path = self.recorder.finish()
+                    self._console_open = False   # same ruling: no console in clips
+                    output = (f"Clip saved: {path}" if path else
+                              "Clip discarded - too few frames had buffered")
+                else:
+                    output = 'Not recording'
+            elif len(parts) >= 2 and parts[1] == 'png':
+                self.recorder.queue_png()
+                output = 'PNG probe queues - next frame lands in BTR/clips'
+            else:
+                # bare `record` = an mp4 clip - the main want (owner 2026-11)
+                mode = parts[1] if len(parts) >= 2 else MODE_MP4
+                if mode not in REC_MODES:
+                    output = (f'Usage: record [gif|webm|mp4] '
+                              f'[1-{REC_SECONDS_MAX:.0f}] | record stop | '
+                              f'record png')
+                elif self.recorder.active:
+                    output = (f"Already recording ({self.recorder.remaining:.0f}s "
+                              f"left) - record stop cancels")
+                else:
+                    if len(parts) >= 3:
+                        try:
+                            secs = float(parts[2])
+                        except ValueError:
+                            secs = -1.0    # out of clamp range → usage hint
+                    else:
+                        secs = None   # None → default 10s
+                    if secs is None or 1.0 <= secs <= REC_SECONDS_MAX:
+                        if self.recorder.start(mode, secs):
+                            # close the console immediately - owner ruling
+                            # 2026-11: the panel must never appear in footage
+                            self._console_open = False
+                            output = (f"{mode.upper()} clip: "
+                                      f"{self.recorder._duration:.0f}s at "
+                                      f"{self.recorder.fps}fps (up to "
+                                      f"{REC_MAX_WIDTH}px) - saving to "
+                                      f"BTR/clips when the countdown ends")
+                        else:
+                            output = (self.recorder.error or
+                                      f"Could not start {mode} clip")
+                    else:
+                        output = f'Usage: record {mode} [1-{REC_SECONDS_MAX:.0f}]'
         elif command == 'weather':
             if len(parts) >= 2 and parts[1] in ('on', 'off'):
                 self._weather_enabled = (parts[1] == 'on')
@@ -3297,6 +3347,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             output += '\ndescend <attr> <0..10>   perk <id> <0..max>   pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
             output += '\npp contrast|sat|bright <v>   pp_bloom samples|quality|threshold|intensity <v>'
             output += '\nweather [on|off] — toggle wet FX (render-only)'
+            output += '\nrecord [gif|webm|mp4] [1-60] — dev clip (%APPDATA%/BTR/clips; bare record = mp4)'
         elif command == 'pp':
             if len(parts) < 2:
                 status = (
@@ -3353,6 +3404,19 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         if len(self._console_log) > 20: self._console_log = self._console_log[-20:]
 
 
+    # ── GIF clip recording (dev console `record gif`) ─────────────────
+
+    def capture_recording_frame(self, dt):
+        """Grab one clip frame if cadence allows. Main loop calls this
+        inside begin/end_drawing, after game.draw() and before draw_fps -
+        the framebuffer then holds the finished composite with no fps text."""
+        self.recorder.tick_grab(dt)
+
+    def finalize_recording_frame(self):
+        """Once per rendered frame OUTSIDE the drawing scope: when the clip
+        countdown has run out, assemble + save the GIF (stalls a frame)."""
+        return self.recorder.finalize_tick()
+
     def _take_screenshot(self):
         import datetime, shutil
         ss_dir = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'BTR', 'screenshots')
@@ -3370,6 +3434,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     # ── cleanup ───────────────────────────────────────────────────────
 
     def cleanup(self):
+        # save (partial) any active GIF clip before the window dies
+        if getattr(self, 'recorder', None) is not None and self.recorder.active:
+            try:
+                self.recorder.finish()
+            except Exception as exc:
+                print(f'[RECORDING] save failed: {exc}')
         self._save_delve()
         # forge offerings are transient - ride them back into the backpack
         # before the final save so a hard exit never destroys offered items

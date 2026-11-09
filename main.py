@@ -97,6 +97,10 @@ def main():
             rl.begin_drawing()
             t2 = time.perf_counter()
             game.draw()
+            # GIF clip capture sits inside the drawing pair so the
+            # framebuffer holds the finished frame, and before draw_fps so
+            # clips never show the fps counter (see .ai/RECORDING_SHARE_PLAN.md).
+            game.capture_recording_frame(dt)
             t3 = time.perf_counter()
             rl.draw_fps(8, 8)
             t4 = time.perf_counter()
@@ -115,6 +119,9 @@ def main():
                 _draw_profiler(sections, cw, ch)
 
             rl.end_drawing()
+            # GIF clip assembly runs here - outside the drawing scope, so the
+            # one-frame stall on save never happens mid-blit.
+            game.finalize_recording_frame()
     finally:
         # Also runs on Ctrl+C (KeyboardInterrupt) - release textures/audio.
         game.cleanup()

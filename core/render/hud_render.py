@@ -1423,6 +1423,17 @@ class HudRenderMixin:
         for i, line in enumerate(lines):
             fonts.draw(line, cw - fonts.measure(line, 25) - 6, 6 + i * 18, 25,
                          rl.Color(255, 255, 100, 200))
+    def _draw_rec_counter(self, cw, ch):
+        """GIF clip countdown (dev console `record gif`): blinking red label,
+        parked under the 0..3-line F4 perf overlay in the top-right."""
+        rec = self.recorder
+        label = f"{(rec.mode or 'rec').upper()} {rec.remaining:0.1f}s"
+        blink = int(rl.get_time() * 2.0) % 2 == 0
+        col = (rl.Color(224, 40, 40, 255) if blink else
+               rl.Color(60, 16, 16, 210))
+        fonts.draw(label, cw - fonts.measure(label, 25) - 6,
+                   6 + 18 * 4, 25, col)
+
     def _draw_console(self, cw, ch):
         PANEL_HEIGHT = 160; panel_y = ch - PANEL_HEIGHT
         rl.draw_rectangle(0, panel_y, cw, PANEL_HEIGHT, rl.Color(0, 0, 0, 210))
