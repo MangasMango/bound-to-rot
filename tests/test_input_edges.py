@@ -148,5 +148,81 @@ class MouseEdgeTests(unittest.TestCase):
             self.assertFalse(tick_input.mouse_pressed('chart', MOUSE_L))
 
 
+class LayoutKeyTests(unittest.TestCase):
+    """Skill letters follow the active keyboard layout (issue #21)."""
+
+    def _names(self, names):
+        return patch.object(rl, 'glfw_get_key_name',
+                            lambda key, scancode: names.get(key, ''))
+
+    def test_us_layout_keeps_qwert(self):
+        names = {rl.KEY_Q: 'q', rl.KEY_W: 'w', rl.KEY_E: 'e',
+                 rl.KEY_R: 'r', rl.KEY_T: 't', rl.KEY_A: 'a'}
+        with self._names(names):
+            self.assertEqual(tick_input.layout_key(rl.KEY_Q), rl.KEY_Q)
+            self.assertEqual(tick_input.layout_key(rl.KEY_W), rl.KEY_W)
+            self.assertEqual(tick_input.layout_key(rl.KEY_T), rl.KEY_T)
+
+    def test_uppercase_names_match(self):
+        """Windows reports unshifted letters in uppercase."""
+        names = {rl.KEY_A: 'Q', rl.KEY_Q: 'A', rl.KEY_Z: 'W', rl.KEY_W: 'Z'}
+        with self._names(names):
+            self.assertEqual(tick_input.layout_key(rl.KEY_Q), rl.KEY_A)
+            self.assertEqual(tick_input.layout_key(rl.KEY_W), rl.KEY_Z)
+
+    def test_azerty_q_and_w_follow_printed_letters(self):
+        names = {
+            rl.KEY_A: 'q', rl.KEY_Z: 'w', rl.KEY_Q: 'a', rl.KEY_W: 'z',
+            rl.KEY_E: 'e', rl.KEY_R: 'r', rl.KEY_T: 't',
+        }
+        with self._names(names):
+            self.assertEqual(tick_input.layout_key(rl.KEY_Q), rl.KEY_A)
+            self.assertEqual(tick_input.layout_key(rl.KEY_W), rl.KEY_Z)
+            self.assertEqual(tick_input.layout_key(rl.KEY_E), rl.KEY_E)
+            self.assertEqual(tick_input.layout_key(rl.KEY_R), rl.KEY_R)
+            self.assertEqual(tick_input.layout_key(rl.KEY_T), rl.KEY_T)
+
+    def test_dvorak_w_is_the_comma_key(self):
+        names = {rl.KEY_X: 'q', rl.KEY_COMMA: 'w', rl.KEY_Q: "'", rl.KEY_W: ','}
+        with self._names(names):
+            self.assertEqual(tick_input.layout_key(rl.KEY_Q), rl.KEY_X)
+            self.assertEqual(tick_input.layout_key(rl.KEY_W), rl.KEY_COMMA)
+
+    def test_non_latin_layout_keeps_us_position(self):
+        names = {rl.KEY_Q: 'й', rl.KEY_W: 'ц', rl.KEY_E: 'у',
+                 rl.KEY_R: 'к', rl.KEY_T: 'е'}
+        with self._names(names):
+            self.assertEqual(tick_input.layout_key(rl.KEY_Q), rl.KEY_Q)
+            self.assertEqual(tick_input.layout_key(rl.KEY_W), rl.KEY_W)
+            self.assertEqual(tick_input.layout_key(rl.KEY_E), rl.KEY_E)
+
+    def test_missing_key_names_keep_us_position(self):
+        with self._names({}):
+            self.assertEqual(tick_input.layout_key(rl.KEY_Q), rl.KEY_Q)
+
+    def test_non_letters_are_unchanged(self):
+        with patch.object(rl, 'glfw_get_key_name', lambda key, scancode: 'q'):
+            self.assertEqual(tick_input.layout_key(rl.KEY_ESCAPE), rl.KEY_ESCAPE)
+            self.assertEqual(tick_input.layout_key(rl.KEY_ENTER), rl.KEY_ENTER)
+
+    def test_key_name_failure_keeps_us_position(self):
+        def boom(key, scancode):
+            raise RuntimeError('glfw')
+        with patch.object(rl, 'glfw_get_key_name', boom):
+            self.assertEqual(tick_input.layout_key(rl.KEY_Q), rl.KEY_Q)
+
+    def test_pressing_the_layout_letter_raises_the_skill_edge(self):
+        """The Q skill edge is the key that types q, not the US Q position."""
+        tick_input._key_prev.clear()
+        tick_input._focus_was = True
+        names = {rl.KEY_A: 'q', rl.KEY_Q: 'a'}
+        with patch.object(rl, 'is_window_focused', return_value=True), \
+                self._names(names), down(rl.KEY_A, True):
+            q_key = tick_input.layout_key(rl.KEY_Q)
+            self.assertEqual(q_key, rl.KEY_A)
+            self.assertTrue(tick_input.key_pressed('gem.q', q_key))
+            self.assertFalse(tick_input.key_pressed('gem.q', q_key))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

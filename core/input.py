@@ -197,10 +197,12 @@ class InputMixin:
                 # removed. Q/W/E/R belong to the gem ability slots below and
                 # T is the flask - see systems/flasks.py. Both are blocked
                 # while the Anima panel is open (modal decision UI).
+                # Issue #21: Q/W/E/R/T follow the letter the key types on
+                # the active layout, so skills work without an EN layout.
                 for _gk in gems.GEM_SLOTS:
-                    if inp.key_pressed(self,getattr(rl, 'KEY_' + _gk)):
+                    if inp.key_pressed(self, inp.layout_key(getattr(rl, 'KEY_' + _gk))):
                         self._use_gem_ability(_gk)
-            if inp.key_pressed(self,rl.KEY_T) and not self.inv.open \
+            if inp.key_pressed(self, inp.layout_key(rl.KEY_T)) and not self.inv.open \
                     and not self._delve_chart_is_open():
                 self._use_flask()
             # R: spin the cylinder early (ammo mechanic). Runs on its own
@@ -208,7 +210,7 @@ class InputMixin:
             # consumed the shared 'self' edge, so R used to cast the gem
             # instead of reloading. Priority: a socketed white gem owns R;
             # empty slots fall back to reload.
-            if inp.key_pressed('game.reload', rl.KEY_R) \
+            if inp.key_pressed('game.reload', inp.layout_key(rl.KEY_R)) \
                     and not self._delve_chart_is_open() \
                     and gems.socketed_ability(self.inventory, 'R') is None:
                 if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
