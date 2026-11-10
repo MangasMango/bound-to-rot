@@ -41,6 +41,17 @@ _mouse_prev: dict[tuple[object, int], bool] = {}
 _mouse_release_prev: dict[tuple[object, int], bool] = {}
 _focus_was = True
 
+# Physical keys whose printed glyph can be a Latin letter on some layout.
+# A-Z covers QWERTY/AZERTY/Colemak; punctuation covers Dvorak (W is comma).
+_LAYOUT_SCAN_KEYS = (
+    *range(rl.KEY_A, rl.KEY_Z + 1),
+    rl.KEY_APOSTROPHE, rl.KEY_COMMA, rl.KEY_MINUS, rl.KEY_PERIOD,
+    rl.KEY_SLASH, rl.KEY_SEMICOLON, rl.KEY_EQUAL,
+    rl.KEY_LEFT_BRACKET, rl.KEY_RIGHT_BRACKET, rl.KEY_BACKSLASH,
+    rl.KEY_GRAVE,
+    *range(rl.KEY_ZERO, rl.KEY_NINE + 1),
+)
+
 
 def _focus_lost_or_resync() -> bool:
     """Return whether input should be suppressed while unfocused.
@@ -71,6 +82,38 @@ def _focus_lost_or_resync() -> bool:
             _mouse_release_prev[(consumer, button)] = rl.is_mouse_button_down(button)
     _focus_was = True
     return False
+
+
+def _key_label(key: int) -> str:
+    """Unshifted glyph of ``key`` on the active OS layout, or ''."""
+    try:
+        name = rl.glfw_get_key_name(key, 0)
+    except Exception:
+        return ''
+    if not name:
+        return ''
+    return str(name).lower()
+
+
+def layout_key(key: int) -> int:
+    """Physical key that types ``key``'s US letter on the active layout.
+
+    Raylib names keys after US QWERTY positions, so ``KEY_Q`` is the key
+    where Q sits on an English keyboard. Skill hotkeys are the letters
+    Q/W/E/R/T: the key that types that letter must cast the skill on
+    AZERTY, Dvorak, Colemak and any other Latin layout, without the player
+    switching the OS language to English. A layout with no such Latin
+    letter (Cyrillic, Greek, Arabic, ...) keeps the US position, which is
+    the Latin legend those keyboards still print.
+    """
+    # KEY_A..KEY_Z are the ASCII codes, so chr(KEY_Q) == 'Q'.
+    if key < rl.KEY_A or key > rl.KEY_Z:
+        return key
+    want = chr(key).lower()
+    for candidate in _LAYOUT_SCAN_KEYS:
+        if _key_label(candidate) == want:
+            return candidate
+    return key
 
 
 def key_pressed(consumer: object, key: int) -> bool:
