@@ -384,12 +384,14 @@ def test_missing_ffmpeg_refuses_to_start(monkeypatch):
 
 def test_ffmpeg_presence_is_probed_per_start(monkeypatch, clock, fake_window):
     """The probe is per-start, not cached - a player could install/move the
-    binary while the game runs."""
+    binary while the game runs. CI runners ship no ffmpeg: every start that
+    must SUCCEED pins the probe to a fake path."""
     r = ClipRecorder()
     with mock.patch.object(rec_mod.shutil, 'which', return_value=None):
         assert not r.start(MODE_MP4, 10)
     sink = FakeSink()
     rec_spy = mock.Mock(return_value=sink)
+    monkeypatch.setattr(rec_mod.shutil, 'which', lambda _n: '/usr/bin/ffmpeg')
     with mock.patch.object(rec_mod, '_build_video_sink', rec_spy):
         assert r.start(MODE_MP4, 10)
         rec_spy.assert_called_once()
@@ -428,6 +430,7 @@ def test_record_mp4_starts_video_with_graceful_missing_ffmpeg(
         monkeypatch, clock, fake_window):
     rec = ClipRecorder()
     game = _game(rec)
+    monkeypatch.setattr(rec_mod.shutil, 'which', lambda _n: '/usr/bin/ffmpeg')
     monkeypatch.setattr(rec_mod, '_build_video_sink',
                         lambda *a, **k: FakeSink())
     out = _exec_last_output(game, 'record mp4')
@@ -448,6 +451,7 @@ def test_record_mp4_ffmpeg_missing_shows_hint(monkeypatch, clock):
 def test_bare_record_is_an_mp4_clip(monkeypatch, clock, fake_window):
     rec = ClipRecorder()
     game = _game(rec)
+    monkeypatch.setattr(rec_mod.shutil, 'which', lambda _n: '/usr/bin/ffmpeg')
     monkeypatch.setattr(rec_mod, '_build_video_sink',
                         lambda *a, **k: FakeSink())
     out = _exec_last_output(game, 'record')
@@ -459,6 +463,7 @@ def test_bare_record_is_an_mp4_clip(monkeypatch, clock, fake_window):
 def test_record_webm_uses_the_vp9_path(monkeypatch, clock, fake_window):
     rec = ClipRecorder()
     game = _game(rec)
+    monkeypatch.setattr(rec_mod.shutil, 'which', lambda _n: '/usr/bin/ffmpeg')
     monkeypatch.setattr(rec_mod, '_build_video_sink',
                         lambda *a, **k: FakeSink())
     _exec_last_output(game, 'record webm 20')
