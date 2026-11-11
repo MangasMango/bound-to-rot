@@ -454,7 +454,7 @@ class TestCharacterLevel(unittest.TestCase):
             self.assertIn(path, allowed_files,
                           f'character level used outside the draw sites: {path}:{line_no}: {line}')
 
-        # explicit gameplay separations — these must never see the value
+        # explicit gameplay separations - these must never see the value
         gameplay = {
             'core/map_gen.py':          'loot / map layout',
             'entities/progression.py':  'derived stat computation',

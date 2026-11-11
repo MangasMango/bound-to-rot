@@ -176,11 +176,11 @@ SKELETON_DROP_TABLE = [
     ('heart',         1, 1,  0.035),
     ('kidney',        1, 1,  0.020),
     ('intestine',     1, 1,  0.025),
-    # QWER ability gems (issue #73 DESIGN PIVOT) - rare kills-only drops
-    ('gem_blue',      1, 1,  0.010),
-    ('gem_green',     1, 1,  0.010),
-    ('gem_red',       1, 1,  0.008),
-    ('gem_white',     1, 1,  0.006),
+    # QWE ability gems (issue #73 pivot; issue #45 retired the white gem) -
+    # rare kills-only drops, the freed white weight redistributed evenly
+    ('gem_blue',      1, 1,  0.012),
+    ('gem_green',     1, 1,  0.012),
+    ('gem_red',       1, 1,  0.010),
     # T-slot flasks (issue #73 ADDITION; flask_mana retired with mana)
     ('flask_health',  1, 1,  0.012),
     ('flask_utility', 1, 1,  0.008),
@@ -275,7 +275,7 @@ DELVE_CLICK_RADIUS = 0.2
 
 # The Delve Heart is tall entity art standing well above its tile. Iso
 # projection maps a click on its upper body to tiles far away from the base
-# diamond, so no tile-space HUB_CLICK_RADIUS bubble can cover the art — the
+# diamond, so no tile-space HUB_CLICK_RADIUS bubble can cover the art - the
 # vendor/stash sprites hug the ground and work fine that way. The heart is
 # therefore hit-tested in SCREEN space against its drawn art (same technique
 # as the delve pulse hitbox in core/input.py):
@@ -750,11 +750,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                   ('hit_flash', 'hit_flash.fs')):
                 ok = self.shaders.load(sname, fsname)
                 if ok is None:
-                    print(f"[shader] '{sname}' failed to load — using software path")
+                    print(f"[shader] '{sname}' failed to load - using software path")
                 else:
                     print(f"[shader] '{sname}' loaded OK")
             if self.shaders.load_fragment('gloss', 'gloss.fs') is None:
-                print("[shader] 'gloss' failed to load — using software fill")
+                print("[shader] 'gloss' failed to load - using software fill")
             self._load_lighting_textures()
 
             # Post-process shaders
@@ -791,7 +791,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             )
             for _sn, _fn in _vfx_shaders:
                 if self.shaders.load_fragment(_sn, _fn) is None:
-                    print(f"[shader] '{_sn}' failed to load — effect disabled")
+                    print(f"[shader] '{_sn}' failed to load - effect disabled")
                 else:
                     print(f"[shader] '{_sn}' loaded OK")
             self._vfx_white = rl.load_texture_from_image(
@@ -825,7 +825,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     rl.set_texture_wrap(tex, rl.TEXTURE_WRAP_CLAMP)
                 setattr(self, attr, tex)
             else:
-                print('[lightgen] texture generation failed — software fallback')
+                print('[lightgen] texture generation failed - software fallback')
 
     # ── state machine ─────────────────────────────────────────────────
 
@@ -3360,8 +3360,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             output = '/god  /heal  /kill  /give <item> [n|rarity]  /zoom <n>  /horde <1..10>'
             output += '\n/descend <attr> <0..10>   /perk <id> <0..max>   /pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
             output += '\n/pp contrast|sat|bright <v>   /pp_bloom samples|quality|threshold|intensity <v>'
-            output += '\n/weather [on|off] — toggle wet FX · /clear — wipe chat history'
-            output += '\n/record [gif|webm|mp4] [1-60] — dev clip (%APPDATA%/BTR/clips; bare /record = mp4)'
+            output += '\n/weather [on|off] - toggle wet FX · /clear - wipe chat history'
+            output += '\n/record [gif|webm|mp4] [1-60] - dev clip (%APPDATA%/BTR/clips; bare /record = mp4)'
             output += '\nevery command needs its / prefix - plain text is a chat say'
         elif command == 'pp':
             if len(parts) < 2:

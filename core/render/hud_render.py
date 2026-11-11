@@ -970,11 +970,14 @@ class HudRenderMixin:
                 rl.Rectangle(float(ax2), float(ang_y2), float(ang_w2), float(ang_h2)),
                 rl.Vector2(0, 0), 0.0, rl.WHITE)
         # revolver ammo readout - same size/placement family as the Life
-        # text; the ammo mechanic mutates self._ammo / self._reload_t
+        # text; the ammo mechanic mutates self._ammo / self._reload_t.
+        # issue #45: the reload state must READ - seconds left + a gold
+        # progress underline under the orb, not a bare 'Reloading...'.
         ammo_cur = int(getattr(self, '_ammo', AMMO_MAX))
         ammo_max = int(getattr(self, '_ammo_max', AMMO_MAX))
-        if float(getattr(self, '_reload_t', 0.0)) > 0:
-            ammo = 'Reloading...'
+        reload_t = float(getattr(self, '_reload_t', 0.0))
+        if reload_t > 0:
+            ammo = f'Reloading... {reload_t:.1f}s'
         else:
             ammo = f'Ammo : {ammo_cur} / {ammo_max}'
         ammo_fs = bfont(46)
@@ -983,6 +986,9 @@ class HudRenderMixin:
                    mag_x - ammo_w - bpx(16),
                    orb_top + int(ORB * 0.30) - 10, ammo_fs,
                    rl.Color(235, 235, 235, 240))
+        # reload progress lives in the R HUD slot now (see the slot belt
+        # below) - an under-panel bar anchored outside the panel edge was
+        # the issue-#45 follow-up bug.
 
         # 3) left cluster: bronze box with the organ-rot meter on top and the
         #    3 menu buttons underneath - the mockup's two-row rhythm
@@ -1085,7 +1091,7 @@ class HudRenderMixin:
         zone_r = rp_x - bpx(14)
         CSLOT = bpx(96)
         cgap = bpx(6)
-        slot_keys = ('Q', 'W', 'E', 'R', 'T')
+        slot_keys = ('Q', 'W', 'E', 'R', 'T')   # issue #45: R = reload slot
         slots_w = len(slot_keys) * CSLOT + (len(slot_keys) - 1) * cgap
         # centred on the CONTAINER (screen centre), clamped into the zone so
         # an asymmetric cluster pair can never push a slot into its neighbour
@@ -1096,12 +1102,12 @@ class HudRenderMixin:
                       slots_w + bpx(14), CSLOT + bpx(14))
         _section_box(*centre_box)
 
-        # Q/W/E/R gem ability slots - socketed ability icon, key label,
+        # Q/W/E gem ability slots - socketed ability icon, key label,
         # cooldown dim + seconds; click casts
         sk_t = _tex('skill_base')
         asz = CSLOT
         a_y = slots_y
-        for i, key in enumerate(('Q', 'W', 'E', 'R')):
+        for i, key in enumerate(('Q', 'W', 'E')):
             sx = slots_x + i * (asz + cgap)
             srect = rl.Rectangle(float(sx), float(a_y), float(asz), float(asz))
             if sk_t:
@@ -1160,9 +1166,55 @@ class HudRenderMixin:
             act_rects[key] = srect
             self._draw_hud_flash(key, sx + asz / 2, a_y, float(asz))
 
+        # R - the reload slot (issue #45): a dedicated belt slot with the
+        # mini cylinder art, NOT a gem. Click or R spins the cylinder;
+        # while the reload runs it shades + counts the seconds like a
+        # cooldown, so the reload state lives where the eye already is.
+        r_x = slots_x + 3 * (asz + cgap)
+        rrect = rl.Rectangle(float(r_x), float(a_y), float(asz), float(asz))
+        if sk_t:
+            rl.draw_texture_pro(sk_t,
+                rl.Rectangle(0, 0, float(sk_t.width), float(sk_t.height)),
+                rrect, rl.Vector2(0, 0), 0.0, rl.WHITE)
+        else:
+            rl.draw_rectangle(int(r_x), int(a_y), asz, asz, rl.Color(30, 30, 30, 220))
+        reloading = float(getattr(self, '_reload_t', 0.0)) > 0
+        cyl_t = _tex('orb_mag_0' if reloading else 'orb_mag_6')
+        if cyl_t and cyl_t.id > 0:
+            ico = int(asz - bpx(24))
+            rl.draw_texture_pro(cyl_t,
+                rl.Rectangle(0, 0, float(cyl_t.width), float(cyl_t.height)),
+                rl.Rectangle(float(r_x + bpx(12)), float(a_y + bpx(12)),
+                             float(ico), float(ico)),
+                rl.Vector2(0, 0), 0.0, rl.WHITE)
+        else:
+            icons.draw('melee', int(r_x + bpx(12)), int(a_y + bpx(12)),
+                       max(1, asz - bpx(24)), rl.WHITE)
+        fonts.draw('R', r_x + bpx(6), a_y + bpx(5), bfont(24),
+                   rl.Color(220, 220, 220, 230))
+        if reloading:
+            rt = float(getattr(self, '_reload_t', 0.0))
+            total = float(getattr(self, '_reload_total', 0.0)) or 1.0
+            shade = max(40, int(170 * min(1.0, rt / total)))
+            rl.draw_rectangle(int(r_x), int(a_y), asz, asz,
+                              rl.Color(0, 0, 0, shade))
+            rnum = f'{rt:.1f}'
+            rfs = bfont(13)
+            rw = fonts.measure(rnum, rfs)
+            fonts.draw(rnum, r_x + asz // 2 - rw // 2,
+                       a_y + asz // 2 - rfs // 2, rfs,
+                       rl.Color(255, 220, 120, 240))
+        if (rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT)
+                and rl.check_collision_point_rec(
+                    rl.Vector2(float(mxp), float(myp)), rrect)):
+            if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
+                self._start_reload()
+        act_rects['R'] = rrect
+        self._draw_hud_flash('R', r_x + asz / 2, a_y, float(asz))
+
         # T - the equipped flask (health/mana abilities, click or T to drink);
         #    slot 5 of the centred row, drawn on the same skill_base frame
-        fl_x = slots_x + 4 * (asz + cgap)
+        fl_x = slots_x + 4 * (asz + cgap)   # right after Q/W/E/R
         fl_y = slots_y
         frect = rl.Rectangle(float(fl_x), float(fl_y), float(asz), float(asz))
         bst_t = sk_t                     # same skill_base frame as Q/W/E/R
@@ -1356,7 +1408,7 @@ class HudRenderMixin:
             lost = int(results.get('xp_lost', 0))
             level = int(results.get('level', 0))
             if level >= MAX_LEVEL:
-                tail = 'Death at the cap — no XP was lost.'
+                tail = 'Death at the cap - no XP was lost.'
             elif lost > 0:
                 tail = f'Death cost {lost} XP. Your vessel dropped to Hub; the character survives.'
             else:

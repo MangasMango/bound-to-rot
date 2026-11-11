@@ -1,0 +1,88 @@
+# Automated release kick-off (issue #45 follow-up; owner ruling 2026-11).
+#
+# When a PR merges into main carrying the `release` label, this workflow:
+#   1. bumps pyproject.toml (label release:minor -> minor, else patch),
+#   2. commits the bump straight to main (chore(release): vX.Y.Z - passes
+#      the conventional-commit CI gate),
+#   3. pushes the vX.Y.Z tag.
+#
+# The tag push then drives .github/workflows/release.yml, which builds the
+# Linux+Windows zips and attaches them to a DRAFT release. Publishing the
+# draft stays a manual human step - nothing auto-publishes (see RELEASE.md).
+#
+# Fails loudly if the tag already exists or the labels are contradictory.
+
+name: Release kick-off (on merge)
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write         # commit the bump, push the tag
+
+jobs:
+  bump-and-tag:
+    name: Bump version + tag
+    if: >
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Compute the next version
+        id: bump
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          python - <<'PY'
+          import json, os, re
+
+          version = re.search(
+              r'^version = "([^"]+)"', open('pyproject.toml').read(),
+              re.MULTILINE).group(1)
+          major, minor, patch = (int(p) for p in version.split('.'))
+          labels = os.environ['LABELS'].split()
+          if 'release:minor' in labels:
+              minor, patch = minor + 1, 0
+          else:
+              patch += 1              # default: patch bump (RELEASE.md)
+          new = f'{major}.{minor}.{patch}'
+          print(f'::notice::Bumping {version} -> {new}')
+          with open('pyproject.toml', 'w') as f:
+              f.write(re.sub(r'^version = "[^"]+"', f'version = "{new}"',
+                             open('pyproject.toml').read(), flags=re.MULTILINE))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'version={new}\n')
+          PY
+
+      - name: Guard - the tag must not exist yet
+        env:
+          TAG: v${{ steps.bump.outputs.version }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists - refusing to re-tag."
+            exit 1
+          fi
+
+      - name: Commit the bump + push the tag
+        env:
+          TAG: v${{ steps.bump.outputs.version }}
+        run: |
+          set -eu
+          git config user.name "release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore(release): $TAG"
+          git tag "$TAG"
+          git push origin HEAD:main "$TAG"

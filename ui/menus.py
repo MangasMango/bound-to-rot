@@ -1320,7 +1320,7 @@ class MenuSystem:
                 st = 'AVAILABLE'
                 fonts.draw(st, int(tx), int(vy + row_h - 22), 12, C_GREEN)
             elif wip:
-                st = 'WIP — COMING LATER'
+                st = 'WIP - COMING LATER'
                 fonts.draw(st, int(tx), int(vy + row_h - 22), 12,
                            gui_kit.MUTED)
             else:

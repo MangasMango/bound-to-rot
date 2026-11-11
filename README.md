@@ -42,6 +42,12 @@ If you'd like to report a bug or suggest a feature, open an [issue](https://gith
 | `Escape` | Pause |
 | `` ` `` | Dev console (type `help` for commands) |
 
+## Releases
+
+Cutting a release is automated: label the PR `release`, merge, review the
+draft that appears under Releases, hit Publish. Details and the manual
+fallback live in [RELEASE.md](RELEASE.md).
+
 ## Building
 
 If you'd rather compile on your own, follow these instructions.

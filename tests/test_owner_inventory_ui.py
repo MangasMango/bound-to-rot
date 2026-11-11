@@ -251,8 +251,8 @@ def test_socket_refuses_the_wrong_colour():
     inv['grid'] = [_grid_entry('gem_blue', col=0, row=0)]
     assert items.socket_gem_from_grid(inv, 0, dest_key='W') is False
     assert items.socket_gem_from_grid(inv, 0, dest_key='E') is False
-    assert items.socket_gem_from_grid(inv, 0, dest_key='R') is False
-    assert all(inv['gem_sockets'][k] is None for k in ('Q', 'W', 'E', 'R'))
+    assert items.socket_gem_from_grid(inv, 0, dest_key='W') is False
+    assert all(inv['gem_sockets'][k] is None for k in ('Q', 'W', 'E'))
     assert len(inv['grid']) == 1
 
 
@@ -334,12 +334,12 @@ def test_gem_key_colour_palette_is_unchanged_for_the_border():
 
 
 def test_empty_sockets_draw_gray_keys_and_dimmed_ghosts(monkeypatch):
-    sockets = {'Q': None, 'W': None, 'E': None, 'R': None}
+    sockets = {'Q': None, 'W': None, 'E': None}
     ui, rendered, textures = _socket_render(monkeypatch, sockets)
-    for key in ('Q', 'W', 'E', 'R'):
+    for key in ('Q', 'W', 'E'):
         assert key in rendered
     # one ghost per socket, each showing the gem that belongs in that key
-    for key in ('Q', 'W', 'E', 'R'):
+    for key in ('Q', 'W', 'E'):
         ghost = ui._icons[gems.GEM_ITEM_FOR_SLOT[key]]
         assert any(t is ghost and _alpha(a[-1]) == _ghost_alpha()
                    for t, a in textures), key
@@ -347,7 +347,7 @@ def test_empty_sockets_draw_gray_keys_and_dimmed_ghosts(monkeypatch):
 
 def test_filled_socket_draws_the_real_gem_and_no_ghost(monkeypatch):
     sockets = {'Q': gems.random_gem_slot('Q', 5, seed=1), 'W': None,
-               'E': None, 'R': None}
+               'E': None}
     ui, rendered, textures = _socket_render(monkeypatch, sockets)
     blue = ui._icons['gem_blue']
     blue_calls = [a for t, a in textures if t is blue]
@@ -355,7 +355,7 @@ def test_filled_socket_draws_the_real_gem_and_no_ghost(monkeypatch):
     assert all(_alpha(a[-1]) != _ghost_alpha() for a in blue_calls), \
         'a filled slot must not draw the ghost behind the real gem'
     # the empty sockets still ghost their own colour
-    for key in ('W', 'E', 'R'):
+    for key in ('W', 'E'):
         ghost = ui._icons[gems.GEM_ITEM_FOR_SLOT[key]]
         assert any(t is ghost and _alpha(a[-1]) == _ghost_alpha() for t, a in textures)
 
@@ -363,7 +363,7 @@ def test_filled_socket_draws_the_real_gem_and_no_ghost(monkeypatch):
 def test_ghosted_socket_is_still_clickable_and_hoverable(monkeypatch):
     """A ghosted slot keeps its hit rect (clicking casts nothing, but no crash)."""
     ui, rendered, textures = _socket_render(
-        monkeypatch, {'Q': None, 'W': None, 'E': None, 'R': None})
+        monkeypatch, {'Q': None, 'W': None, 'E': None})
     inv = items.make_inventory()
     px, s = ui._panel(1280, 720)
     for i, key in enumerate(inv_ui.GEM_KEYS):
@@ -375,7 +375,7 @@ def test_ghosted_socket_is_still_clickable_and_hoverable(monkeypatch):
 
 def test_empty_flask_slot_draws_the_flask_ghost(monkeypatch):
     ui, rendered, textures = _socket_render(
-        monkeypatch, {'Q': None, 'W': None, 'E': None, 'R': None}, flask=None)
+        monkeypatch, {'Q': None, 'W': None, 'E': None}, flask=None)
     flask_art = ui._icons[inv_ui.GHOST_FLASK_ITEM]
     assert any(t is flask_art and _alpha(a[-1]) == _ghost_alpha() for t, a in textures)
     assert 'T' in rendered
@@ -384,7 +384,7 @@ def test_empty_flask_slot_draws_the_flask_ghost(monkeypatch):
 def test_filled_flask_slot_draws_no_ghost(monkeypatch):
     flask = {'item': 'flask_health', 'count': 1, 'charges': 1}
     ui, rendered, textures = _socket_render(
-        monkeypatch, {'Q': None, 'W': None, 'E': None, 'R': None}, flask=flask)
+        monkeypatch, {'Q': None, 'W': None, 'E': None}, flask=flask)
     art = ui._icons['flask_health']
     for _t, a in textures:
         if _alpha(a[-1]) == _ghost_alpha():
@@ -416,9 +416,8 @@ def test_inventory_draw_smoke_with_real_character_runs_socket_paths(monkeypatch)
     char.inventory = inv
     inv['grid'] = [_grid_entry('lungs', col=0, row=0),
                    _grid_entry('gem_blue', col=1, row=0)]
-    inv['gem_sockets']['Q'] = None
-    inv['gem_sockets']['R'] = {'item': 'gem_white', 'count': 1,
-                               'instance_data': {'rarity': 'rare', 'ilvl': 9,
+    inv['gem_sockets']['Q'] = {'item': 'gem_blue', 'count': 1,
+                               'instance_data': {'rarity': 'uncommon', 'ilvl': 5,
                                                  'identified': True,
                                                  'ability': 'cone_physical'}}
     inv['flask_slot'] = None
@@ -430,16 +429,17 @@ def test_inventory_draw_smoke_with_real_character_runs_socket_paths(monkeypatch)
     ui._stash_grid = None
     ui.draw(inv, 1280, 720)
 
-    for key in ('Q', 'W', 'E', 'R'):
-        assert key in rendered, f'socket key {key} was not drawn'
-    # the empty sockets ghosted, the filled one drew its real white gem
     for key in ('Q', 'W', 'E'):
+        assert key in rendered, f'socket key {key} was not drawn'
+    # the EMPTY sockets ghost their own colour (W/E here); the filled Q
+    # socket draws its real gem at full opacity - no ghost behind it
+    for key in ('W', 'E'):
         ghost = ui._icons[gems.GEM_ITEM_FOR_SLOT[key]]
         assert any(t is ghost and _alpha(a[-1]) == _ghost_alpha()
                    for t, a in textures), key
-    white = ui._icons['gem_white']
-    assert any(t is white and _alpha(a[-1]) == 255 for t, a in textures), \
-        'the socketed white gem must be drawn at full opacity'
+    blue = ui._icons['gem_blue']
+    assert any(t is blue and _alpha(a[-1]) == 255 for t, a in textures), \
+        'the socketed blue gem must be drawn at full opacity'
     flask_art = ui._icons[inv_ui.GHOST_FLASK_ITEM]
     assert any(t is flask_art and _alpha(a[-1]) == _ghost_alpha()
                for t, a in textures)

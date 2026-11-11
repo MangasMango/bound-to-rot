@@ -523,7 +523,7 @@ class DelveChartScreen:
                 extra = sum(r.get('count', 1) for r in rewards[1:])
                 reward = (r0['item'], name, r0.get('count', 1), extra)
             if node['type'] == 'checkpoint':
-                body.append(('Anima Cart — rest & refill flask',
+                body.append(('Anima Cart - rest & refill flask',
                              rl.Color(255, 220, 140, 220)))
         else:
             body.append(('Undiscovered', rl.Color(140, 144, 158, 255)))

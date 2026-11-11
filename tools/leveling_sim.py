@@ -21,7 +21,7 @@ Drys out the two questions the rework keeps re-litigating:
 1. how long a level takes (XP per level vs XP per wave at matched depth), and
 2. how fast you fall off when farming below your level.
 
-All live values are imported from `systems.xp` and `core.delve_gen` — the
+All live values are imported from `systems.xp` and `core.delve_gen` - the
 simulator itself owns *no* progression data, only the pace model:
 
   - assumed seconds per kill (including walk/aim), rising gently with depth
@@ -52,14 +52,14 @@ AVG_STREAK          = 4     # angel-meter chain average (+20% XP)
 # deaths, hub time). The time budget per level follows
 #   t(L) = 0.4936·L + 0.00639·L^2.5   (minutes at matched depth)
 # calibrated so Σt ≈ 6300 min with t(1) ≈ 0.5 min. The SHIP artifact is the
-# per-level XP requirement table derived from it — one line per level, no
-# closed form — see plan §2.2 for the recipe: req(L) = round(t(L) ·
+# per-level XP requirement table derived from it - one line per level, no
+# closed form - see plan §2.2 for the recipe: req(L) = round(t(L) ·
 # kills_per_min(L) · kill_xp(L)). Kill-interval calibration (Phase 0)
-# changes req by t·rate — re-fit and regenerate the table, never hand-edit
+# changes req by t·rate - re-fit and regenerate the table, never hand-edit
 # single rows.
 
 WAVE_CAP = 40   # owner-ruled lever 2026-11: raise ENEMY COUNT per wave;
-                # live `core.delve_flow` spawns min(20, 5 + depth) — the cap
+                # live `core.delve_flow` spawns min(20, 5 + depth) - the cap
                 # move lives there, this parameter previews the economy.
 
 import math
@@ -81,7 +81,7 @@ def proposed_requirements() -> list:
     """69 per-level XP requirements hitting the 150 h budget.
 
     Uses the PLAN's proposed kill XP (6 + 3·monster_level, plan §2.2), not
-    the live `xp.kill_xp` — this mode previews the Phase 4 data. Keep the
+    the live `xp.kill_xp` - this mode previews the Phase 4 data. Keep the
     two in sync when the plan's §2.2 amplitudes change."""
     streak = xp.streak_multiplier(AVG_STREAK)
     reqs = []
@@ -99,7 +99,7 @@ def proposed_requirements() -> list:
 if '--proposal' in sys.argv:
     reqs = proposed_requirements()
     print('== PROPOSAL: 150 h budget ==')
-    print('req table (69 entries) — total', f'{sum(reqs):,}', 'XP')
+    print('req table (69 entries) - total', f'{sum(reqs):,}', 'XP')
     for level in [1, 5, 10, 20, 30, 40, 50, 60, 65, 69]:
         req = reqs[level - 1]
         depth = _depth_for(level)

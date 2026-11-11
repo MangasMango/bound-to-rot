@@ -48,7 +48,6 @@ ITEMS = {
     'gem_blue':  {'name': 'Blue Gem',  'img': 'items/gem_blue.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'Q'},
     'gem_green': {'name': 'Green Gem', 'img': 'items/gem_green.png', 'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'W'},
     'gem_red':   {'name': 'Red Gem',   'img': 'items/gem_red.png',   'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'E'},
-    'gem_white': {'name': 'White Gem', 'img': 'items/gem_white.png', 'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'R'},
     # ── flasks (issue #73 ADDITION: T-slot flask, one use per wave) ───
     # flask_mana retired with the mana system (owner ruling 2026-10-29)
     'flask_health':  {'name': 'Health Flask',  'img': 'items/health.png', 'rarity': 'common', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isFlask': 'health',  'charges': 1},
@@ -249,7 +248,7 @@ def make_inventory():
             'kidney':    None,
         },
         'grid':        [],
-        'gem_sockets': {'Q': None, 'W': None, 'E': None, 'R': None},
+        'gem_sockets': {'Q': None, 'W': None, 'E': None},   # issue #45: no R slot
         'flask_slot':  None,
         'grid_v':      INV_GRID_VERSION,
     }
