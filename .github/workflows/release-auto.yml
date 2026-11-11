@@ -20,7 +20,8 @@ on:
     branches: [main]
 
 permissions:
-  contents: write         # commit the bump, push the tag
+  contents: write         # push the release branch / the tag
+  pull-requests: write    # open the release PR (gh pr create)
 
 jobs:
   bump-and-tag:
