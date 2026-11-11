@@ -64,6 +64,7 @@ gh label create release:minor --repo MangasMango/bound-to-rot \
 
 `release:minor` is always used *together with* `release`.
 
+
 ## Files involved
 
 | File | Role |
