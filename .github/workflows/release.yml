@@ -60,6 +60,9 @@ jobs:
         run: python -m pytest tests/ -q
 
       - name: Check tag matches pyproject version
+        # bash: the heredoc below is not PowerShell-parseable and this step
+        # runs on the Windows runner too
+        shell: bash
         env:
           TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
         run: |
