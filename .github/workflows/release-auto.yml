@@ -1,16 +1,21 @@
-# Automated release kick-off (issue #45 follow-up; owner ruling 2026-11).
+# Automated release kick-off (owner ruling 2026-11; branch-protection aware).
 #
-# When a PR merges into main carrying the `release` label, this workflow:
-#   1. bumps pyproject.toml (label release:minor -> minor, else patch),
-#   2. commits the bump straight to main (chore(release): vX.Y.Z - passes
-#      the conventional-commit CI gate),
-#   3. pushes the vX.Y.Z tag.
+# TWO legs, keyed off who authored the merged PR:
 #
-# The tag push then drives .github/workflows/release.yml, which builds the
-# Linux+Windows zips and attaches them to a DRAFT release. Publishing the
-# draft stays a manual human step - nothing auto-publishes (see RELEASE.md).
+#   LEG 1 - a HUMAN-authored PR merges into main carrying the `release`
+#   label: this workflow opens a "chore(release): vX.Y.Z" PULL REQUEST
+#   (branch release/vX.Y.Z) with the version bump. It never pushes to main
+#   directly - branch protection requires PRs and the bot cannot bypass.
 #
-# Fails loudly if the tag already exists or the labels are contradictory.
+#   LEG 2 - that bot-authored release PR merges (one human click): the
+#   workflow detects its own PR (author github-actions[bot], title starts
+#   with "chore(release):"), skips the bump, and pushes the vX.Y.Z tag.
+#   The tag push drives release.yml -> build matrix -> DRAFT release.
+#
+# Publishing the draft stays a manual human step (see RELEASE.md).
+#
+# Double-bump protection: LEG 1 never runs for bot-authored PRs, and the
+# tag guard refuses an existing tag.
 
 name: Release kick-off (on merge)
 
@@ -24,10 +29,11 @@ permissions:
   pull-requests: write    # open the release PR (gh pr create)
 
 jobs:
-  bump-and-tag:
-    name: Bump version + tag
+  release-pr:
+    name: Open the release PR (human-authored merge)
     if: >
       github.event.pull_request.merged == true &&
+      github.event.pull_request.user.login != 'github-actions[bot]' &&
       contains(github.event.pull_request.labels.*.name, 'release')
     runs-on: ubuntu-latest
 
@@ -41,7 +47,7 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Compute the next version
+      - name: Compute the next version (read BEFORE any write)
         id: bump
         env:
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
@@ -49,9 +55,11 @@ jobs:
           python - <<'PY'
           import json, os, re
 
-          version = re.search(
-              r'^version = "([^"]+)"', open('pyproject.toml').read(),
-              re.MULTILINE).group(1)
+          # read FIRST - opening the file for write truncates it and a
+          # later read would return '' (the v0.2.2 empty-pyproject bug)
+          raw = open('pyproject.toml').read()
+          version = re.search(r'^version = "([^"]+)"', raw,
+                              re.MULTILINE).group(1)
           major, minor, patch = (int(p) for p in version.split('.'))
           labels = os.environ['LABELS'].split()
           if 'release:minor' in labels:
@@ -60,9 +68,10 @@ jobs:
               patch += 1              # default: patch bump (RELEASE.md)
           new = f'{major}.{minor}.{patch}'
           print(f'::notice::Bumping {version} -> {new}')
-          with open('pyproject.toml', 'w') as f:
-              f.write(re.sub(r'^version = "[^"]+"', f'version = "{new}"',
-                             open('pyproject.toml').read(), flags=re.MULTILINE))
+          updated = re.sub(r'^version = "[^"]+"', f'version = "{new}"',
+                           raw, flags=re.MULTILINE)
+          assert 'version = "%s"' % new in updated, 'bump did not land'
+          open('pyproject.toml', 'w').write(updated)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'version={new}\n')
           PY
@@ -76,14 +85,80 @@ jobs:
             exit 1
           fi
 
-      - name: Commit the bump + push the tag
+      - name: Open the release PR
         env:
-          TAG: v${{ steps.bump.outputs.version }}
+          VERSION: ${{ steps.bump.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
           set -eu
+          BRANCH="release/v${VERSION}"
           git config user.name "release-bot"
           git config user.email "release-bot@users.noreply.github.com"
+          git checkout -b "$BRANCH"
           git add pyproject.toml
-          git commit -m "chore(release): $TAG"
+          git commit -m "chore(release): v${VERSION}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base main --head "$BRANCH" \
+            --label "release" \
+            --title "chore(release): v${VERSION}" \
+            --body "Automated release PR: bumps the version to ${VERSION}. Merging this PR tags v${VERSION} and drafts the release. Publish the draft from the Releases tab."
+
+  tag-on-release-pr:
+    name: Tag the release (bot-authored release PR merged)
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.user.login == 'github-actions[bot]' &&
+      startsWith(github.event.pull_request.title, 'chore(release):')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Derive the tag from the release PR title
+        id: tag
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python - <<'PY'
+          import os, re
+          m = re.match(r'chore\(release\): v(\d+\.\d+\.\d+)',
+                       os.environ['TITLE'])
+          assert m, f'not a release PR title: {os.environ["TITLE"]!r}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"tag=v{m.group(1)}\n")
+          PY
+
+      - name: Guard - version in pyproject must match the tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          python - <<'PY'
+          import os, re, sys, tomllib
+          version = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
+          expected = os.environ['TAG'].lstrip('v')
+          if version != expected:
+              sys.exit(f'tag mismatch: pyproject {version} vs tag {expected}')
+          PY
+
+      - name: Guard - the tag must not exist yet
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists - refusing to re-tag."
+            exit 1
+          fi
+
+      - name: Push the tag (drives the draft release)
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git config user.name "release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
           git tag "$TAG"
-          git push origin HEAD:main "$TAG"
+          git push origin "$TAG"
