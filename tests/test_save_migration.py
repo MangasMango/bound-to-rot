@@ -389,7 +389,7 @@ class UnsafeSaveTests(unittest.TestCase):
 
 
 class RealPathTests(unittest.TestCase):
-    """The live game path: creation, hub entry and delve entry all save/load."""
+    """The live game path: creation, hub entry and anima entry all save/load."""
 
     def test_new_save_is_stamped_with_current_version(self):
         directory = tempfile.mkdtemp()
@@ -416,28 +416,28 @@ class RealPathTests(unittest.TestCase):
         self.assertEqual(len(reloaded.characters), 1)
         self.assertEqual(reloaded.characters[0].name, 'RoundTrip')
 
-    def test_delve_snapshot_round_trip_keeps_version(self):
+    def test_anima_snapshot_round_trip_keeps_version(self):
         directory = tempfile.mkdtemp()
-        path = os.path.join(directory, 'delve_char-1.json')
-        with mock.patch.object(prog, 'delve_save_path', lambda _cid: path):
-            prog.save_delve_data('char-1', {'delve': {'state': 'ready', 'enemy_ids': {3}}})
+        path = os.path.join(directory, 'anima_char-1.json')
+        with mock.patch.object(prog, 'anima_save_path', lambda _cid: path):
+            prog.save_anima_data('char-1', {'anima': {'state': 'ready', 'enemy_ids': {3}}})
             with open(path) as f:
                 self.assertEqual(json.load(f)['save_schema_version'],
                                  prog.SAVE_SCHEMA_VERSION)
-            restored = prog.load_delve_data('char-1')
-        self.assertEqual(restored['delve']['enemy_ids'], {3})
+            restored = prog.load_anima_data('char-1')
+        self.assertEqual(restored['anima']['enemy_ids'], {3})
 
-    def test_future_delve_snapshot_is_ignored_not_loaded(self):
+    def test_future_anima_snapshot_is_ignored_not_loaded(self):
         directory = tempfile.mkdtemp()
-        path = os.path.join(directory, 'delve_char-1.json')
+        path = os.path.join(directory, 'anima_char-1.json')
         payload = {'save_schema_version': prog.SAVE_SCHEMA_VERSION + 1,
-                   'delve': {'state': 'ready'}}
+                   'anima': {'state': 'ready'}}
         with open(path, 'w') as f:
             json.dump(payload, f)
         backup_dir = os.path.join(directory, 'backups')
-        with mock.patch.object(prog, 'delve_save_path', lambda _cid: path), \
+        with mock.patch.object(prog, 'anima_save_path', lambda _cid: path), \
              mock.patch.object(prog, 'BACKUP_DIR', backup_dir):
-            self.assertIsNone(prog.load_delve_data('char-1'))
+            self.assertIsNone(prog.load_anima_data('char-1'))
         with open(path) as f:
             self.assertEqual(json.load(f), payload)
         self.assertEqual(len(os.listdir(backup_dir)), 1)

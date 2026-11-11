@@ -19,8 +19,8 @@ import pyray as rl
 
 from core.game import (
     DEATH_DURATION,
-    DELVE_CLICK_RADIUS,
-    DELVE_PERSONAL_LIGHT,
+    ANIMA_CLICK_RADIUS,
+    ANIMA_PERSONAL_LIGHT,
     STATE_DEAD,
     STATE_EDITOR,
     STATE_EXTRACTED,
@@ -43,7 +43,7 @@ OUTLINE_COLOR_IDLE = rl.Color(0, 0, 0, 255)
 OUTLINE_COLOR_HIT = rl.Color(190, 20, 20, 255)
 OUTLINE_SIZE = 1.5
 
-# Delve actors (player + enemies) draw dimmer than the raw sprite art -
+# Anima actors (player + enemies) draw dimmer than the raw sprite art -
 # 1.0 = unchanged, lower = darker.
 SPRITE_DARKEN = 0.75
 
@@ -218,11 +218,11 @@ class FrameRenderMixin:
             'big_art':   True,      # legacy character canvas keeps ENTITY_BASE size
         })
 
-        # ── pulse (delve crawler) ─────────────────────────────────────
-        if self._delve is not None and self._pulse_tex is not None:
+        # ── pulse (anima crawler) ─────────────────────────────────────
+        if self._anima is not None and self._pulse_tex is not None:
             entities.append({
-                'col':      self._delve['pulse_x'],
-                'row':      self._delve['pulse_y'],
+                'col':      self._anima['pulse_x'],
+                'row':      self._anima['pulse_y'],
                 'texture':  self._pulse_tex,
                 'scale':    1,
                 'big_art':  True,   # ENTITY canvas, same size as _draw_pulse_sprite
@@ -334,7 +334,7 @@ class FrameRenderMixin:
 
         import time as _perf_time
         t_draw_map_start = _perf_time.perf_counter()
-        self._delve_draw_entities = entities   # for the above-darkness actor redraw
+        self._anima_draw_entities = entities   # for the above-darkness actor redraw
         self.iso.draw_map(self.map, entities, cw, ch)
         t_weather_start = _perf_time.perf_counter()
         self._render_puddle_reflections(cw, ch, entities)
@@ -346,7 +346,7 @@ class FrameRenderMixin:
             [gi for gi in self.ground_items
              if gi.get('type') in ('portal', 'crate', 'barrel', 'brazier')
              and not gi.get('breaking')],
-            DELVE_CLICK_RADIUS, cw, ch)
+            ANIMA_CLICK_RADIUS, cw, ch)
         self._draw_world_objects(cw, ch)
         t_after_world_objs = _perf_time.perf_counter()
         self._weather_ms = (t_after_weather - t_weather_start) * 1000
@@ -370,20 +370,20 @@ class FrameRenderMixin:
         # Post-process chain (bloom, color, wave, dream, grayscale, pixelizer, swirl)
         self._apply_post_chain(cw, ch)
 
-        if self._delve is not None:
+        if self._anima is not None:
             self._draw_darkness(cw, ch)
             # actors above the darkness: player + monsters keep a readable
             # brightness (pool light + ACTOR_LIGHT_FLOOR), per-sprite tints
             # (target/hover/status/death-fade) still apply on top of it.
             # Same light spec as _draw_darkness (kind 'pulse', pool edge =
             # light_r + personal light, centred anchor).
-            d = self._delve
+            d = self._anima
             lights = [{'x': d['pulse_x'], 'y': d['pulse_y'],
-                       'r': d['light_r'] + DELVE_PERSONAL_LIGHT,
+                       'r': d['light_r'] + ANIMA_PERSONAL_LIGHT,
                        'kind': 'pulse', 'phase': 0.0, 'ax': 0.0, 'ay': 0.0}]
             tile_size = max(1, int(ISO_W * self.iso.scale))
             half = tile_size * 0.5
-            for e in getattr(self, '_delve_draw_entities', []):
+            for e in getattr(self, '_anima_draw_entities', []):
                 if not e.get('actor'):
                     continue
                 sx, sy = self.iso.world_to_screen(e['col'], e['row'], cw, ch)
@@ -413,14 +413,14 @@ class FrameRenderMixin:
             if self._hovered_ground_item and not self.inv.open:
                 self._draw_ground_tooltip(self._hovered_ground_item, cw, ch)
             self._draw_pulse_label(cw, ch)
-            self._draw_delve_choice_ui(cw, ch)
+            self._draw_anima_choice_ui(cw, ch)
         if self.menu_sys.settings.debug_overlay: self._draw_debug(cw, ch)
         if self.menu_sys.settings.debug_overlay:
             self._draw_debug_rings(
                 [gi for gi in self.ground_items
                  if gi.get('type') in ('portal', 'crate', 'barrel', 'brazier')
                  and not gi.get('breaking')],
-                DELVE_CLICK_RADIUS, cw, ch)
+                ANIMA_CLICK_RADIUS, cw, ch)
         if self.menu_sys.settings.crt_effect: self._draw_crt(cw, ch)
 
         # Restore clean camera (undo shake) before HUD

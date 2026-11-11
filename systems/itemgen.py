@@ -206,9 +206,9 @@ _PERK_AFFIXES = [
 
     # Anima light (NRV-owned domain shares the light line; acceptable
     # since light radius isn't exclusively attribute-owned per plan §2.1)
-    {'id': 'pk_delve_light',     'kind': 'suffix', 'slots': {'lungs', 'liver'},
+    {'id': 'pk_anima_light',     'kind': 'suffix', 'slots': {'lungs', 'liver'},
      'base': 0.5, 'round': 1, 'pct': False, 'word': 'of Luminance',
-     'label': '+{v} Anima Light Radius', 'perk': 'delve_light_radius'},
+     'label': '+{v} Anima Light Radius', 'perk': 'anima_light_radius'},
 ]
 
 # Retirements (plan §2.1-§2.4, owner rulings 2026-11):

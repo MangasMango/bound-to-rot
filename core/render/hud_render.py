@@ -21,7 +21,7 @@ from core.game import (
     AMMO_MAX,
     ANGEL_STREAK_WINDOW,
     DARKNESS_AMBIENT,
-    DELVE_PERSONAL_LIGHT,
+    ANIMA_PERSONAL_LIGHT,
     DESCEND_ATTRIBUTES,
     EQUIP_SLOT_LABELS,
     ITEMS,
@@ -91,13 +91,13 @@ class HudRenderMixin:
         in_light = False
         for light in lights:
             if light.get('kind') == 'pulse':
-                # delve pulse: the radius IS the full-safety edge (the
+                # anima pulse: the radius IS the full-safety edge (the
                 # personal-light grace is already baked into it)
                 reach = light['r']
             else:
                 # hub lights: `r` is the visible edge (EDGE_SCALE-compensated
                 # in _HUB_LIGHTS) - gameplay reach keeps its pre-swap value
-                reach = light['r'] / SHADER_EDGE_SCALE + DELVE_PERSONAL_LIGHT
+                reach = light['r'] / SHADER_EDGE_SCALE + ANIMA_PERSONAL_LIGHT
             if math.hypot(self.px - light['x'], self.py - light['y']) <= reach:
                 in_light = True
                 break
@@ -130,11 +130,11 @@ class HudRenderMixin:
     # the compact 'ILEVEL n' label lives on in the inventory header and
     # the D.E.S.C.E.N.D. panel's stat grid only.
 
-    def _draw_delve_hud(self, cw: int, ch: int, scale_font):
+    def _draw_anima_hud(self, cw: int, ch: int, scale_font):
         """Depth counter and darkness warning overlay."""
-        if self._delve is None:
+        if self._anima is None:
             return
-        d = self._delve
+        d = self._anima
 
         # Depth counter - under the minimap, right side (owner ruling:
         # top-center belongs to the kill streak now). Geometry mirrors the
@@ -636,11 +636,11 @@ class HudRenderMixin:
         def scale_font(n): return max(12, int(n * hud_scale))
         ui  = self._ui
 
-        self._draw_delve_hud(cw, ch, scale_font)
+        self._draw_anima_hud(cw, ch, scale_font)
 
         # Area name - top center
-        # if self._delve is not None:
-        #     area_name = f"The Anima  -  Depth {self._delve['depth']}"
+        # if self._anima is not None:
+        #     area_name = f"The Anima  -  Depth {self._anima['depth']}"
         # elif self.state == STATE_HUB:
         #     area_name = "The Hub"
         # else:
@@ -1456,8 +1456,8 @@ class HudRenderMixin:
         rl.draw_ellipse_lines(sx + half, sy + half, float(rx), float(ry), rl.Color(80, 200, 255, 200))
 
         # Darkness system info
-        if self._delve is not None:
-            d = self._delve
+        if self._anima is not None:
+            d = self._anima
             has_rt = bool(self._darkness_rt is not None and self._darkness_rt.id > 0)
             has_blob = bool(self._light_blob_tex is not None and self._light_blob_tex.id > 0)
             step_x, step_y = self.iso._steps()

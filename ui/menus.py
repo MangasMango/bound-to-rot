@@ -33,7 +33,7 @@ import config
 
 from core.iso_engine import IsoSprite
 
-from entities.progression import (CharacterManager, clear_delve_data,
+from entities.progression import (CharacterManager, clear_anima_data,
                          compute_derived_stats)
 from entities.descend import (DESCEND_ATTRIBUTES, ATTR_CAP,
                               ATTR_LABEL,
@@ -1030,7 +1030,7 @@ class MenuSystem:
         _btn(no_r, 'Cancel', 15)
         if _click(yes_r):
             for c in list(self.char_mgr.characters):
-                clear_delve_data(c.id)
+                clear_anima_data(c.id)
             self.char_mgr.characters = []
             self.char_mgr.active_idx = 0
             self.char_mgr.unlocked_vessels = ['knight']

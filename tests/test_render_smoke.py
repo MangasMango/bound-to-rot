@@ -68,7 +68,7 @@ def _game_stub():
     game._streak_lost_t = -999.0
     game._streak_pop_t = -999.0
     game._last_kill_t = -999.0
-    game._delve = None
+    game._anima = None
     game.zombies = []
     game.ground_items = []
     game.px = 0.0
@@ -77,7 +77,7 @@ def _game_stub():
     game.iso = SimpleNamespace(draw_minimap=lambda *args, **kwargs: None)
     game._drop_rarity = lambda _item: "common"
     game._rarity_color = lambda rarity: rl.Color(255, 255, 255, 255)
-    game._draw_delve_hud = lambda *args: HudRenderMixin._draw_delve_hud(game, *args)
+    game._draw_anima_hud = lambda *args: HudRenderMixin._draw_anima_hud(game, *args)
     game._draw_character_level = lambda *args: HudRenderMixin._draw_character_level(game, *args)
     game._draw_enemy_hover_info = lambda *args: None
     game._draw_kill_streak = lambda *args: None
@@ -126,7 +126,7 @@ def test_runtime_code_has_no_removed_character_progression_reads():
     assert stale == []
 
 
-def test_runtime_code_has_no_removed_delve_tool_reads():
+def test_runtime_code_has_no_removed_anima_tool_reads():
     """Repo guard for the removed flare/dynamite systems.
 
     Every leftover read of a removed field is a latent runtime crash, so this
@@ -136,10 +136,10 @@ def test_runtime_code_has_no_removed_delve_tool_reads():
     import ast
 
     # 'charges' is a legitimate flask field (systems/flasks.py), so it is only
-    # banned in the delve/chart modules where it meant flare/dynamite charges.
+    # banned in the anima/chart modules where it meant flare/dynamite charges.
     # (render modules also read *flask* charges, so they are not covered)
     chart_modules = {
-        'core/delve_flow.py', 'core/delve_gen.py', 'ui/delve_chart.py',
+        'core/anima_flow.py', 'core/anima_gen.py', 'ui/anima_chart.py',
     }
     removed = {
         # tuning constants
@@ -147,10 +147,10 @@ def test_runtime_code_has_no_removed_delve_tool_reads():
         'FLARE_MAX_ACTIVE', 'DYNAMITE_COOLDOWN', 'DYNAMITE_FUSE',
         'DYNAMITE_RADIUS', 'DYNAMITE_ENEMY_RADIUS', 'DYNAMITE_ENEMY_DMG',
         # runtime state
-        '_flare_cd', '_dynamite_cd', '_delve_projectiles', 'flare_lights',
+        '_flare_cd', '_dynamite_cd', '_anima_projectiles', 'flare_lights',
         'flare_mult',
         # behaviour
-        '_throw_flare', '_throw_dynamite', '_update_delve_projectiles',
+        '_throw_flare', '_throw_dynamite', '_update_anima_projectiles',
         '_dynamite_explode',
     }
     stale = []
@@ -186,11 +186,11 @@ def test_t_flask_system_still_exists():
     assert hasattr(flasks, 'FLASK_CD')
     input_src = _Path('core/input.py').read_text(encoding='utf-8')
     assert 'KEY_T' in input_src and '_use_flask' in input_src
-    flow_src = _Path('core/delve_flow.py').read_text(encoding='utf-8')
+    flow_src = _Path('core/anima_flow.py').read_text(encoding='utf-8')
     assert '_flask_cd' in flow_src and '_refill_flasks()' in flow_src
 
 
-def test_hud_draws_with_current_character_in_hub_and_delve(monkeypatch):
+def test_hud_draws_with_current_character_in_hub_and_anima(monkeypatch):
     """Leveling returned (issue #31): the HUD shows the real character
     LEVEL next to the name; the ILEVEL readout stays display-only."""
     game = _game_stub()
@@ -203,7 +203,7 @@ def test_hud_draws_with_current_character_in_hub_and_delve(monkeypatch):
     assert "LEVEL 3" in rendered_text
     assert "ILEVEL" not in rendered_text       # HUD ILEVEL site retired (2026-11)
 
-    game._delve = {"depth": 7, "dark_timer": 2.5}
+    game._anima = {"depth": 7, "dark_timer": 2.5}
     rendered_text.clear()
     HudRenderMixin._draw_hud(game, 1280, 720)
     assert "Anima Depth 7" in rendered_text
@@ -211,7 +211,7 @@ def test_hud_draws_with_current_character_in_hub_and_delve(monkeypatch):
     assert "LEVEL 3" in rendered_text
 
 
-def test_frame_draw_reaches_hud_in_hub_and_delve(monkeypatch):
+def test_frame_draw_reaches_hud_in_hub_and_anima(monkeypatch):
     game = _game_stub()
     hud_calls = []
     game._ensure_virtual_rt = lambda: None
@@ -228,7 +228,7 @@ def test_frame_draw_reaches_hud_in_hub_and_delve(monkeypatch):
     game._draw_cursor = lambda: None
     game._draw_chat = lambda *_args: None
     game._draw_hub = lambda _cw, _ch: hud_calls.append("hub") or HudRenderMixin._draw_hud(game, 1280, 720)
-    game._draw_game = lambda _cw, _ch: hud_calls.append("delve") or HudRenderMixin._draw_hud(game, 1280, 720)
+    game._draw_game = lambda _cw, _ch: hud_calls.append("anima") or HudRenderMixin._draw_hud(game, 1280, 720)
     _install_headless_drawing(monkeypatch)
 
     game.state = STATE_HUB
@@ -236,4 +236,4 @@ def test_frame_draw_reaches_hud_in_hub_and_delve(monkeypatch):
     game.state = STATE_PLAYING
     FrameRenderMixin._draw_frame(game)
 
-    assert hud_calls == ["hub", "delve"]
+    assert hud_calls == ["hub", "anima"]

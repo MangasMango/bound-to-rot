@@ -21,7 +21,7 @@ Drys out the two questions the rework keeps re-litigating:
 1. how long a level takes (XP per level vs XP per wave at matched depth), and
 2. how fast you fall off when farming below your level.
 
-All live values are imported from `systems.xp` and `core.delve_gen` - the
+All live values are imported from `systems.xp` and `core.anima_gen` - the
 simulator itself owns *no* progression data, only the pace model:
 
   - assumed seconds per kill (including walk/aim), rising gently with depth
@@ -35,7 +35,7 @@ Pure stdlib; no numpy (BLUEPRINT §24). Run from the repo root:
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.delve_gen import effective_level
+from core.anima_gen import effective_level
 import systems.xp as xp
 
 # ── pace assumptions (the only knobs here) ──────────────────────────────
@@ -59,7 +59,7 @@ AVG_STREAK          = 4     # angel-meter chain average (+20% XP)
 # single rows.
 
 WAVE_CAP = 40   # owner-ruled lever 2026-11: raise ENEMY COUNT per wave;
-                # live `core.delve_flow` spawns min(20, 5 + depth) - the cap
+                # live `core.anima_flow` spawns min(20, 5 + depth) - the cap
                 # move lives there, this parameter previews the economy.
 
 import math

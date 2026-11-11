@@ -162,7 +162,7 @@ class TestUnidentifiedShowsNoStats(unittest.TestCase):
 
     def test_ground_tooltip_exposes_no_stat_text(self):
         """The world/ground loot tooltip hides everything while unidentified."""
-        src = Path('core/render/delve_render.py').read_text(encoding='utf-8')
+        src = Path('core/render/anima_render.py').read_text(encoding='utf-8')
         body = src.split('def _draw_ground_tooltip', 1)[1]
         for needle in ('if inst and not unid:', 'if idef.get(\'equipSlot\') and not unid:',
                        'if inst and not unid:'):
@@ -711,7 +711,7 @@ class TestComparisonArrowFormat(unittest.TestCase):
         from ui import icons as icons_mod
         self.assertIn('arrow_up', icons_mod.ICON_MAP)
         self.assertIn('arrow_down', icons_mod.ICON_MAP)
-        for path in ('ui/inventory_ui.py', 'core/render/delve_render.py'):
+        for path in ('ui/inventory_ui.py', 'core/render/anima_render.py'):
             src = Path(path).read_text(encoding='utf-8')
             self.assertIn("'arrow_up'", src, path)
             self.assertIn('_cmp_sign', src, path)

@@ -49,10 +49,10 @@ class TestRunMechanicRemoved(unittest.TestCase):
         params = inspect.signature(player_stats.update_stats).parameters
         self.assertNotIn('running', params)
 
-    def test_r_fallback_gone_from_delve_loop(self):
+    def test_r_fallback_gone_from_anima_loop(self):
         src = inspect.getsource(game_mod.Game._update_game)
         self.assertNotIn('_run_toggle', src,
-                         'run/walk toggle must not return to the delve loop')
+                         'run/walk toggle must not return to the anima loop')
         self.assertNotIn('running = moving', src)
 
     def test_belt_hotkeys_gone(self):

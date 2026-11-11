@@ -166,7 +166,7 @@ DESCEND_PERKS: dict[str, dict] = {
 
     # ── Nerve column ────────────────────────────────────────────────────
     'nrv1': _perk('Eagle Eye',       '+accuracy per rank',                  3, _ef(('accuracy_flat', 6)),        'nerve', 1),
-    'nrv2': _perk('Bright Light',    '+light radius per rank',              3, _ef(('delve_light_radius', 0.5)), 'nerve', 2),
+    'nrv2': _perk('Bright Light',    '+light radius per rank',              3, _ef(('anima_light_radius', 0.5)), 'nerve', 2),
     'nrv3': _perk('Piercing Sight',  '+phys penetration % per rank',        3, _ef(('physical_penetration_pct', 3)), 'nerve', 3),
     'nrv4': _perk('Frost Weaver',    '+cold dmg %, +cold pen % per rank',   3, _ef(('cold_damage_pct', 3), ('cold_penetration_pct', 2)), 'nerve', 4),
 

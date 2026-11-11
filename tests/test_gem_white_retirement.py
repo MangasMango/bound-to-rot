@@ -23,7 +23,7 @@ Covers:
      random Q/W/E gem at the same rarity, the R key vanishes from
      gem_sockets, grid/stash whites convert, the note is attached, and
      the step is idempotent + version-bumping.
-  4. Delve snapshot restore converts ground-item whites.
+  4. Anima snapshot restore converts ground-item whites.
 """
 
 import pytest
@@ -115,12 +115,12 @@ def test_migration_is_idempotent():
     assert set(sockets) == {'Q', 'W', 'E'}      # nothing re-converted
 
 
-def test_delve_restore_converts_ground_whites():
-    data = {'delve': {'state': 'ready'}, 'ground_items': [
+def test_anima_restore_converts_ground_whites():
+    data = {'anima': {'state': 'ready'}, 'ground_items': [
         {'item': 'gem_white', 'count': 1,
          'instance_data': {'rarity': 'rare', 'ilvl': 9}},
     ]}
-    out = prog._delve_restore(data)
+    out = prog._anima_restore(data)
     gi = out['ground_items'][0]
     assert gi['item'] in ('gem_blue', 'gem_green', 'gem_red')
     assert gi['instance_data']['ability']

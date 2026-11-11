@@ -22,8 +22,8 @@ ONE-USE-PER-WAVE semantics (owner's tuning rule):
 
   - The flask has exactly ONE charge. Drinking it consumes that charge;
     it cannot be used again mid-wave (empty charges block the drink).
-  - Charges RESET TO 1 when the next delve wave/encounter begins - the
-    reset is tied to the wave lifecycle hook (_delve_spawn_wave), NOT a
+  - Charges RESET TO 1 when the next anima wave/encounter begins - the
+    reset is tied to the wave lifecycle hook (_anima_spawn_wave), NOT a
     plain timer and NOT the earlier "refill at checkpoints" idea.
   - Effects are duration-based (regen over time / timed haste), gated by a
     short shared drink cooldown so a wave's single sip still plays out.
@@ -75,7 +75,7 @@ def charges_of(entry):
 
 def reset_for_wave(inventory):
     """Owner's tuning rule: reset the equipped flask to its single
-    wave charge when a new delve wave/encounter begins."""
+    wave charge when a new anima wave/encounter begins."""
     flask = equipped_flask(inventory)
     if not flask:
         return

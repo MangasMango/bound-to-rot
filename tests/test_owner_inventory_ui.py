@@ -264,8 +264,8 @@ def test_socket_gem_never_overwrites_another_slot():
     assert inv['gem_sockets']['Q'] is None
 
 
-def test_delve_gem_can_be_equipped_with_right_click_alone(monkeypatch):
-    """End-to-end: a gem found in the delve, right-clicked, is socketed."""
+def test_anima_gem_can_be_equipped_with_right_click_alone(monkeypatch):
+    """End-to-end: a gem found in the anima, right-clicked, is socketed."""
     inv = items.make_inventory()
     inv['grid'] = []
     looted = gems.random_gem_slot('Q', 12, seed=7)

@@ -141,18 +141,18 @@ class InputMixin:
             return
 
         if self.state == STATE_PLAYING:
-            if self._delve is not None and inp.key_pressed(self,rl.KEY_TAB):
+            if self._anima is not None and inp.key_pressed(self,rl.KEY_TAB):
                 self._minimap_open = not self._minimap_open
             if self._minimap_open:
                 if inp.key_pressed(self,rl.KEY_ESCAPE):
                     self._minimap_open = False
-                chart = self._delve.get('chart')
+                chart = self._anima.get('chart')
                 if chart is None:
                     self._minimap_open = False
                 else:
-                    from ui.delve_chart import DelveChartScreen
+                    from ui.anima_chart import AnimaChartScreen
                     if self._minimap is None:
-                        self._minimap = DelveChartScreen(self)
+                        self._minimap = AnimaChartScreen(self)
                     if self._minimap.chart is not chart:
                         self._minimap.open(chart, selectable_ids=(),
                                            title='Anima Chart', closable=False)
@@ -192,8 +192,8 @@ class InputMixin:
             if inp.key_pressed(self,rl.KEY_L):
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
-            if not self.inv.open and not self._delve_chart_is_open():
-                # NOTE: the delve Q/E tool keybinds (flares, dynamite) were
+            if not self.inv.open and not self._anima_chart_is_open():
+                # NOTE: the anima Q/E tool keybinds (flares, dynamite) were
                 # removed. Q/W/E/R belong to the gem ability slots below and
                 # T is the flask - see systems/flasks.py. Both are blocked
                 # while the Anima panel is open (modal decision UI).
@@ -201,14 +201,14 @@ class InputMixin:
                     if inp.key_pressed(self,getattr(rl, 'KEY_' + _gk)):
                         self._use_gem_ability(_gk)
             if inp.key_pressed(self,rl.KEY_T) and not self.inv.open \
-                    and not self._delve_chart_is_open():
+                    and not self._anima_chart_is_open():
                 self._use_flask()
             # R: spin the cylinder early (ammo mechanic). Issue #45: the R
             # GEM SLOT IS GONE - R is a pure reload key, no socket consult.
             # Own per-consumer edge ('game.reload'); the HUD R slot flashes
             # so the keypress reads on the belt.
             if inp.key_pressed('game.reload', rl.KEY_R) \
-                    and not self._delve_chart_is_open():
+                    and not self._anima_chart_is_open():
                 if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
                     self._flash_hud('R')
                     self._start_reload()
@@ -219,8 +219,8 @@ class InputMixin:
         # The Anima panel is modal: while it is open, world clicks (move /
         # attack / interact / the Pulse heart) must not fire - the panel
         # overlaps the Pulse heart on screen, and an unguarded click on the
-        # panel used to re-trigger the heart (or worse, `_delve_descend`).
-        if self._delve_chart_is_open():
+        # panel used to re-trigger the heart (or worse, `_anima_descend`).
+        if self._anima_chart_is_open():
             return
         # The DESCEND panel is modal too (issue #31): the game is paused
         # under it, so no world clicks may fire.
@@ -271,28 +271,28 @@ class InputMixin:
                     clicked_drop = gi
                     break
 
-            if (clicked_drop is None and self._delve is not None
-                    and self._delve['state'] == 'ready'):
+            if (clicked_drop is None and self._anima is not None
+                    and self._anima['state'] == 'ready'):
                 ts = max(1, int(ISO_W * self.iso.scale))
                 ent_px = ENTITY_BASE * self.iso.scale
                 raw_sx, raw_sy = self.iso.world_to_screen(
-                    self._delve['pulse_x'], self._delve['pulse_y'], cw, ch)
+                    self._anima['pulse_x'], self._anima['pulse_y'], cw, ch)
                 # the enlarged hub art pushed the heart's visible mass up:
                 # keep the hitbox a few pixels above the tile centre and a
                 # touch wider than the base sprite so clicks still land
                 pulse_cx = raw_sx + ts // 2
                 pulse_cy = raw_sy + ts // 4 - ts // 12
                 if math.hypot(mx_s - pulse_cx, my_s - pulse_cy) < ent_px * 0.7:
-                    kids = self._delve_children()
+                    kids = self._anima_children()
                     if kids:
-                        self._open_delve_anima_panel()
+                        self._open_anima_anima_panel()
                     else:
-                        self._delve_descend()
+                        self._anima_descend()
                     return True
 
             clicked_enemy = self._find_enemy_near(mx_s, my_s, cw, ch)
             clicked_obj = self._find_interact_object(
-                tile_col, tile_row, radius=DELVE_CLICK_RADIUS)
+                tile_col, tile_row, radius=ANIMA_CLICK_RADIUS)
 
             if clicked_drop:
                 self.dest_col = clicked_drop['x']

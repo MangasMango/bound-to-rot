@@ -17,10 +17,10 @@
 
 Owner rulings (2026-10-07):
   * reset_stats PRESERVES health/mana/energy_shield (clamped to the new
-    maxima) - a stat recalc (gear swap, identify, hub arrival, delve
+    maxima) - a stat recalc (gear swap, identify, hub arrival, anima
     resume) never refills you. The level-up-era full heal is gone.
     Full refills exist only at character creation (empty dict → defaults)
-    and a fresh delve start (explicit, delve_flow._enter_delve).
+    and a fresh anima start (explicit, anima_flow._enter_anima).
   * The dead DESCEND skills screen and its HUD "spend points" hint are
     removed from ui/menus.py and core/render/hud_render.py.
 """
@@ -108,10 +108,10 @@ class TestRecalcKeepsPools(unittest.TestCase):
         self.assertEqual(game.stats['health'], full * 0.37)
 
 
-class TestFreshDelveRefill(unittest.TestCase):
-    def test_fresh_delve_explicitly_refills(self):
-        src = Path('core/delve_flow.py').read_text(encoding='utf-8')
-        body = src.split('def _enter_delve', 1)[1]
+class TestFreshAnimaRefill(unittest.TestCase):
+    def test_fresh_anima_explicitly_refills(self):
+        src = Path('core/anima_flow.py').read_text(encoding='utf-8')
+        body = src.split('def _enter_anima', 1)[1]
         self.assertIn('A FRESH run starts at full pools', body)
         self.assertIn("self.stats['health'] = self.stats['max_health']", body)
 
