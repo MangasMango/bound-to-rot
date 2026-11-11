@@ -112,7 +112,7 @@ jobs:
         run: |
           set -eu
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            gh release create "$TAG" dist/*.zip \
+            gh release create -R "$GITHUB_REPOSITORY" "$TAG" dist/*.zip \
               --draft \
               --target "$GITHUB_SHA" \
               --title "Bound To Rot $TAG" \
@@ -120,7 +120,7 @@ jobs:
             echo "Draft (auto notes) at: https://github.com/${GITHUB_REPOSITORY}/releases - review, then hit Publish"
             exit 0
           fi
-          gh release create "$TAG" dist/*.zip \
+          gh release create -R "$GITHUB_REPOSITORY" "$TAG" dist/*.zip \
             --draft \
             --target "$GITHUB_SHA" \
             --title "Bound To Rot $TAG" \
