@@ -97,8 +97,16 @@ jobs:
           git config user.email "release-bot@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add pyproject.toml
+          # the branch may already exist from an earlier leg-1 run with the
+          # same content - force-with-lease is safe: this branch is
+          # bot-owned and freshly derived from the merge commit
           git commit -m "chore(release): v${VERSION}"
-          git push origin "$BRANCH"
+          git push origin "$BRANCH" --force-with-lease
+          # an open PR for this head may already exist - that is fine
+          if gh pr list --head "$BRANCH" --state open --json id | grep -q '"id"'; then
+            echo "::notice::release PR for $BRANCH already open - nothing to do"
+            exit 0
+          fi
           gh pr create \
             --base main --head "$BRANCH" \
             --label "release" \
@@ -106,11 +114,15 @@ jobs:
             --body "Automated release PR: bumps the version to ${VERSION}. Merging this PR tags v${VERSION} and drafts the release. Publish the draft from the Releases tab."
 
   tag-on-release-pr:
-    name: Tag the release (bot-authored release PR merged)
+    name: Tag the release (release PR merged)
+    # Fires for the bot's PR AND for a manually-opened one from the
+    # release/vX.Y.Z branch (fallback when gh pr create lacked
+    # permissions on the first live run).
     if: >
       github.event.pull_request.merged == true &&
-      github.event.pull_request.user.login == 'github-actions[bot]' &&
-      startsWith(github.event.pull_request.title, 'chore(release):')
+      startsWith(github.event.pull_request.title, 'chore(release):') &&
+      (github.event.pull_request.user.login == 'github-actions[bot]' ||
+       startsWith(github.event.pull_request.head.ref, 'release/v'))
     runs-on: ubuntu-latest
 
     steps:
