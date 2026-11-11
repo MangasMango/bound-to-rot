@@ -483,7 +483,7 @@ class IsoRenderer:
         # Walls are removed from the game entirely - flatten every wall tile
         # (1/2/3) to open floor so collision, minimap, spawning and the
         # renderer all see a wall-free battlefield. Runs on every level
-        # load and segment carve, since delve generation keeps placing
+        # load and segment carve, since anima generation keeps placing
         # wall tiles.
         for col in range(cols):
             map_row = map_data[col]

@@ -24,26 +24,26 @@ from core.game import _rnd, _pick_enemy_dmg_type
 # entities/zombies.py - location-based, no baked-in per-body sprint flag.
 # SLIME_SPRINT_MULT / _DARK_SPAWN_SPRINT retired by the #53 review.
 
-class DelveFlowMixin:
+class AnimaFlowMixin:
         def _open_anima_panel(self):
             """Open the Anima panel (node chooser popup) from the Hub heart."""
             import entities.progression as _prog
-            from ui.delve_chart import DelveChartScreen
+            from ui.anima_chart import AnimaChartScreen
 
-            saved = self._saved_delve
+            saved = self._saved_anima
             if saved is None:
-                saved = _prog.load_delve_data(self.char.id)
+                saved = _prog.load_anima_data(self.char.id)
             chart = None
             if saved is not None:
-                chart = (saved.get('delve') or {}).get('chart')
-                self._chart_resume = bool(saved.get('delve'))
+                chart = (saved.get('anima') or {}).get('chart')
+                self._chart_resume = bool(saved.get('anima'))
             if chart is None:
-                import core.delve_gen as _dg
+                import core.anima_gen as _dg
                 # Character-bound layout: the seed is derived from the character,
                 # so the same chart regenerates on every visit. Death deletes the
                 # character → new id → fresh layout.
                 seed = int(self.char.seed)
-                graph = _dg.init_delve(seed)
+                graph = _dg.init_anima(seed)
                 chart = {
                     'seed':            seed,
                     'graph':           graph,
@@ -60,10 +60,10 @@ class DelveFlowMixin:
             # Re-lay out charts persisted under the older, looser spacing.
             # layout_positions is a pure function of the stored graph, so
             # every load produces the same compact layout for a given chart.
-            import core.delve_gen as _dg
+            import core.anima_gen as _dg
             _dg.layout_positions(graph)
             # Depth rows are infinite (§26) - refresh an exhausted row
-            _dg.ensure_row_supply(graph, self._delve_chart_rng(),
+            _dg.ensure_row_supply(graph, self._anima_chart_rng(),
                                   chart.get('current_node_id'))
             if self._chart_resume:
                 # Ongoing journey: forward children plus any discovered
@@ -76,21 +76,21 @@ class DelveFlowMixin:
                 selectable = [graph['start_node_id']] + [
                     nid for nid in chart.get('checkpoints', []) if nid in graph['nodes']]
             if self._chart_screen is None:
-                self._chart_screen = DelveChartScreen(self)
+                self._chart_screen = AnimaChartScreen(self)
             self._chart_screen.open(chart, selectable_ids=selectable,
                                     on_select=self._on_chart_select,
                                     title='Anima Chart', closable=True)
             self._hub_popup = 'anima'
 
         def _on_chart_return_hub(self):
-            """RETURN TO HUB button on the chart modal: leave the delve and
+            """RETURN TO HUB button on the chart modal: leave the anima and
             bank the run. Wired through the existing signal/flow handling so
-            both the hub and in-delve chart share one path."""
-            self._close_delve_anima_panel()
+            both the hub and in-anima chart share one path."""
+            self._close_anima_anima_panel()
             self._hub_popup = None
             self._chart_screen = None
-            if self._delve is not None:
-                self._handle_signal('return_to_hub_delve')
+            if self._anima is not None:
+                self._handle_signal('return_to_hub_anima')
 
         def _on_chart_select(self, node_id):
             """Chart node picked in the hub.
@@ -104,63 +104,63 @@ class DelveFlowMixin:
             self._hub_popup = None
             if self._chart_resume and node_id == chart.get('current_node_id'):
                 self._chart_entry = None
-                self._handle_signal('enter_delve')
+                self._handle_signal('enter_anima')
                 return
             self._chart_entry = (chart, node_id)
             self._chart_resume = False
-            self._saved_delve = None
+            self._saved_anima = None
             import entities.progression as _prog
-            _prog.clear_delve_data(self.char.id)
-            self._handle_signal('enter_delve')
+            _prog.clear_anima_data(self.char.id)
+            self._handle_signal('enter_anima')
 
-        def _enter_delve(self):
-            self._close_delve_anima_panel()
+        def _enter_anima(self):
+            self._close_anima_anima_panel()
             self.iso.set_path_cells([])
             # Clear any stale menu signal (e.g. 'return_to_hub' leaked from a Hub
-            # popup) so it can't fire later and yank the player out of the delve.
+            # popup) so it can't fire later and yank the player out of the anima.
             self.menu_sys.signal()
 
-            # ── Resume saved delve, or start fresh ────────────────────────
-            saved = self._saved_delve
-            self._saved_delve = None
+            # ── Resume saved anima, or start fresh ────────────────────────
+            saved = self._saved_anima
+            self._saved_anima = None
             if saved is None:
                 import entities.progression as _prog
-                saved = _prog.load_delve_data(self.char.id)
+                saved = _prog.load_anima_data(self.char.id)
             if saved is not None:
                 try:
                     self.map          = saved['map']
-                    self._delve       = saved['delve']
+                    self._anima       = saved['anima']
                     self.zombies      = saved['zombies']
                     self.ground_items = saved['ground_items']
                     self._decor_items = saved['decor_items']
-                    self.px, self.py  = float(self._delve['pulse_x']), float(self._delve['pulse_y'])
-                    if 'node' not in self._delve or 'enemy_ids' not in self._delve:
+                    self.px, self.py  = float(self._anima['pulse_x']), float(self._anima['pulse_y'])
+                    if 'node' not in self._anima or 'enemy_ids' not in self._anima:
                         raise KeyError('old format')
-                    if self._delve['state'] == 'dirs':
-                        self._delve['state'] = 'ready'
+                    if self._anima['state'] == 'dirs':
+                        self._anima['state'] = 'ready'
                     # Old saves predate the chart graph - attach a fresh one.
-                    if 'chart' not in self._delve:
-                        self._init_delve_chart()
-                    import core.delve_gen as _dg
+                    if 'chart' not in self._anima:
+                        self._init_anima_chart()
+                    import core.anima_gen as _dg
                     # Re-lay out any chart saved under the older, looser
                     # spacing (deterministic from the stored graph).
-                    _dg.layout_positions(self._delve['chart']['graph'])
+                    _dg.layout_positions(self._anima['chart']['graph'])
                     _dg.ensure_depth_rows(
-                        self._delve['chart']['graph'],
-                        self._delve_chart_rng(), self._delve['depth'])
+                        self._anima['chart']['graph'],
+                        self._anima_chart_rng(), self._anima['depth'])
                     _dg.ensure_row_supply(
-                        self._delve['chart']['graph'],
-                        self._delve_chart_rng(),
-                        self._delve['chart'].get('current_node_id'))
-                    self._delve.setdefault('_cracked_cells', [])
-                    self._delve.setdefault('hidden_wings', {})
-                    self._delve.setdefault('relics', [])
+                        self._anima['chart']['graph'],
+                        self._anima_chart_rng(),
+                        self._anima['chart'].get('current_node_id'))
+                    self._anima.setdefault('_cracked_cells', [])
+                    self._anima.setdefault('hidden_wings', {})
+                    self._anima.setdefault('relics', [])
                 except Exception:
                     saved = None
 
             if saved is None:
                 import entities.progression as _prog
-                _prog.clear_delve_data(self.char.id)
+                _prog.clear_anima_data(self.char.id)
                 entry = self._chart_entry
                 self._chart_entry = None
                 if entry is not None:
@@ -169,8 +169,8 @@ class DelveFlowMixin:
                     depth = entry_node['depth'] if entry_node is not None else 1
                 else:
                     depth = 1
-                import core.delve_gen as _dg
-                data = _dg.init_delve_room(self.char.seed, depth)
+                import core.anima_gen as _dg
+                data = _dg.init_anima_room(self.char.seed, depth)
                 self.map = data['grid']
                 node = data['node']
                 self.px, self.py = node['col'], node['row']
@@ -178,7 +178,7 @@ class DelveFlowMixin:
                 self.zombies      = []
                 self._decor_items = []
 
-                self._delve = {
+                self._anima = {
                     'state':           'clearing',
                     'depth':           depth,
                     'node':            node,
@@ -186,14 +186,14 @@ class DelveFlowMixin:
                     'pending_rewards': [],
                     'pulse_x':         node['col'],
                     'pulse_y':         node['row'],
-                    'light_r':         DELVE_LIGHT_RADIUS,
-                    'darkness_dps':    DELVE_DARKNESS_DPS * (1.0 + depth * 0.3),
+                    'light_r':         ANIMA_LIGHT_RADIUS,
+                    'darkness_dps':    ANIMA_DARKNESS_DPS * (1.0 + depth * 0.3),
                     'dark_timer':      0.0,
                     'relics':          [],
                 }
                 if entry is not None:
                     # Resume the chart from the node picked on the chart screen.
-                    self._delve['chart'] = entry_chart
+                    self._anima['chart'] = entry_chart
                     entry_node['state'] = _dg.STATE_CLEARED
                     if entry_node.get('type') == 'checkpoint':
                         entry_node['touched'] = True
@@ -206,8 +206,8 @@ class DelveFlowMixin:
                     entry_chart['best_depth'] = max(
                         entry_chart.get('best_depth', 0) or 0, depth)
                 else:
-                    self._init_delve_chart()
-                self._delve_spawn_wave(depth)
+                    self._init_anima_chart()
+                self._anima_spawn_wave(depth)
 
             self.player_state  = 'idle'
             self.player_facing = 'S'
@@ -235,14 +235,14 @@ class DelveFlowMixin:
                 self.stats['health'] = self.stats['max_health']
                 self.stats['energy_shield'] = self.stats.get('max_energy_shield', 0.0)
 
-            # Apply passive-tree bonuses to delve lighting
-            if self._delve is not None:
-                self._delve['light_r'] = max(1.0, DELVE_LIGHT_RADIUS + derived.get('delve_light_radius', 0))
-                self._delve['_base_light_r'] = self._delve['light_r']
-                self._delve.setdefault('_enemy_hp_mult', 1.0)
-                self._delve.setdefault('_enemy_count_bonus', 0)
+            # Apply passive-tree bonuses to anima lighting
+            if self._anima is not None:
+                self._anima['light_r'] = max(1.0, ANIMA_LIGHT_RADIUS + derived.get('anima_light_radius', 0))
+                self._anima['_base_light_r'] = self._anima['light_r']
+                self._anima.setdefault('_enemy_hp_mult', 1.0)
+                self._anima.setdefault('_enemy_count_bonus', 0)
                 resist = derived.get('darkness_resist_pct', 0.0)
-                self._delve['darkness_dps'] *= max(0.0, 1.0 - resist)
+                self._anima['darkness_dps'] *= max(0.0, 1.0 - resist)
 
             if self.char.inventory is None:
                 self.char.inventory = make_inventory()
@@ -254,8 +254,8 @@ class DelveFlowMixin:
 
             self.iso.generate_props(self.map)
             self.iso.clear_props_around(self.px, self.py, 3)
-            self._sync_weather(depth=self._delve.get('depth', 1) if self._delve else 1)
-            self._spawn_delve_objects()
+            self._sync_weather(depth=self._anima.get('depth', 1) if self._anima else 1)
+            self._spawn_anima_objects()
             self.iso.follow(self.px, self.py)
 
             self.raid_running  = True
@@ -290,7 +290,7 @@ class DelveFlowMixin:
             self.audio.reset()
 
             self.state = STATE_PLAYING
-            self.audio.set_delve_music()   # continuous western playlist (restarts at track 1)
+            self.audio.set_anima_music()   # continuous western playlist (restarts at track 1)
 
         def _enemy_max_health(self, enemy_type, level, hp_mult: float = 1.0) -> int:
             """Level-1 enemies are a guaranteed one-shot (HP below the player's
@@ -318,53 +318,53 @@ class DelveFlowMixin:
                 },
             }
 
-        def _delve_enemy_hp(self, base: float, enemy_level: int = 1) -> float:
+        def _anima_enemy_hp(self, base: float, enemy_level: int = 1) -> float:
             # Retained for existing callers; maps the old base onto the new curve.
             etype = 'slime' if base >= 150.0 else 'skeleton'
             return self._enemy_max_health(etype, enemy_level)
 
         @staticmethod
-        def _build_delve_snapshot(delve, map_, zombies, ground_items, decor_items):
-            """Build a fully isolated snapshot of the live delve state.
+        def _build_anima_snapshot(anima, map_, zombies, ground_items, decor_items):
+            """Build a fully isolated snapshot of the live anima state.
 
             Every nested object is deep-copied so that any later mutation of the
-            live game objects (``self._delve``, ``self.map``, ...) cannot leak into
+            live game objects (``self._anima``, ``self.map``, ...) cannot leak into
             the snapshot. This guarantees isolation for both the in-memory resume
-            snapshot (``_saved_delve``) and the on-disk save. See QoL #113 /
+            snapshot (``_saved_anima``) and the on-disk save. See QoL #113 /
             GitHub issue #16.
             """
             return {
-                'delve':        copy.deepcopy(delve),
+                'anima':        copy.deepcopy(anima),
                 'map':          copy.deepcopy(map_),
                 'zombies':      copy.deepcopy(zombies),
                 'ground_items': copy.deepcopy(ground_items),
                 'decor_items':  copy.deepcopy(decor_items),
             }
 
-        def _save_delve(self):
-            """Save current delve state to disk so it survives a crash or restart."""
-            if self._delve is None:
+        def _save_anima(self):
+            """Save current anima state to disk so it survives a crash or restart."""
+            if self._anima is None:
                 return
             import entities.progression as _prog
-            snapshot = self._build_delve_snapshot(
-                self._delve, self.map, self.zombies, self.ground_items, self._decor_items)
-            _prog.save_delve_data(self.char.id, snapshot)
+            snapshot = self._build_anima_snapshot(
+                self._anima, self.map, self.zombies, self.ground_items, self._decor_items)
+            _prog.save_anima_data(self.char.id, snapshot)
 
-        def _exit_delve(self, destination='hub'):
-            self._close_delve_anima_panel()
+        def _exit_anima(self, destination='hub'):
+            self._close_anima_anima_panel()
             self.raid_running = False
-            # Save delve state so we can resume later. The snapshot is a deep copy
-            # (see _build_delve_snapshot) so later mutations of the live delve
+            # Save anima state so we can resume later. The snapshot is a deep copy
+            # (see _build_anima_snapshot) so later mutations of the live anima
             # objects cannot leak into the saved data.
-            self._saved_delve = self._build_delve_snapshot(
-                self._delve, self.map, self.zombies, self.ground_items, self._decor_items)
-            self._save_delve()
-            self._delve = None
+            self._saved_anima = self._build_anima_snapshot(
+                self._anima, self.map, self.zombies, self.ground_items, self._decor_items)
+            self._save_anima()
+            self._anima = None
             self.char_mgr.save()
             self._enter_hub()
 
-        def _update_delve(self, dt: float):
-            d = self._delve
+        def _update_anima(self, dt: float):
+            d = self._anima
 
             # Checkpoint relic shrine - offer 1-of-3 run boons (§6/§7)
             if d.get('_pending_relic_offer') and d['state'] == 'ready':
@@ -390,10 +390,10 @@ class DelveFlowMixin:
                     d.pop('_arrive_from_y', None)
                     d.pop('_arrive_to_x', None)
                     d.pop('_arrive_to_y', None)
-                    self._delve_spawn_wave(d['depth'])
+                    self._anima_spawn_wave(d['depth'])
                     d['state'] = 'clearing'
                 else:
-                    speed = DELVE_PULSE_SPEED + d['depth'] * 0.05
+                    speed = ANIMA_PULSE_SPEED + d['depth'] * 0.05
                     step = speed * dt / dist
                     d['pulse_x'] += dx * step
                     d['pulse_y'] += dy * step
@@ -425,10 +425,10 @@ class DelveFlowMixin:
                         self._loot_sparkles.append({'x': drop_x, 'y': drop_y, 'timer': 2.0})
                     d['pending_rewards'] = []
 
-                    self._delve_mark_cleared()
+                    self._anima_mark_cleared()
                     self._apply_organ_rot()
                     d['state'] = 'ready'
-                    self._save_delve()
+                    self._save_anima()
 
             # ── junction choice mode (chart branching) ─
             if d['state'] == 'junction':
@@ -440,31 +440,31 @@ class DelveFlowMixin:
                     for rect, kid in d.get('_junction_rects', []):
                         if rl.check_collision_point_rec(rl.Vector2(float(mx), float(my)), rect):
                             d['_junction_rects'] = []
-                            self._delve_descend(kid['id'])
+                            self._anima_descend(kid['id'])
                             return
                 return
 
-            # Anima chart opened from the delve heart.  Keep the same chart
+            # Anima chart opened from the anima heart.  Keep the same chart
             # component as the hub, with the current wave's children as choices.
-            # Open state is transient runtime state, never part of the saved delve
+            # Open state is transient runtime state, never part of the saved anima
             # snapshot; every close path funnels through one helper.
-            if self._delve_chart_is_open():
+            if self._anima_chart_is_open():
                 if inp.key_pressed(self, rl.KEY_ESCAPE):
-                    self._close_delve_anima_panel()
+                    self._close_anima_anima_panel()
                     return
                 _, _, content = self._anima_layout(rl.get_screen_width(), rl.get_screen_height())
                 result = self._chart_screen.update(
                     dt, origin=(content.x, content.y), view=(content.width, content.height))
                 if result == 'close':
-                    self._close_delve_anima_panel()
+                    self._close_anima_anima_panel()
                     return
                 if isinstance(result, tuple) and result[0] == 'return_hub':
                     self._on_chart_return_hub()
                     return
                 if isinstance(result, tuple) and result[0] == 'select':
                     child_id = result[1]
-                    self._close_delve_anima_panel()
-                    self._delve_descend(child_id)
+                    self._close_anima_anima_panel()
+                    self._anima_descend(child_id)
                 return
 
             # Escalating darkness DoT: inside 100% of the
@@ -472,13 +472,13 @@ class DelveFlowMixin:
             # DPS); beyond that the ramp builds to full DPS and keeps growing
             # after 5s of continuous darkness. Checkpoint braziers count as
             # extra light sources.
-            import core.delve_gen as _dg
+            import core.anima_gen as _dg
             zone = _dg.zone_for_depth(d['depth'])
             ramp_mult = zone['mods'].get('darkness_ramp_mult', 1.0)
 
             dist_to_pulse = math.hypot(self.px - d['pulse_x'],
                                          self.py - d['pulse_y'])
-            light_r = d['light_r'] + DELVE_PERSONAL_LIGHT
+            light_r = d['light_r'] + ANIMA_PERSONAL_LIGHT
             in_light = dist_to_pulse <= light_r
             in_dim = (not in_light) and dist_to_pulse <= light_r * 1.3
             d['_dark_slow'] = (zone['mods'].get('player_slow_outside_light', 0.0)
@@ -503,13 +503,13 @@ class DelveFlowMixin:
                     self._on_death()
                     return
 
-        def _delve_spawn_wave(self, depth: int):
+        def _anima_spawn_wave(self, depth: int):
             """Spawn a wave of enemies around the pulse at the given depth."""
-            import core.delve_gen as _dg
+            import core.anima_gen as _dg
             # Owner's tuning rule: the T flask gets exactly one use per wave.
             # Charges reset to 1 here (wave lifecycle), never mid-wave.
             self._refill_flasks()
-            d = self._delve
+            d = self._anima
             zone = _dg.zone_for_depth(depth)
             zone_mods = zone['mods']
 
@@ -545,7 +545,7 @@ class DelveFlowMixin:
             # of 5 tiles - never closer to the player than ~2.5 tiles. The
             # wave then charges into the player's light (DETECT_RANGE 22
             # tiles means these spawns aggro immediately).
-            dark_edge = d['light_r'] + DELVE_PERSONAL_LIGHT
+            dark_edge = d['light_r'] + ANIMA_PERSONAL_LIGHT
             min_r = dark_edge + 1.0
             # Wide horde runs would stack hundreds of bodies onto one
             # 5-tile band (candidates hold one enemy per tile) - widen the
@@ -590,9 +590,9 @@ class DelveFlowMixin:
                 ex, ey = float(tc), float(tr)
                 etype = _rnd.choice(['skeleton', 'skeleton', 'slime'])
                 if etype == 'slime':
-                    hp = self._delve_enemy_hp(150.0, enemy_level) * enemy_hp_mult
+                    hp = self._anima_enemy_hp(150.0, enemy_level) * enemy_hp_mult
                 else:
-                    hp = self._delve_enemy_hp(100.0, enemy_level) * enemy_hp_mult
+                    hp = self._anima_enemy_hp(100.0, enemy_level) * enemy_hp_mult
                 is_elite = elite_budget > 0
                 if is_elite:
                     elite_budget -= 1
@@ -663,12 +663,12 @@ class DelveFlowMixin:
                     'gem_blue', 'gem_green', 'gem_red']
             return [{'item': _rnd.choice(pool), 'count': 1}]
 
-        def _init_delve_chart(self):
-            """Create the persistent branching chart for a fresh delve."""
-            import core.delve_gen as _dg
+        def _init_anima_chart(self):
+            """Create the persistent branching chart for a fresh anima."""
+            import core.anima_gen as _dg
             seed = int(getattr(self.char, 'seed', 0)) ^ int(_rnd.getrandbits(24))
-            graph = _dg.init_delve(seed)
-            self._delve['chart'] = {
+            graph = _dg.init_anima(seed)
+            self._anima['chart'] = {
                 'seed':            seed,
                 'graph':           graph,
                 'current_node_id': graph['start_node_id'],
@@ -687,10 +687,10 @@ class DelveFlowMixin:
             serialized - the full graph is, so determinism comes from the save."""
             if rng is None:
                 rng = _rnd.Random()
-            self._delve['_chart_rng_state'] = True
+            self._anima['_chart_rng_state'] = True
             self._chart_rng = rng
 
-        def _delve_chart_rng(self):
+        def _anima_chart_rng(self):
             rng = getattr(self, '_chart_rng', None)
             if rng is None:
                 rng = _rnd.Random()
@@ -707,8 +707,8 @@ class DelveFlowMixin:
 
         def _attach_hidden_wing(self):
             """Roll a hidden reward wing for the freshly carved room (§4)."""
-            import core.delve_gen as _dg
-            d = self._delve
+            import core.anima_gen as _dg
+            d = self._anima
             d.setdefault('hidden_wings', {})
             d.setdefault('_cracked_cells', [])
             rng = _rnd.Random()
@@ -731,11 +731,11 @@ class DelveFlowMixin:
             }
             d['_cracked_cells'].extend(wing['cracked'])
             self.iso.generate_props(self.map)
-            self._sync_weather(depth=self._delve.get('depth', 1))
+            self._sync_weather(depth=self._anima.get('depth', 1))
 
         def _roll_hidden_loot(self, depth: int) -> list:
             """Depth-tiered hidden wing loot."""
-            import core.delve_gen as _dg
+            import core.anima_gen as _dg
             tier = _dg.hidden_tier_for_depth(depth)
             slots = []
 
@@ -743,7 +743,7 @@ class DelveFlowMixin:
             if _rnd.random() < self._card_drop_chance(depth):
                 slots.append(currency.roll_card_drop_slot(max(1, depth), _rnd))
 
-            # Chest roll (organ drops, like delve_gen.REWARD_TABLES)
+            # Chest roll (organ drops, like anima_gen.REWARD_TABLES)
             if _rnd.random() < 0.8:
                 organ = _rnd.choice(['lungs', 'liver', 'heart', 'kidney', 'intestine'])
                 slots.append(itemgen.roll_for(organ, 1, depth,
@@ -777,7 +777,7 @@ class DelveFlowMixin:
 
         def _open_hidden_wing(self, wing_id):
             """Drop a hidden wing's loot when its cracked seal is broken (§4)."""
-            d = self._delve
+            d = self._anima
             wing = d.get('hidden_wings', {}).get(wing_id)
             if wing is None or wing.get('opened'):
                 return
@@ -794,23 +794,23 @@ class DelveFlowMixin:
                 self._loot_sparkles.append(
                     {'x': wing['cx'], 'y': wing['cy'], 'timer': 2.0})
             if wing.get('ambush'):
-                self._delve_spawn_wave(d['depth'])
+                self._anima_spawn_wave(d['depth'])
 
         def _relic_effects(self) -> dict:
-            import systems.delve_relics as relics
+            import systems.anima_relics as relics
             return relics.aggregate_relic_effects(
-                self._delve.get('relics', []) if self._delve else [])
+                self._anima.get('relics', []) if self._anima else [])
 
         def _open_relic_offer(self):
             """Offer 1-of-3 run boons at a checkpoint shrine."""
-            import systems.delve_relics as relics
-            d = self._delve
+            import systems.anima_relics as relics
+            d = self._anima
             d['_relic_offer'] = relics.roll_relic_offer(
                 _rnd.Random(), d.get('relics', []))
             d['state'] = 'relic'
 
         def _update_relic_choice(self):
-            d = self._delve
+            d = self._anima
             if inp.key_pressed(self, rl.KEY_ESCAPE):
                 d['_relic_offer'] = None
                 d['state'] = 'ready'
@@ -824,21 +824,21 @@ class DelveFlowMixin:
                         d['_relic_rects'] = []
                         d['state'] = 'ready'
                         self._apply_relic_passives()
-                        self._save_delve()
+                        self._save_anima()
                         return
 
         def _apply_relic_passives(self):
-            """Re-apply relic multipliers to live delve state."""
-            d = self._delve
+            """Re-apply relic multipliers to live anima state."""
+            d = self._anima
             if d is None:
                 return
             effects = self._relic_effects()
-            base_light = d.get('_base_light_r', DELVE_LIGHT_RADIUS)
+            base_light = d.get('_base_light_r', ANIMA_LIGHT_RADIUS)
             d['light_r'] = max(1.0, base_light * effects['light_mult'])
-            d['_base_darkness_dps'] = DELVE_DARKNESS_DPS * (1.0 + d['depth'] * 0.3)
+            d['_base_darkness_dps'] = ANIMA_DARKNESS_DPS * (1.0 + d['depth'] * 0.3)
             d['darkness_dps'] = d['_base_darkness_dps'] * effects['darkness_mult']
 
-        def _delve_children(self):
+        def _anima_children(self):
             """Nodes the player may enter right now.
 
             Rules: cleared nodes are permanently done and never enterable;
@@ -846,14 +846,14 @@ class DelveFlowMixin:
             retreating to a shallower node is a legal, lower-darkness move);
             forward children of the current node stay enterable.
             """
-            import core.delve_gen as _dg
-            chart = self._delve.get('chart')
+            import core.anima_gen as _dg
+            chart = self._anima.get('chart')
             if not chart:
                 return []
             graph = chart['graph']
-            _dg.ensure_depth_rows(graph, self._delve_chart_rng(), self._delve['depth'])
+            _dg.ensure_depth_rows(graph, self._anima_chart_rng(), self._anima['depth'])
             # Depth rows are infinite (§26) - refresh an exhausted row
-            _dg.ensure_row_supply(graph, self._delve_chart_rng(),
+            _dg.ensure_row_supply(graph, self._anima_chart_rng(),
                                   chart.get('current_node_id'))
             enterable = set(_dg.enterable_node_ids(graph, chart))
             return [graph['nodes'][nid] for nid in sorted(enterable)
@@ -869,12 +869,12 @@ class DelveFlowMixin:
             if itemgen.apply_wave_rot(self.inventory):
                 self._on_gear_changed()
 
-        def _delve_mark_cleared(self):
+        def _anima_mark_cleared(self):
             """Mark the current chart node cleared (called on room-clear)."""
-            chart = self._delve.get('chart')
+            chart = self._anima.get('chart')
             if not chart:
                 return
-            import core.delve_gen as _dg
+            import core.anima_gen as _dg
             graph = chart['graph']
             node = graph['nodes'].get(chart['current_node_id'])
             if node is None:
@@ -889,17 +889,17 @@ class DelveFlowMixin:
             chart['best_depth'] = max(chart.get('best_depth', 0) or 0,
                                       node['depth'])
 
-        def _delve_descend(self, child_id=None):
-            """Move the delve to a child chart node (junction choice), carving a
+        def _anima_descend(self, child_id=None):
+            """Move the anima to a child chart node (junction choice), carving a
             room for it."""
-            import core.delve_gen as _dg
-            d = self._delve
+            import core.anima_gen as _dg
+            d = self._anima
             chart = d.get('chart')
             if not chart:
-                self._init_delve_chart()
+                self._init_anima_chart()
                 chart = d['chart']
 
-            kids = self._delve_children()
+            kids = self._anima_children()
             if not kids:
                 d['state'] = 'clearing'
                 return
@@ -930,12 +930,12 @@ class DelveFlowMixin:
             d['_enemy_hp_mult'] = 1.0
             d['_enemy_count_bonus'] = 0
             # NOTE: _horde_mult is deliberately NOT reset per descend - the
-            # QA lever sticks for the whole delve until `horde 1`.
+            # QA lever sticks for the whole anima until `horde 1`.
             effects = self._relic_effects()
-            d['light_r'] = max(1.0, d.get('_base_light_r', DELVE_LIGHT_RADIUS)
+            d['light_r'] = max(1.0, d.get('_base_light_r', ANIMA_LIGHT_RADIUS)
                                * effects['light_mult'])
             d['pending_rewards'] = self._room_reward_slots(child, d['depth'])
-            d['darkness_dps'] = (DELVE_DARKNESS_DPS * (1.0 + d['depth'] * 0.3)
+            d['darkness_dps'] = (ANIMA_DARKNESS_DPS * (1.0 + d['depth'] * 0.3)
                                  * effects['darkness_mult'])
             d['_pending_relic_offer'] = child['type'] == 'checkpoint'
 
@@ -975,33 +975,33 @@ class DelveFlowMixin:
             self._sync_weather(depth=d['depth'], strength=None)
             self.ground_items = [gi for gi in self.ground_items if gi['type'] in ('drop', 'portal')]
             self._decor_items = []
-            self._spawn_delve_objects()
+            self._spawn_anima_objects()
             self._attach_hidden_wing()
-            self._save_delve()
+            self._save_anima()
 
-        def _delve_chart_is_open(self):
-            """Return whether the transient delve-heart chart popup is open."""
-            return bool(getattr(self, '_delve_chart_open', False))
+        def _anima_chart_is_open(self):
+            """Return whether the transient anima-heart chart popup is open."""
+            return bool(getattr(self, '_anima_chart_open', False))
 
-        def _close_delve_anima_panel(self):
-            """Close the delve-heart chart and clear all transient open state."""
-            self._delve_chart_open = False
+        def _close_anima_anima_panel(self):
+            """Close the anima-heart chart and clear all transient open state."""
+            self._anima_chart_open = False
 
-        def _open_delve_anima_panel(self):
+        def _open_anima_anima_panel(self):
             """Open the hub's shared Anima chart for the current wave."""
-            d = self._delve
+            d = self._anima
             if d is None or d.get('state') != 'ready':
                 return False
-            kids = self._delve_children()
+            kids = self._anima_children()
             if not kids:
                 return False
             if self._chart_screen is None:
-                from ui.delve_chart import DelveChartScreen
-                self._chart_screen = DelveChartScreen(self)
+                from ui.anima_chart import AnimaChartScreen
+                self._chart_screen = AnimaChartScreen(self)
             self._chart_screen.open(
                 d['chart'], selectable_ids=[kid['id'] for kid in kids],
                 on_select=lambda _node_id: None, title='Anima Chart', closable=True)
-            self._delve_chart_open = True
+            self._anima_chart_open = True
             return True
 
         def _trigger_wave(self):

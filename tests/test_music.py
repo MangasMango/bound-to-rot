@@ -16,7 +16,7 @@
 """Music scene states + crossfade.
 
     menu / loading silence / hub / death screen - plus the continuous
-    delve playlist (western_ingame1/2/3) that advances on track ends and
+    anima playlist (western_ingame1/2/3) that advances on track ends and
     is never re-triggered by waves, depths or node choices.
 
     States sharing a file share one loaded stream - see TestSharedStreams.
@@ -72,7 +72,7 @@ class TestStateApi(unittest.TestCase):
         a = AudioSystem()
         a.set_music_state('hub')
         self.assertEqual(a._music_state, 'hub')
-        a.set_delve_music()
+        a.set_anima_music()
         self.assertEqual(a._music_state, GAME_MUSIC_STATE)
         a.set_music_state('off')
         self.assertEqual(a._music_state, 'off')
@@ -154,8 +154,8 @@ class TestCrossfadeLifecycle(unittest.TestCase):
         rl_mock.play_music_stream.assert_not_called()
 
 
-class TestDelvePlaylist(unittest.TestCase):
-    """The delve playlist is continuous: entering 'game' restarts at track 1,
+class TestAnimaPlaylist(unittest.TestCase):
+    """The anima playlist is continuous: entering 'game' restarts at track 1,
     `tick()` advances on bare track ends (crossfaded), it loops forever, and
     gameplay events never touch it (the old wave/depth triggers were removed
     from the API entirely)."""
@@ -251,8 +251,8 @@ class TestDelvePlaylist(unittest.TestCase):
         self.assertEqual(a._enemy_alert, set())
         self.assertEqual(a._step_t, 0.0)
 
-    def test_delve_entry_crossfades_instead_of_cutting(self):
-        # Regression for #5: entering the delve must crossfade the hub
+    def test_anima_entry_crossfades_instead_of_cutting(self):
+        # Regression for #5: entering the anima must crossfade the hub
         # music into the playlist, never stop it instantly.
         a = self._ready_audio()
         hub_s, track1 = a._music['hub'], a._playlist_streams[0]
@@ -268,9 +268,9 @@ class TestDelvePlaylist(unittest.TestCase):
             a.set_music_state('hub')                # hub starts
             a.tick(FADE_SECONDS)                    # hub fade-in completes
             self.assertEqual(a._fades, [])
-            a.reset()                               # delve run-start bookkeeping
+            a.reset()                               # anima run-start bookkeeping
             self.assertTrue(playing[hub_s])         # hub still playing
-            a.set_delve_music()                     # hub -> playlist crossfade
+            a.set_anima_music()                     # hub -> playlist crossfade
             self.assertEqual(a._playlist_index, 0)  # playlist restarts at track 1
             targets = {id(f['music']): f['target'] for f in a._fades}
             self.assertEqual(targets[id(hub_s)], 0.0)    # hub fading out

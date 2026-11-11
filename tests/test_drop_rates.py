@@ -23,7 +23,7 @@ from collections import Counter
 from pathlib import Path
 
 import core.game as game_mod
-import core.delve_gen as delve_gen
+import core.anima_gen as anima_gen
 import systems.currency as currency
 import systems.itemgen as itemgen
 from systems.items import ITEMS
@@ -110,9 +110,9 @@ class TestRoomRewards(unittest.TestCase):
             self.assertGreaterEqual(len(slots), 1)   # legacy roll never empty
 
     def test_reward_table_rows_have_names_and_defs(self):
-        for node_type, table in delve_gen.REWARD_TABLES.items():
+        for node_type, table in anima_gen.REWARD_TABLES.items():
             for item_id, _mn, _mx, _chance in table:
-                self.assertIn(item_id, delve_gen.ITEM_NAMES,
+                self.assertIn(item_id, anima_gen.ITEM_NAMES,
                               f'{node_type}: {item_id} has no chart label')
                 self.assertIn(item_id, ITEMS,
                               f'{node_type}: {item_id} has no item def')
@@ -122,7 +122,7 @@ class TestRoomRewards(unittest.TestCase):
         saw_gem = False
         for _ in range(200):
             if any(r['item'].startswith('gem_')
-                   for r in delve_gen._roll_rewards(rng, 'combat')):
+                   for r in anima_gen._roll_rewards(rng, 'combat')):
                 saw_gem = True
                 break
         self.assertTrue(saw_gem)
@@ -139,7 +139,7 @@ class TestWingAndKillDrops(unittest.TestCase):
                       if s.get('instance_data') and s['item'] in ITEMS
                       and ITEMS[s['item']].get('equipSlot')]
             self.assertTrue(equips)              # depth 10: equip guaranteed
-            floor = delve_gen.hidden_tier_for_depth(10)['rarity_floor']
+            floor = anima_gen.hidden_tier_for_depth(10)['rarity_floor']
             # the guaranteed slot meets the floor (the 80% organ roll may be common)
             self.assertTrue(any(
                 itemgen.RARITY_ORDER.index(inst['rarity']) >= floor
@@ -165,20 +165,20 @@ class TestWingAndKillDrops(unittest.TestCase):
 class TestAnimaPanelInputGuards(unittest.TestCase):
     def test_world_clicks_and_keys_guard_the_panel(self):
         src = (ROOT / 'core' / 'input.py').read_text(encoding='utf-8')
-        self.assertGreaterEqual(src.count('_delve_chart_is_open()'), 3,
+        self.assertGreaterEqual(src.count('_anima_chart_is_open()'), 3,
                                 'mouse, QWER/T guards missing in input.py')
 
     def test_hover_cursor_guards_the_panel(self):
         src = (ROOT / 'core' / 'game.py').read_text(encoding='utf-8')
         self.assertIn('_hover_interactable', src)
         # the guard line inside _hover_interactable
-        self.assertRegex(src, r"inv\.open or self\._hub_popup or self\._delve_chart_is_open")
+        self.assertRegex(src, r"inv\.open or self\._hub_popup or self\._anima_chart_is_open")
 
-    def test_delve_chart_open_flag_roundtrip(self):
+    def test_anima_chart_open_flag_roundtrip(self):
         g = game_mod.Game()
-        self.assertFalse(g._delve_chart_is_open())
-        g._delve_chart_open = True
-        self.assertTrue(g._delve_chart_is_open())
+        self.assertFalse(g._anima_chart_is_open())
+        g._anima_chart_open = True
+        self.assertTrue(g._anima_chart_is_open())
 
 
 if __name__ == '__main__':

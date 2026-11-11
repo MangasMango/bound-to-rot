@@ -19,15 +19,15 @@ from ui import fonts
 
 
 class ChartRenderMixin:
-    def _draw_delve_choice_ui(self, cw: int, ch: int):
-        if self._delve is None:
+    def _draw_anima_choice_ui(self, cw: int, ch: int):
+        if self._anima is None:
             return
-        d = self._delve
+        d = self._anima
 
-        if self._delve_chart_is_open():
+        if self._anima_chart_is_open():
             content, x_clicked = self._draw_anima_panel(cw, ch)
             if x_clicked:
-                self._close_delve_anima_panel()
+                self._close_anima_anima_panel()
             else:
                 self._chart_screen.draw(cw, ch, origin=(content.x, content.y),
                                          view=(content.width, content.height))
@@ -55,9 +55,9 @@ class ChartRenderMixin:
             return
 
         if d['state'] == 'junction':
-            self._draw_delve_junction(cw, ch)
+            self._draw_anima_junction(cw, ch)
             return
 
         if d['state'] == 'relic':
-            self._draw_delve_relics(cw, ch)
+            self._draw_anima_relics(cw, ch)
             return

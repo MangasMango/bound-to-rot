@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Death flow under issue #31: the character survives, the delve is lost,
+"""Death flow under issue #31: the character survives, the anima is lost,
 and a PoE-style XP penalty is applied. Supersedes the permadeath era."""
 
 import unittest
@@ -34,8 +34,8 @@ def _game_stub(char):
     game.char_mgr = manager
     game.state = 'playing'
     game.audio = mock.Mock()
-    game._saved_delve = {'delve': {'depth': 9}}
-    game._delve = {'depth': 9}
+    game._saved_anima = {'anima': {'depth': 9}}
+    game._anima = {'depth': 9}
     return game
 
 
@@ -64,14 +64,14 @@ class DeathReworkTests(unittest.TestCase):
         self.assertEqual(game._raid_results['level'], 5)
         self.assertEqual(game.state, STATE_DEAD)
 
-    def test_delve_is_wiped_but_character_saved(self):
+    def test_anima_is_wiped_but_character_saved(self):
         char = prog.Character('d2', 'FallenLater', 'knight')
         game = _game_stub(char)
-        with mock.patch.object(prog, 'clear_delve_data') as clear:
+        with mock.patch.object(prog, 'clear_anima_data') as clear:
             game._on_death()
         clear.assert_called_once_with('d2')
-        self.assertIsNone(game._saved_delve)
-        self.assertIsNone(game._delve)
+        self.assertIsNone(game._saved_anima)
+        self.assertIsNone(game._anima)
 
     def test_cap_level_death_loses_nothing(self):
         char = prog.Character('d3', 'Maxed', 'knight')
@@ -97,7 +97,7 @@ class KillXpFunnelTests(unittest.TestCase):
         manager.active = prog.Character('kf', 'Killer', 'knight')
         game.char_mgr = manager
         game.tracker = type('T', (), {'kills': 0})()
-        game._delve = {'depth': 1}
+        game._anima = {'depth': 1}
         game._last_kill_t = -999.0
         game._kill_streak = 0
         game._streak_pop_t = -1.0
@@ -120,13 +120,13 @@ class KillXpFunnelTests(unittest.TestCase):
 
     def test_enemy_level_used_over_depth_fallback(self):
         game = self._kill_stub()
-        game._delve = None                      # fallback path
+        game._anima = None                      # fallback path
         with mock.patch('systems.xp.award_for_kill',
                         wraps=xp.award_for_kill) as award:
             game._register_enemy_kill(None)
         award.assert_called_once()
         monster_level = award.call_args[0][1]
-        from core.delve_gen import effective_level
+        from core.anima_gen import effective_level
         self.assertAlmostEqual(monster_level, effective_level(1), places=3)
 
     def test_level_up_grants_points_and_recalcs(self):

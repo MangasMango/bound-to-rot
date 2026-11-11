@@ -19,7 +19,7 @@ Owner rulings (2026-11-02, issue #31; rework rulings 2026-11 per
 .ai/LEVELING_REWORK_PLAN.md - supersedes the pre-rework curve):
 
 - XP drops from enemy kills, scaled by the enemy's level (which comes from
-  Anima depth via ``core.delve_gen.effective_level``).
+  Anima depth via ``core.anima_gen.effective_level``).
 - Over-level kills diminish rapidly: farming shallow depths is worthless
   (grace 3 levels, then -12%/level to a 5% floor).
 - Each level grants exactly +1 attribute point; the 7 DESCEND attributes
@@ -32,7 +32,7 @@ Owner rulings (2026-11-02, issue #31; rework rulings 2026-11 per
 - Death costs 10% of the current level's XP requirement (PoE-style); XP can
   never go below the current level's start, so no de-leveling. No penalty at
   the level cap.
-- Permadeath is removed: the character survives death; the delve is lost.
+- Permadeath is removed: the character survives death; the anima is lost.
 
 All rules live in this one module so they stay testable in one place.
 """

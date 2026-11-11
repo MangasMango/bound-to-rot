@@ -16,17 +16,17 @@
 import unittest
 from unittest.mock import patch
 
-import ui.delve_chart as chart_mod
-from ui.delve_chart import DelveChartScreen
+import ui.anima_chart as chart_mod
+from ui.anima_chart import AnimaChartScreen
 
 
-class DelveChartDragTests(unittest.TestCase):
+class AnimaChartDragTests(unittest.TestCase):
     def setUp(self):
         chart_mod.inp._key_prev.clear()
         chart_mod.inp._mouse_prev.clear()
         chart_mod.inp._mouse_release_prev.clear()
         chart_mod.inp._focus_was = True
-        self.screen = DelveChartScreen(object())
+        self.screen = AnimaChartScreen(object())
         self.screen.open({
             'graph': {'nodes': {}, 'edges': []},
             'visited': [], 'looted': [], 'checkpoints': [], 'route': [],

@@ -44,10 +44,10 @@ def reset_stats(s, max_health=50, evasion=53,
 
     Owner ruling 2026-10-07: the current POOLS (health / energy shield)
     are PRESERVED and only clamped to the new maxima - a stat recalc
-    (gear swap, identify, hub arrival, delve resume) must never refill
+    (gear swap, identify, hub arrival, anima resume) must never refill
     you. The level-up-era full refill is gone; the only full refills live
-    at character creation (empty dict → defaults) and a fresh delve start
-    (explicit, see delve_flow._enter_delve). Mana was retired from the
+    at character creation (empty dict → defaults) and a fresh anima start
+    (explicit, see anima_flow._enter_anima). Mana was retired from the
     game (owner ruling 2026-10-29); old saves carrying ``mana`` /
     ``max_mana`` keys load fine - they are simply ignored.
     """
@@ -70,7 +70,7 @@ def reset_stats(s, max_health=50, evasion=53,
     s['_crit_chance']     = float(crit_chance)
     s['_ability_crit_chance'] = float(ability_crit_chance)
     # Store the remaining derived-stat keys (damage_pct, penetration_pct,
-    # resist_pct, entropy_grace_pct, delve_light_radius, and the attribute
+    # resist_pct, entropy_grace_pct, anima_light_radius, and the attribute
     # totals) so the live game code can read them off stats.
     s.update(_)
     # Restore the pools LAST (so nothing in the derived dump can clobber

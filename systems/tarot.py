@@ -19,11 +19,11 @@ Tarot (Major Arcana) card system - Bound To Rot.
 The Pulse's card choice is now a tarot spread. Each of the 22 Major Arcana
 carries a direction (descend / stay / ascend / return) and a themed effect
 applied to the next room. Cards are dealt face-down (back.png) and flipped
-one-by-one; the player picks one to steer the delve.
+one-by-one; the player picks one to steer the anima.
 
 Asset source: jcanabal's "major-arcana-pixel-art-free" (see credits.txt).
 
-Effect keys understood by Game._delve_apply_card():
+Effect keys understood by Game._anima_apply_card():
     darkness_mult : float  -> scale next room darkness_dps
     light_bonus   : float  -> + tiles to pulse light radius
     enemy_hp_mult : float  -> scale next wave enemy HP

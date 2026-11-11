@@ -20,21 +20,23 @@ the chart sits closer/bigger than the old 380/60 layout."""
 import random
 import unittest
 
-import core.delve_gen as delve_gen
+import core.anima_gen as anima_gen
 
 
+# NOTE: these are the BANNED legacy names - 'delve entrance' keeps its
+# old spelling on purpose (it is the string the guard exists to catch).
 LEGACY_STRINGS = ('armour', 'chest', 'delve entrance', 'rare cache',
-                   'boss loot', 'breach chest')
+                  'boss loot', 'breach chest')
 
 
 def _all_names():
     """Every display string a chart/room node can carry."""
-    graph = delve_gen.init_delve(seed=1234)
-    delve_gen.ensure_depth_rows(graph, __import__('random').Random(7), 30)
+    graph = anima_gen.init_anima(seed=1234)
+    anima_gen.ensure_depth_rows(graph, __import__('random').Random(7), 30)
     for node in graph['nodes'].values():
         yield node.get('label') or ''
         yield node.get('loot') or ''
-    room = delve_gen.init_delve_room(seed=42, depth=3)
+    room = anima_gen.init_anima_room(seed=42, depth=3)
     yield room['node'].get('label') or ''
     yield room['node'].get('loot') or ''
 
@@ -49,14 +51,14 @@ class TestNodeNames(unittest.TestCase):
 
     def test_expected_new_names_present(self):
         self.assertIn('Organ Rack',
-                      [lt for _nt, _lb, lt in delve_gen.NODE_DEFS])
+                      [lt for _nt, _lb, lt in anima_gen.NODE_DEFS])
         self.assertIn('Organ Cache',
-                      [lb for _nt, lb, _lt in delve_gen.NODE_DEFS])
+                      [lb for _nt, lb, _lt in anima_gen.NODE_DEFS])
         self.assertIn('Vital Hoard',
-                      [lt for _nt, _lb, lt in delve_gen.NODE_DEFS_BOSS])
+                      [lt for _nt, _lb, lt in anima_gen.NODE_DEFS_BOSS])
 
     def test_start_and_dead_end_names(self):
-        graph = delve_gen.init_delve(seed=99)
+        graph = anima_gen.init_anima(seed=99)
         names = [(n.get('label'), n.get('loot'))
                  for n in graph['nodes'].values()]
         self.assertTrue(any(label == 'Anima Entrance' for label, _ in names))
@@ -68,7 +70,7 @@ class TestRowSupply(unittest.TestCase):
     deleted, the beaten history stays on the chart."""
 
     def test_exhausted_row_appends_to_the_side(self):
-        graph = delve_gen.init_delve(seed=7)
+        graph = anima_gen.init_anima(seed=7)
         start_id = graph['start_node_id']
         row1_before = {n['id'] for n in graph['nodes'].values()
                        if n['depth'] == 1}
@@ -76,10 +78,10 @@ class TestRowSupply(unittest.TestCase):
                              if n['depth'] == 1)
         for node in graph['nodes'].values():          # farm row 1 completely
             if node['depth'] == 1:
-                node['state'] = delve_gen.STATE_CLEARED
+                node['state'] = anima_gen.STATE_CLEARED
         total_before = len(graph['nodes'])
 
-        added = delve_gen.ensure_row_supply(graph, random.Random(3), start_id)
+        added = anima_gen.ensure_row_supply(graph, random.Random(3), start_id)
         self.assertGreaterEqual(added, 2)
         # append, not replace - every original node (incl. start) survives
         self.assertEqual(len(graph['nodes']), total_before + added)
@@ -87,7 +89,7 @@ class TestRowSupply(unittest.TestCase):
         self.assertIn(start_id, graph['nodes'])
         # fresh nodes: beyond the original lanes on one side, never dead
         row1 = [n for n in graph['nodes'].values() if n['depth'] == 1]
-        fresh = [n for n in row1 if n['state'] == delve_gen.STATE_AVAILABLE]
+        fresh = [n for n in row1 if n['state'] == anima_gen.STATE_AVAILABLE]
         self.assertGreaterEqual(len(fresh), added)
         self.assertTrue(all(not n.get('dead_end') for n in fresh))
         cols_after = sorted(n['col'] for n in row1)
@@ -101,33 +103,33 @@ class TestRowSupply(unittest.TestCase):
                    if c in fresh_ids and p not in fresh_ids]
         self.assertTrue(inbound)
         cleared_row = {n['id'] for n in row1
-                       if n['state'] == delve_gen.STATE_CLEARED}
+                       if n['state'] == anima_gen.STATE_CLEARED}
         self.assertIn(inbound[0][0], cleared_row)
         for p, c in graph['edges']:
             if p in fresh_ids or c in fresh_ids:
                 self.assertEqual(graph['nodes'][p]['depth'],
                                  graph['nodes'][c]['depth'])
         # stable: a second call sees live options and adds nothing
-        self.assertEqual(delve_gen.ensure_row_supply(graph, random.Random(3),
+        self.assertEqual(anima_gen.ensure_row_supply(graph, random.Random(3),
                                                      start_id), 0)
 
     def test_populated_row_never_refreshes(self):
-        graph = delve_gen.init_delve(seed=11)
+        graph = anima_gen.init_anima(seed=11)
         start_id = graph['start_node_id']
         self.assertEqual(
-            delve_gen.ensure_row_supply(graph, random.Random(5), start_id), 0)
+            anima_gen.ensure_row_supply(graph, random.Random(5), start_id), 0)
 
 
 class TestChartDensity(unittest.TestCase):
     """Nodes closer together, icons bigger (owner ruling 2026-10-07)."""
 
     def test_spacing_constants_shrank(self):
-        self.assertEqual(delve_gen.CHART_COL_SPACING, 300.0)
-        self.assertEqual(delve_gen.CHART_ROW_SPACING, 46.0)
+        self.assertEqual(anima_gen.CHART_COL_SPACING, 300.0)
+        self.assertEqual(anima_gen.CHART_ROW_SPACING, 46.0)
 
     def test_node_radius_grew(self):
         from pathlib import Path
-        src = Path('ui/delve_chart.py').read_text(encoding='utf-8')
+        src = Path('ui/anima_chart.py').read_text(encoding='utf-8')
         self.assertIn("(8 if node['type'] in ('checkpoint', 'boss') else 6)",
                       src)
         # icons 2× bigger than the first pass - ~3.1× the circle diameter

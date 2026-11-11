@@ -1090,7 +1090,7 @@ class InventoryUI:
                 opts.append({'type': 'split',     'label': f'SPLIT ({slot["count"]})'})
             # A gem in the GRID is socketable with the right-click menu alone:
             # left-click drag and drop was removed in issue #94, so without this
-            # action a gem looted in the delve could never be equipped.
+            # action a gem looted in the anima could never be equipped.
             if src == 'grid':
                 key = items_mod.gem_socket_target(slot)
                 if key:

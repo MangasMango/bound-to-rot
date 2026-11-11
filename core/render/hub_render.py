@@ -40,7 +40,7 @@ class HubRenderMixin:
         player_entity, hub_actors = self._hub_actor_entities()
         hub_entities = list(hub_actors)
 
-        # Delve Heart - the pulse art, breathing slowly at the hub's centre
+        # Anima Heart - the pulse art, breathing slowly at the hub's centre
         if self._pulse_tex and self._pulse_tex.id > 0:
             breath = 1.0 + 0.06 * math.sin(self.anim_time * 2.2)
             hub_entities.append({
@@ -106,10 +106,10 @@ class HubRenderMixin:
             fonts.draw(lbl, center_x - label_width // 2, ly, 16,
                        rl.Color(obj['color'].r, obj['color'].g, obj['color'].b, 200))
 
-        # Ground drop labels - same always-visible/Alt rule as in the delve
+        # Ground drop labels - same always-visible/Alt rule as in the anima
         self._draw_drop_labels(cw, ch)
 
-        # combat numbers above the hub darkness, matching the delve hook
+        # combat numbers above the hub darkness, matching the anima hook
         self._draw_dmg_numbers(cw, ch)
 
         self._draw_hud(cw, ch)
@@ -123,14 +123,14 @@ class HubRenderMixin:
                     self._chart_screen.draw(cw, ch,
                                             origin=(content.x, content.y),
                                             view=(content.width, content.height))
-                    # Resume button (saved mid-delve snapshot)
+                    # Resume button (saved mid-anima snapshot)
                     if self._chart_resume:
                         import entities.progression as _prog
-                        saved = (self._saved_delve
-                                 or _prog.load_delve_data(self.char.id))
-                        depth = (saved.get('delve') or {}).get('depth', 1) \
+                        saved = (self._saved_anima
+                                 or _prog.load_anima_data(self.char.id))
+                        depth = (saved.get('anima') or {}).get('depth', 1) \
                             if saved else 1
-                        label = f'Resume delve - Depth {depth}'
+                        label = f'Resume anima - Depth {depth}'
                         rect = rl.Rectangle(
                             content.x + content.width // 2 - 110,
                             content.y + content.height - 44, 220, 36)
@@ -167,7 +167,7 @@ class HubRenderMixin:
             self.inv.draw(self._get_char_inventory(), cw, ch)
     def _draw_hub_bright(self, cw, ch):
         """Re-draw the hub's light sources above the darkness overlay so the
-        flames and the Delve Heart stay bright instead of being dimmed by the
+        flames and the Anima Heart stay bright instead of being dimmed by the
         multiply pass."""
         tile_size = max(1, int(ISO_W * self.iso.scale))
         ent_px    = ENTITY_BASE * self.iso.scale
@@ -185,7 +185,7 @@ class HubRenderMixin:
             rl.draw_texture_pro(tex, src, dst, rl.Vector2(0.0, 0.0), 0.0,
                                 tint or rl.WHITE)
 
-        # Delve Heart - bright, with a subtle warm glow (the layered
+        # Anima Heart - bright, with a subtle warm glow (the layered
         # darkness light does the heavy lifting now)
         if self._pulse_tex and self._pulse_tex.id > 0:
             pulse = (math.sin(self.anim_time * 2.2) + 1.0) / 2.0
@@ -198,7 +198,7 @@ class HubRenderMixin:
             draw_tex(_HEART_POS[0], _HEART_POS[1], self._pulse_tex, 1.2 * breath, ent=True)
 
         # (the campfire sprites - pillar bowls and braziers - are gone;
-        # the Delve Heart carries the sanctuary's light alone)
+        # the Anima Heart carries the sanctuary's light alone)
 
         # ── actors above the darkness ────────────────────────────────────
         # Player / stash are redrawn with a per-sprite light tint
@@ -238,7 +238,7 @@ class HubRenderMixin:
                         rl.begin_blend_mode(rl.BLEND_ADDITIVE)
                         self.iso._draw_entity(e2, sx, sy, tile_size)
                         rl.end_blend_mode()
-            elif hv.get('type') == 'delve' and self._pulse_tex and self._pulse_tex.id > 0:
+            elif hv.get('type') == 'anima' and self._pulse_tex and self._pulse_tex.id > 0:
                 breath = 1.0 + 0.06 * math.sin(self.anim_time * 2.2)
                 rl.begin_blend_mode(rl.BLEND_ADDITIVE)
                 draw_tex(_HEART_POS[0], _HEART_POS[1], self._pulse_tex,
