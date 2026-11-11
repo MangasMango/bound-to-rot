@@ -25,7 +25,8 @@ on:
     branches: [main]
 
 permissions:
-  contents: write         # open the release PR / push the tag
+  contents: write         # push the release branch / the tag
+  pull-requests: write    # open the release PR (gh pr create)
 
 jobs:
   release-pr:
