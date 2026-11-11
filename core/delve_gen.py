@@ -232,10 +232,10 @@ def _carve_corridor(grid, start_c, start_r, end_c, end_r):
 # same single roll. Every row needs a matching ITEM_NAMES entry.
 REWARD_TABLES = {
     'combat':   [('gem_blue', 1, 1, 0.10), ('gem_green', 1, 1, 0.08),
-                 ('gem_red', 1, 1, 0.06),  ('gem_white', 1, 1, 0.05)],
+                 ('gem_red', 1, 1, 0.06),  ('gem_red', 1, 1, 0.05)],
     'chest':    [('lungs', 1, 1, 0.5),   ('heart', 1, 1, 0.4),
                  ('kidney', 1, 1, 0.3),     ('intestine', 1, 1, 0.2),
-                 ('gem_white', 1, 1, 0.08)],
+                 ('gem_red', 1, 1, 0.08)],
     'armour':   [('heart', 1, 1, 0.4), ('lungs', 1, 1, 0.5),
                  ('kidney', 1, 1, 0.25), ('gem_blue', 1, 1, 0.08)],
     'breach':   [('liver', 1, 1, 0.2)],
@@ -248,7 +248,7 @@ ITEM_NAMES = {
     'lungs': 'Lungs', 'heart': 'Heart', 'liver': 'Liver',
     'intestine': 'Intestine', 'kidney': 'Kidney',
     'gem_blue': 'Blue Gem', 'gem_green': 'Green Gem',
-    'gem_red': 'Red Gem', 'gem_white': 'White Gem',
+    'gem_red': 'Red Gem',
 }
 
 

@@ -68,12 +68,11 @@ TILE_PITCH = 132
 TILE_ROW_AY = (810, 855)
 
 # ── gem sockets (right column) - keys & colours ───────────────────────
-GEM_KEYS = ('Q', 'W', 'E', 'R')
+GEM_KEYS = ('Q', 'W', 'E')   # issue #45: R is not a gem slot
 GEM_KEY_COLOR = {
     'Q': (90, 140, 255, 255),    # blue
     'W': (60, 200, 90, 255),     # green
     'E': (230, 70, 70, 255),     # red
-    'R': (240, 240, 240, 255),   # white
 }
 # Owner rule: the Q/W/E/R key LABEL is always gray. The colour is carried by
 # the gem art itself (and the slot border), never by the letter.

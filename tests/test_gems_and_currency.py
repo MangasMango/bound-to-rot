@@ -34,7 +34,6 @@ class TestGemAbilityMapping(unittest.TestCase):
         self.assertEqual(gems.GEM_COLOR_FOR_SLOT['Q'], 'blue')
         self.assertEqual(gems.GEM_COLOR_FOR_SLOT['W'], 'green')
         self.assertEqual(gems.GEM_COLOR_FOR_SLOT['E'], 'red')
-        self.assertEqual(gems.GEM_COLOR_FOR_SLOT['R'], 'white')
 
     def test_gem_items_exist(self):
         for slot in gems.GEM_SLOTS:

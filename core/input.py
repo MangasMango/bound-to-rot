@@ -203,15 +203,14 @@ class InputMixin:
             if inp.key_pressed(self,rl.KEY_T) and not self.inv.open \
                     and not self._delve_chart_is_open():
                 self._use_flask()
-            # R: spin the cylinder early (ammo mechanic). Runs on its own
-            # per-consumer edge ('game.reload') - the R gem-slot edge above
-            # consumed the shared 'self' edge, so R used to cast the gem
-            # instead of reloading. Priority: a socketed white gem owns R;
-            # empty slots fall back to reload.
+            # R: spin the cylinder early (ammo mechanic). Issue #45: the R
+            # GEM SLOT IS GONE - R is a pure reload key, no socket consult.
+            # Own per-consumer edge ('game.reload'); the HUD R slot flashes
+            # so the keypress reads on the belt.
             if inp.key_pressed('game.reload', rl.KEY_R) \
-                    and not self._delve_chart_is_open() \
-                    and gems.socketed_ability(self.inventory, 'R') is None:
+                    and not self._delve_chart_is_open():
                 if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
+                    self._flash_hud('R')
                     self._start_reload()
             self.inv.update(self.inventory, self.stats)
             self._update_game(dt)

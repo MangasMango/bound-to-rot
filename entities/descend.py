@@ -84,13 +84,13 @@ VESSEL_UNLOCKS = {
     'warrior': {
         'depth': 10,
         'veil': 'First Veil',
-        'requirement': 'Pierce the First Veil — reach Depth 10',
+        'requirement': 'Pierce the First Veil - reach Depth 10',
         'flavor': "Those who held the dark at arm's length.",
     },
     'fighter': {
         'depth': 20,
         'veil': 'Second Veil',
-        'requirement': 'Walk the Second Veil — reach Depth 20',
+        'requirement': 'Walk the Second Veil - reach Depth 20',
         'flavor': 'Forged where the deep burns.',
     },
 }

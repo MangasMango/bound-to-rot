@@ -75,7 +75,7 @@ CHARS_PATH = os.path.join(_SAVE_DIR, 'characters.json')
 # ── Save schema versioning (issue #126) ────────────────────────────────────
 # The one constant to bump when the save format changes. Bump it, add a
 # _migrate_<n>_to_<n+1> step and register it in _MIGRATIONS below.
-SAVE_SCHEMA_VERSION = 5
+SAVE_SCHEMA_VERSION = 6
 SAVE_FORMAT_VERSION = SAVE_SCHEMA_VERSION   # legacy alias kept for call sites
 
 # Save files written before the framework existed carry no explicit key; the
@@ -407,6 +407,79 @@ def _migrate_4_to_5(data: dict) -> dict:
     return data
 
 
+def _migrate_5_to_6(data: dict) -> dict:
+    """v5 -> v6: the R gem slot is gone (issue #45 - R is a pure reload
+    key). Every stored white gem converts value-preserving into a random
+    Q/W/E gem at the same rarity (ability re-rolled from the new slot's
+    pool), and any 'R' key in gem_sockets disappears. Idempotent."""
+    if not isinstance(data, dict):
+        raise SaveMigrationError('the save file is not valid save data.')
+    import random as _rnd
+    import systems.gems as _gems
+    import systems.itemgen as _itemgen
+
+    GEM_IDS = ('gem_blue', 'gem_green', 'gem_red')
+    notes = []
+
+    def _convert_white(slot_dict):
+        """gem_white -> a random Q/W/E gem at the same rarity (in place)."""
+        inst = slot_dict.get('instance_data') or {}
+        rarity = inst.get('rarity', 'uncommon')
+        new_id = _gems.gem_item_id(_rnd.choice(('Q', 'W', 'E')))
+        ability = _gems.random_ability_for_gem_slot(
+            {'gem_blue': 'Q', 'gem_green': 'W', 'gem_red': 'E'}[new_id])
+        slot_dict['item'] = new_id
+        slot_dict['count'] = slot_dict.get('count', 1)
+        old_name = inst.get('display_name', 'White Gem')
+        slot_dict['instance_data'] = {
+            'rarity': rarity,
+            'display_name': (ability or 'Gem').replace('_', ' ').title(),
+            'ilvl': int(inst.get('ilvl', 1)),
+            'identified': True,          # gems are always identified
+            'ability': ability,
+        }
+        return f'{old_name} -> {new_id}'
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            for key in list(obj.keys()):
+                if key == 'gem_sockets' and isinstance(obj[key], dict):
+                    sockets = obj[key]
+                    r_entry = sockets.pop('R', None)
+                    if r_entry is not None:
+                        notes.append(_convert_white(r_entry))
+                        # the converted gem must keep a home: a free slot
+                        # if one exists, else the inventory grid
+                        free = [k for k, v in sockets.items() if v is None]
+                        if free:
+                            sockets[free[0]] = r_entry
+                        else:
+                            obj.setdefault('grid', []).append(r_entry)
+                    for entry in sockets.values():
+                        if isinstance(entry, dict) and entry.get('item') == 'gem_white':
+                            notes.append(_convert_white(entry))
+                    for keep in ('Q', 'W', 'E'):
+                        sockets.setdefault(keep, None)   # normalize the slot set
+                    continue    # do not descend into socket entries
+                if isinstance(obj[key], list):
+                    for gi in obj[key]:
+                        if isinstance(gi, dict) and gi.get('item') == 'gem_white':
+                            notes.append(_convert_white(gi))
+                _walk(obj[key])
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
+
+    _walk(data)
+    if notes:
+        header = ('The White Gem was retired (R is a reload key now); '
+                  'stored white gems were converted:')
+        data['migration_note'] = '\n'.join(
+            [header] + notes + [str(d.get('migration_note', ''))
+                                for d in [data] if d.get('migration_note')])
+    return data
+
+
 # ── MIGRATION REGISTRY ─────────────────────────────────────────────────────
 # Single place to update for any future schema change: bump
 # SAVE_SCHEMA_VERSION and add the matching step here. Keys are *from* versions.
@@ -415,6 +488,7 @@ _MIGRATIONS: dict[int, callable] = {
     2: _migrate_2_to_3,
     3: _migrate_3_to_4,
     4: _migrate_4_to_5,
+    5: _migrate_5_to_6,
 }
 
 
@@ -488,6 +562,29 @@ def _delve_sanitize(data: dict) -> dict:
 
 def _delve_restore(data: dict) -> dict:
     """Convert JSON-safe types back to runtime equivalents."""
+    # issue #45: the white gem is retired - convert any stored ones found
+    # in older delve snapshots (ground items) the same way the save
+    # migration does for character inventories
+    import random as _rnd
+    import systems.gems as _gems
+
+    def _convert_white(gi):
+        rarity = ((gi.get('instance_data') or {}).get('rarity', 'uncommon'))
+        new_slot = _rnd.choice(('Q', 'W', 'E'))
+        ability = _gems.random_ability_for_gem_slot(new_slot)
+        gi['item'] = _gems.gem_item_id(new_slot)
+        inst = gi.get('instance_data') or {}
+        inst.update({
+            'rarity': rarity,
+            'display_name': (ability or 'Gem').replace('_', ' ').title(),
+            'identified': True,
+            'ability': ability,
+        })
+        gi['instance_data'] = inst
+
+    for items in (data.get('ground_items') or []):
+        if isinstance(items, dict) and items.get('item') == 'gem_white':
+            _convert_white(items)
     delve = data.get('delve')
     if not delve:
         return data

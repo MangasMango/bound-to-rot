@@ -1,25 +1,28 @@
-# Release builds for Bound To Rot (manual, milestone-gated).
+# Release builds for Bound To Rot (drafts automated, publishing manual).
 #
-# NOTHING is published automatically - not on tags, not on pushes. Building
-# and setting up a GitHub Release requires a manual workflow_dispatch from
-# the Actions tab:
+# TWO ways in, one rule: NOTHING is ever PUBLISHED automatically. Both
+# paths stop at a DRAFT release that you review and hit Publish on
+# (full process documented in RELEASE.md):
 #
-#   Run workflow -> tag: v0.5.2   confirm: milestone
+#   1. Automated: the release-auto workflow bumps the version + tags when
+#      a `release`-labelled PR merges to main - the tag push lands here
+#      and drafts the release with generated notes. Zero clicks to draft.
+#   2. Manual: Actions tab -> Release (manual) -> Run workflow ->
+#      tag: v0.5.2   confirm: milestone (empty confirm = dry-run build).
 #
-# confirm must literally be "milestone", otherwise only the build runs
-# (use a blank confirm as a free dry-run of the build matrix).
-#
-# PyInstaller cannot cross-compile, so a build matrix runs the existing
-# scripts/build_release.py per-OS on demand and (if confirmed) the final
-# job attaches the zips to a GitHub Release as a DRAFT. You still review
-# and hit Publish yourself - the workflow only prepares the draft.
+# PyInstaller cannot cross-compile, so a build matrix runs
+# scripts/build_release.py per-OS on demand and the final job attaches the
+# zips to the DRAFT.
 #
 # Zip layout/naming live in scripts/build_release.py
 # (dist/BoundToRot-<version>-<os>-<arch>.zip, assets bundled).
 
-name: Release (manual)
+name: Release (drafts)
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -58,7 +61,7 @@ jobs:
 
       - name: Check tag matches pyproject version
         env:
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
         run: |
           python - <<'PY'
           import os, sys, tomllib
@@ -85,10 +88,11 @@ jobs:
     name: Prepare draft GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    # The milestone gate: only an exact confirmation string starts a
-    # release; anything else (and tag-push/push events, which can't even
-    # reach this workflow) never publishes.
-    if: inputs.confirm == 'milestone'
+    # Two doors, one destination (a DRAFT - publishing is always human):
+    #   - tag push (the automated path from release-auto.yml): drafts
+    #     with auto-generated notes, no confirm string needed.
+    #   - manual dispatch: still gated by the exact 'milestone' confirm.
+    if: github.event_name == 'push' || inputs.confirm == 'milestone'
 
     steps:
       - name: Download all build zips
@@ -101,9 +105,18 @@ jobs:
       - name: Create draft release with the zips
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
         run: |
           set -eu
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            gh release create "$TAG" dist/*.zip \
+              --draft \
+              --target "$GITHUB_SHA" \
+              --title "Bound To Rot $TAG" \
+              --generate-notes
+            echo "Draft (auto notes) at: https://github.com/${GITHUB_REPOSITORY}/releases - review, then hit Publish"
+            exit 0
+          fi
           gh release create "$TAG" dist/*.zip \
             --draft \
             --target "$GITHUB_SHA" \

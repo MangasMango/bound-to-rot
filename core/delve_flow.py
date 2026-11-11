@@ -660,7 +660,7 @@ class DelveFlowMixin:
         def _legacy_random_reward(self, base_ilvl: int) -> list:
             """Pre-§24 fallback: one random organ or gem (never empty)."""
             pool = ['liver', 'lungs', 'kidney', 'intestine', 'heart',
-                    'gem_blue', 'gem_green', 'gem_red', 'gem_white']
+                    'gem_blue', 'gem_green', 'gem_red']
             return [{'item': _rnd.choice(pool), 'count': 1}]
 
         def _init_delve_chart(self):

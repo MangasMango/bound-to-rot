@@ -130,7 +130,7 @@ class HubRenderMixin:
                                  or _prog.load_delve_data(self.char.id))
                         depth = (saved.get('delve') or {}).get('depth', 1) \
                             if saved else 1
-                        label = f'Resume delve — Depth {depth}'
+                        label = f'Resume delve - Depth {depth}'
                         rect = rl.Rectangle(
                             content.x + content.width // 2 - 110,
                             content.y + content.height - 44, 220, 36)
