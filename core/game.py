@@ -582,6 +582,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self.inv     = InventoryUI()
         self.inv.char_provider = lambda: self.char
         self.inv.on_gear_change   = self._on_gear_changed
+        self.inv.on_grid_change   = self._on_stash_change   # backpack sorts persist too (issue #12)
         self.ground_items = []
         self._loot_sparkles = []
 
