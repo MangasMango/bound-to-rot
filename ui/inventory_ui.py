@@ -34,7 +34,7 @@ import systems.gems as gems_mod
 import systems.currency as currency_mod
 import systems.recipes as recipes_mod
 from entities.descend import ATTR_LABEL as _TILE_LABEL
-from ui.menus import _btn, _ATTR_BLURBS
+from ui.menus import _btn, _ATTR_BLURBS, _TextInput
 from systems.items import (ITEMS, GRID_COLS, GRID_ROWS, INV_COLS, INV_ROWS,
                    grid_build_map, grid_auto_place, grid_auto_place_instance,
                    format_equip_stat, equip_from_grid, EQUIP_SLOT_LABELS,
@@ -67,6 +67,13 @@ TILE_AX, TILE_AW, TILE_AH = 20, 126, 42
 TILE_PITCH = 132
 TILE_ROW_AY = (810, 855)
 
+# Backpack sort row (issue #12): sits on the bare stone band below the
+# attribute tiles - one SORT label + three one-shot sort buttons.
+SORT_ROW_AX, SORT_ROW_AY, SORT_ROW_AH = 20, 908, 36
+SORT_BTNS = (('name', 'NAME', 92),
+             ('rarity', 'RARITY', 118),
+             ('ilvl', 'ILEVEL', 104))
+
 # ── gem sockets (right column) - keys & colours ───────────────────────
 GEM_KEYS = ('Q', 'W', 'E')   # issue #45: R is not a gem slot
 GEM_KEY_COLOR = {
@@ -90,6 +97,13 @@ GHOST_FLASK_ITEM = 'flask_health'
 STASH_BG_W = 554
 STASH_BG_H = 1080
 SBG_AX, SBG_AY, SBG_ACELL = 15, 285, 64   # painted grid origin + pitch
+
+# Search box + filter row (issue #12): native-asset-pixel rects below the
+# painted 8×8 grid (the bare stone band, y 797..1080).
+STASH_SEARCH_AX, STASH_SEARCH_AY, STASH_SEARCH_AW, STASH_SEARCH_AH = \
+    15, 815, 512, 34
+STASH_FILTER_AY, STASH_FILTER_AH = 862, 30
+STASH_FILTER_BTN_AW = 168
 
 
 def stash_panel_scale(screen_h: int) -> float:
@@ -269,12 +283,7 @@ def _entry_dict(value):
 
 def _rarity_of(entry):
     """Instance rarity if rolled, else the base item's static rarity."""
-    if not entry:
-        return 'common'
-    inst = entry.get('instance_data')
-    if inst:
-        return inst.get('rarity', 'common')
-    return ITEMS.get(entry['item'], {}).get('rarity', 'common')
+    return items_mod.entry_rarity(entry)
 
 
 def _count_label(entry):
@@ -320,6 +329,15 @@ class InventoryUI:
         self.layout_dbg      = False  # inv_layout debug overlay
         self._notice         = None    # (text, remaining seconds) transient panel notice
         self._notice_timer   = 0.0
+        # Stash search + filters (issue #12): the text input rides the
+        # per-render-frame char queue (see ui/menus._TextInput docstring);
+        # search_text is the live lower-cased filter the grid draws against.
+        self.search_focused  = False
+        self.stash_search    = _TextInput(24)
+        self.search_text     = ''
+        self.stash_rarity    = 'all'   # cycle value from items.RARITY_CYCLE
+        self.stash_type      = 'all'   # cycle value from items.ITEM_TYPE_CYCLE
+        self.on_grid_change  = None   # called after a backpack sort (triggers save)
 
     def notify(self, text: str, seconds: float = 2.0):
         """Set the transient in-panel notice line ('Backpack full!' etc.)."""
@@ -415,6 +433,17 @@ class InventoryUI:
     def close_stash(self):
         self.stash_open  = False
         self._stash_grid = None
+        self._reset_stash_search()
+
+    def _reset_stash_search(self):
+        """Clear search + filters when the bank closes (a fresh open shows
+        every item - a stale filter silently 'hiding' items confused more
+        than it helped)."""
+        self.search_focused = False
+        self.search_text    = ''
+        self.stash_search.clear()
+        self.stash_rarity = 'all'
+        self.stash_type   = 'all'
 
     def open_forge(self):
         """Open the blacksmith forge: fresh empty offerings + results grids."""
@@ -485,6 +514,42 @@ class InventoryUI:
         """(left edge px, scale s) of the inventory panel for this frame."""
         s = screen_h / BG_H
         return screen_w - BG_W * s, s
+
+    # ── stash search / filter helpers (issue #12) ───────────────────
+
+    def _stash_search_rect(self):
+        """Screen rect of the bank search box for the current frame."""
+        sb_s = stash_panel_scale(rl.get_screen_height())
+        return rl.Rectangle(STASH_SEARCH_AX * sb_s, STASH_SEARCH_AY * sb_s,
+                            STASH_SEARCH_AW * sb_s, STASH_SEARCH_AH * sb_s)
+
+    def _update_stash_search(self, mx, my, lmb):
+        """Focus handling + live text for the bank search box.
+
+        Focus follows a click: into the box focuses it, anywhere else
+        unfocuses (so a click meant for an item never keeps typing). Esc
+        unfocuses too; the game/hub Esc handlers keep the panel open while
+        the box is focused (they own their own per-consumer edge)."""
+        rect = self._stash_search_rect()
+        if lmb:
+            self.search_focused = self._in_rect(mx, my, rect)
+        if inp.key_pressed(self, rl.KEY_ESCAPE):
+            self.search_focused = False
+        if self.search_focused:
+            self.search_text = self.stash_search.update().lower()
+
+    def _entry_visible(self, entry):
+        """Whether a bank entry passes the active search + rarity/type filters.
+
+        Non-matching entries still occupy their cells (nothing is moved or
+        hidden from the grid math) - they draw dimmed and refuse interaction
+        until the filter is relaxed."""
+        if not isinstance(entry, dict):
+            return False
+        if not items_mod.entry_matches_search(entry, self.search_text):
+            return False
+        return items_mod.entry_matches_filters(entry, self.stash_rarity,
+                                               self.stash_type)
 
     def _rect(self, px, s, ax, ay, aw, ah):
         return rl.Rectangle(px + ax * s, ay * s, aw * s, ah * s)
@@ -563,6 +628,11 @@ class InventoryUI:
             self._handle_confirm_dismantle(mx, my, lmb)
             return
 
+        # Stash search box (issue #12): click to focus / click-away unfocus,
+        # live per-tick text consumption while focused.
+        if self.stash_open and self._stash_grid is not None:
+            self._update_stash_search(mx, my, lmb)
+
         self._inventory_for_menu = inventory.get('grid', []) if isinstance(inventory, dict) else inventory
         # the whole inventory - the context menu needs the gem sockets to know
         # whether SOCKET is currently available (issue #94)
@@ -614,7 +684,8 @@ class InventoryUI:
                 return {'x': mx, 'y': my, **hit}
         elif in_stash and self._stash_grid is not None:
             hit = self._slot_at_stash(mx, my)
-            if hit and hit['slot']:
+            # filtered-out items are dimmed and non-interactive (issue #12)
+            if hit and hit['slot'] and self._entry_visible(hit['slot']):
                 return {'x': mx, 'y': my, **hit}
         elif in_forge:
             hit = self._slot_at_forge(mx, my)
@@ -1259,6 +1330,7 @@ class InventoryUI:
         self._draw_grid(inventory, px, s, mx, my)
         self._draw_tiles(px, s, mx, my)
         self._draw_character_level(inventory, px)
+        self._draw_sort_row(inventory, px, s)
 
         # transient notice (e.g. 'Backpack full!')
         self._tick_notice()
@@ -1319,9 +1391,83 @@ class InventoryUI:
         else:
             _stone_side_panel(0, 0, panel_w, screen_h, corner_side='left')
 
-        # Grid
+        # Search box + filter row (issue #12), then the grid
+        self._draw_stash_search()
+        self._draw_stash_filters()
         stash_grid = self._stash_grid if self._stash_grid is not None else []
         self._draw_stash_grid(stash_grid, sb_s, mx, my)
+
+    def _draw_stash_search(self):
+        """Bank search box below the painted grid (issue #12).
+
+        Click handling lives in ``update`` (per-tick edge); this only paints
+        the box, its text and the caret so the focus state reads instantly."""
+        rect = self._stash_search_rect()
+        focused = self.search_focused
+        rl.draw_rectangle_rec(rect, C_SLOT_FL)
+        rl.draw_rectangle_lines_ex(
+            rect, 1, C_GOLD_TRIM if focused else C_BORDER2)
+        icons.draw('search', int(rect.x + 8),
+                   int(rect.y + rect.height / 2 - 8), 16, C_LABEL)
+        text = self.search_text
+        if not text and not focused:
+            fonts.draw('SEARCH', int(rect.x + 32),
+                       int(rect.y + rect.height / 2 - 8), 14, C_GOLD_FAINT)
+        else:
+            fonts.draw(text, int(rect.x + 32),
+                       int(rect.y + rect.height / 2 - 8), 14, C_TEXT)
+        if focused:
+            caret = int(rect.x + 32 + fonts.measure(text, 14))
+            if int(rl.get_time() * 2.0) % 2 == 0:
+                rl.draw_rectangle(caret + 2,
+                                  int(rect.y + rect.height / 2 - 8), 2, 14,
+                                  C_TEXT)
+
+    def _draw_stash_filters(self):
+        """Rarity / item-type cycle buttons below the bank search box."""
+        sb_s  = stash_panel_scale(rl.get_screen_height())
+        ay    = int(STASH_FILTER_AY * sb_s)
+        ah    = int(STASH_FILTER_AH * sb_s)
+        aw    = int(STASH_FILTER_BTN_AW * sb_s)
+        ax0   = int(SBG_AX * sb_s)
+        gap   = 8
+
+        def _cycle(values, current):
+            idx = values.index(current) if current in values else 0
+            return values[(idx + 1) % len(values)]
+
+        # RARITY cycle button - icon rides LEFT of the button
+        icons.draw('filter', ax0, int(ay + (ah - 16) / 2), 16, C_LABEL)
+        rar_r = rl.Rectangle(float(ax0 + 22), float(ay), float(aw), float(ah))
+        rar_label = self.stash_rarity.upper()
+        if _btn(rar_r, rar_label, 13, accent=self.stash_rarity != 'all'):
+            self.stash_rarity = _cycle(items_mod.RARITY_CYCLE,
+                                       self.stash_rarity)
+
+        # TYPE cycle button - icon shows the selected type
+        typ_icon_x = int(rar_r.x + rar_r.width + gap)
+        typ_icon = self.stash_type if self.stash_type != 'all' else 'filter'
+        icons.draw(typ_icon, typ_icon_x, int(ay + (ah - 16) / 2), 16, C_LABEL)
+        typ_r = rl.Rectangle(float(typ_icon_x + 22), float(ay),
+                             float(aw), float(ah))
+        typ_label = self.stash_type.upper()
+        if _btn(typ_r, typ_label, 13, accent=self.stash_type != 'all'):
+            self.stash_type = _cycle(items_mod.ITEM_TYPE_CYCLE,
+                                     self.stash_type)
+
+        # match count when a search/filter narrows the bank
+        stash_grid = self._stash_grid or []
+        total = sum(1 for entry in stash_grid if isinstance(entry, dict))
+        if total:
+            shown = sum(1 for entry in stash_grid
+                        if self._entry_visible(entry))
+            if shown != total:
+                label = f'{shown}/{total}'
+                fs    = 14
+                lx    = int(typ_r.x + typ_r.width + 14)
+                ly    = int(ay + (ah - fs) / 2)
+                icons.draw('search', lx, int(ay + (ah - 14) / 2), 14, C_LABEL)
+                fonts.draw(label, lx + 18, ly, fs, C_GOLD_TEXT)
 
     def _draw_stash_grid(self, stash_grid, sb_s, mx, my):
         """Draw bank grid highlights and placed items over the painted cells."""
@@ -1338,7 +1484,8 @@ class InventoryUI:
                 if cell_map[row][col] is None and sx <= mx < sx + cell and sy <= my < sy + cell:
                     rl.draw_rectangle(sx, sy, cell, cell, _c(255, 255, 255, 18))
 
-        # Items
+        # Items (issue #12: entries failing the search/filters draw dimmed
+        # and refuse hover - their cells stay occupied, nothing is moved)
         for item_idx, entry in enumerate(stash_grid):
             if not isinstance(entry, dict):
                 continue
@@ -1350,23 +1497,28 @@ class InventoryUI:
             iw = w * cell
             ih = h * cell
 
-            hov    = sx <= mx < sx + iw and sy <= my < sy + ih
-            rarity = _rarity_of(entry)
+            visible = self._entry_visible(entry)
+            hov     = (sx <= mx < sx + iw and sy <= my < sy + ih and visible)
+            rarity  = _rarity_of(entry)
             if hov:
                 self._hovered = entry
 
-            rl.draw_rectangle(sx, sy, iw, ih, C_SLOT_FL)
-            rl.draw_rectangle_lines(sx, sy, iw, ih,
-                                    _RARITY_BORDER.get(rarity, C_BORDER))
+            fill_a  = C_SLOT_FL.a if visible else 0x33
+            border  = _RARITY_BORDER.get(rarity, C_BORDER)
+            if not visible:
+                border = _c(border.r, border.g, border.b, 0x44)
+            rl.draw_rectangle(sx, sy, iw, ih, _c(0, 0, 0, fill_a))
+            rl.draw_rectangle_lines(sx, sy, iw, ih, border)
 
             icon = self._icons.get(entry['item']) or self._err
             if icon:
-                pad = 3
+                pad  = 3
+                tint = rl.WHITE if visible else _c(255, 255, 255, 0x44)
                 rl.draw_texture_pro(icon,
                     rl.Rectangle(0, 0, float(icon.width), float(icon.height)),
                     self._icon_dst(icon, rl.Rectangle(float(sx), float(sy),
                                                       float(iw), float(ih)), pad),
-                    rl.Vector2(0, 0), 0.0, rl.WHITE)
+                    rl.Vector2(0, 0), 0.0, tint)
 
             cnt = _count_label(entry)
             if cnt:
@@ -1704,6 +1856,35 @@ class InventoryUI:
         rl.draw_rectangle_lines(int(tx), int(ty), int(tw), int(th), C_BORDER2)
         for i, (t, col) in enumerate(lines):
             fonts.draw(t, int(tx + 10), int(ty + 6 + i * line_h), fs, col)
+
+    def _draw_sort_row(self, inventory, px, s):
+        """Backpack sort row (issue #12) on the stone band below the tiles.
+
+        Clicking a button re-places the whole backpack grid sorted by that
+        key (see ``items.sort_grid_entries``). Click handling is draw-time,
+        same as the forge panel's DISMANTLE button."""
+        ah  = int(SORT_ROW_AH * s)
+        y   = int(SORT_ROW_AY * s)
+        icons.draw('sort', int(px + SORT_ROW_AX * s),
+                   int(y + (ah - 18) / 2), 18, C_LABEL)
+        fonts.draw('SORT', int(px + (SORT_ROW_AX + 26) * s),
+                   int(y + (ah - 15) / 2), 15, C_LABEL)
+        bx  = SORT_ROW_AX + 82
+        gap = 8
+        for sort_key, label, bw in SORT_BTNS:
+            rect = rl.Rectangle(float(px + bx * s), float(y),
+                                float(bw * s), float(ah))
+            if _btn(rect, label, 14):
+                if items_mod.sort_grid_entries(inventory.get('grid'),
+                                               sort_key, cols=INV_COLS,
+                                               rows=INV_ROWS):
+                    self.notify(f'Sorted by {label.lower()}')
+                    if self.on_grid_change:
+                        try:
+                            self.on_grid_change()
+                        except Exception:
+                            pass
+            bx += bw + gap
 
     def _draw_layout_dbg(self, px, s):
         """inv_layout debug overlay - outlines of every mapped slot rect."""

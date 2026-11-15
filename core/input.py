@@ -46,6 +46,9 @@ class InputMixin:
                 if self._chat_open:
                     if len(self._chat_pending) < 64:
                         self._chat_pending.append(chr(ch))
+                elif getattr(self.inv, 'search_focused', False):
+                    # Bank search box (issue #12): typing goes to the filter
+                    self.inv.stash_search.push(chr(ch))
                 else:
                     self.menu_sys.char_name_input.push(chr(ch))
 
@@ -159,7 +162,9 @@ class InputMixin:
                     self._minimap.update(dt)
                 return
             if inp.key_pressed(self,rl.KEY_ESCAPE):
-                if self._char_stats_open:
+                if self.inv.open and self.inv.search_focused:
+                    self.inv.search_focused = False   # Esc unfocuses the search, keeps the panel
+                elif self._char_stats_open:
                     self._char_stats_open = False   # ESC closes the panel first
                 elif self.inv.open:
                     self.inv.close()
@@ -167,14 +172,17 @@ class InputMixin:
                 else:
                     self._go_to_pause()
                 return
-            if inp.key_pressed(self,rl.KEY_I):
+            # While the bank search box is focused, typed keys are text -
+            # none of the gameplay toggles below may fire on them.
+            _typing_search = self.inv.open and self.inv.search_focused
+            if inp.key_pressed(self,rl.KEY_I) and not _typing_search:
                 self.inv.toggle()
                 if self.inv.open:
                     self.audio.inv_open()
                 else:
                     self.audio.inv_close()
             opened_now = False
-            if inp.key_pressed(self,rl.KEY_C):
+            if inp.key_pressed(self,rl.KEY_C) and not _typing_search:
                 from ui import descend_ui
                 descend_ui.toggle(self)
                 opened_now = self._char_stats_open
@@ -189,7 +197,7 @@ class InputMixin:
                         self, rl.get_mouse_x(), rl.get_mouse_y(),
                         rl.get_render_width(), rl.get_render_height())
                     return
-            if inp.key_pressed(self,rl.KEY_L):
+            if inp.key_pressed(self,rl.KEY_L) and not _typing_search:
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
             if not self.inv.open and not self._anima_chart_is_open():
@@ -208,7 +216,8 @@ class InputMixin:
             # Own per-consumer edge ('game.reload'); the HUD R slot flashes
             # so the keypress reads on the belt.
             if inp.key_pressed('game.reload', rl.KEY_R) \
-                    and not self._anima_chart_is_open():
+                    and not self._anima_chart_is_open() \
+                    and not _typing_search:
                 if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
                     self._flash_hud('R')
                     self._start_reload()
