@@ -20,6 +20,7 @@ import time
 import pyray as rl
 
 from systems import input as inp
+from systems import keybinds
 from systems.chat import CHAT_LOG_CAP
 from core.game import *
 
@@ -66,7 +67,7 @@ class InputMixin:
             float(getattr(self, '_zoom_ref', DEFAULT_SCALE)))
         self._update_mouse_transform()
 
-        if inp.key_pressed(self,rl.KEY_GRAVE) and self.state != STATE_EDITOR:
+        if inp.key_pressed(self, keybinds.key('chat_console')) and self.state != STATE_EDITOR:
             self._chat_open = not self._chat_open
             self._chat_buf = ''
 
@@ -79,10 +80,10 @@ class InputMixin:
             self._chat_buf = ''
             self._chat_enter.mark_down()
 
-        if inp.key_pressed(self,rl.KEY_F4):
+        if inp.key_pressed(self, keybinds.key('debug_overlay')):
             self.menu_sys.settings.debug_overlay = not self.menu_sys.settings.debug_overlay
 
-        if inp.key_pressed(self,rl.KEY_F5):
+        if inp.key_pressed(self, keybinds.key('screenshot')):
             self._take_screenshot()
 
         if self._chat_open:
@@ -144,7 +145,7 @@ class InputMixin:
             return
 
         if self.state == STATE_PLAYING:
-            if self._anima is not None and inp.key_pressed(self,rl.KEY_TAB):
+            if self._anima is not None and inp.key_pressed(self, keybinds.key('anima_chart')):
                 self._minimap_open = not self._minimap_open
             if self._minimap_open:
                 if inp.key_pressed(self,rl.KEY_ESCAPE):
@@ -175,14 +176,15 @@ class InputMixin:
             # While the bank search box is focused, typed keys are text -
             # none of the gameplay toggles below may fire on them.
             _typing_search = self.inv.open and self.inv.search_focused
-            if inp.key_pressed(self,rl.KEY_I) and not _typing_search:
+            if inp.key_pressed(self, keybinds.key('toggle_inventory')) \
+                    and not _typing_search:
                 self.inv.toggle()
                 if self.inv.open:
                     self.audio.inv_open()
                 else:
                     self.audio.inv_close()
             opened_now = False
-            if inp.key_pressed(self,rl.KEY_C) and not _typing_search:
+            if inp.key_pressed(self, keybinds.key('char_stats')) and not _typing_search:
                 from ui import descend_ui
                 descend_ui.toggle(self)
                 opened_now = self._char_stats_open
@@ -197,7 +199,8 @@ class InputMixin:
                         self, rl.get_mouse_x(), rl.get_mouse_y(),
                         rl.get_render_width(), rl.get_render_height())
                     return
-            if inp.key_pressed(self,rl.KEY_L) and not _typing_search:
+            if inp.key_pressed(self, keybinds.key('combat_log')) \
+                    and not _typing_search:
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
             if not self.inv.open and not self._anima_chart_is_open():
@@ -205,17 +208,17 @@ class InputMixin:
                 # removed. Q/W/E/R belong to the gem ability slots below and
                 # T is the flask - see systems/flasks.py. Both are blocked
                 # while the Anima panel is open (modal decision UI).
-                for _gk in gems.GEM_SLOTS:
-                    if inp.key_pressed(self,getattr(rl, 'KEY_' + _gk)):
-                        self._use_gem_ability(_gk)
-            if inp.key_pressed(self,rl.KEY_T) and not self.inv.open \
+                for slot_id, action_id in keybinds.GEM_SLOT_ACTIONS.items():
+                    if inp.key_pressed(self, keybinds.key(action_id)):
+                        self._use_gem_ability(slot_id)
+            if inp.key_pressed(self, keybinds.key('flask')) and not self.inv.open \
                     and not self._anima_chart_is_open():
                 self._use_flask()
             # R: spin the cylinder early (ammo mechanic). Issue #45: the R
             # GEM SLOT IS GONE - R is a pure reload key, no socket consult.
             # Own per-consumer edge ('game.reload'); the HUD R slot flashes
             # so the keypress reads on the belt.
-            if inp.key_pressed('game.reload', rl.KEY_R) \
+            if inp.key_pressed('game.reload', keybinds.key('reload')) \
                     and not self._anima_chart_is_open() \
                     and not _typing_search:
                 if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:

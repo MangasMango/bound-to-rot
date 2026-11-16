@@ -185,7 +185,9 @@ def test_t_flask_system_still_exists():
     assert flasks.WAVE_CHARGES == 1
     assert hasattr(flasks, 'FLASK_CD')
     input_src = _Path('core/input.py').read_text(encoding='utf-8')
-    assert 'KEY_T' in input_src and '_use_flask' in input_src
+    # issue #14: the flask key is rebindable - the site goes through the
+    # registry (the default key lives in systems/keybinds.ACTIONS)
+    assert "keybinds.key('flask')" in input_src and '_use_flask' in input_src
     flow_src = _Path('core/anima_flow.py').read_text(encoding='utf-8')
     assert '_flask_cd' in flow_src and '_refill_flasks()' in flow_src
 

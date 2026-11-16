@@ -16,6 +16,7 @@
 import math
 import pyray as rl
 from systems import input as inp
+from systems import keybinds
 from core.game import *
 from core.game import (
     _HUB_LAYOUT,
@@ -159,13 +160,13 @@ class HubMixin:
                     self._go_to_pause()
                 return
 
-            if inp.key_pressed('hub.inventory', rl.KEY_I):
+            if inp.key_pressed('hub.inventory', keybinds.key('toggle_inventory')):
                 self.inv.toggle()
                 if self.inv.open:
                     self.audio.inv_open()
                 else:
                     self.audio.inv_close()
-            if inp.key_pressed('hub.char_stats', rl.KEY_C):
+            if inp.key_pressed('hub.char_stats', keybinds.key('char_stats')):
                 # The D.E.S.C.E.N.D. panel (issue #31) opens anywhere; the
                 # hub sim pauses while it is up.
                 from ui import descend_ui
@@ -180,7 +181,7 @@ class HubMixin:
                     descend_ui.handle_click(
                         self, rl.get_mouse_x(), rl.get_mouse_y(), cw, ch)
                     return
-            if inp.key_pressed('hub.combat_log', rl.KEY_L):
+            if inp.key_pressed('hub.combat_log', keybinds.key('combat_log')):
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
             self.inv.update(self._get_char_inventory(), self.stats)

@@ -28,6 +28,7 @@ import pyray as rl
 import ui.fonts as fonts
 import ui.icons as icons
 import systems.itemgen as itemgen
+import systems.keybinds as keybinds
 from systems import input as inp
 import systems.abilities as _abilities_mod
 import systems.gems as gems_mod
@@ -1717,9 +1718,15 @@ class InventoryUI:
                 self._draw_ghost_icon(gems_mod.GEM_ITEM_FOR_SLOT[key], r)
             col = GEM_KEY_COLOR[key]
             rl.draw_rectangle_lines_ex(r, 1, col if not hov else C_SLOT_HV)
+            # the label mirrors the CURRENT binding (issue #14); the slot id
+            # ('Q'/'W'/'E') stays the save-schema key
+            key_label = keybinds.key_name_compact(
+                keybinds.key(keybinds.GEM_SLOT_ACTIONS[key]))
             kf = max(11, int(r.height * 0.30))
-            fonts.draw(key, int(r.x + r.width - kf - 3), int(r.y + 2), kf,
-                       rl.Color(*GEM_KEY_GRAY))
+            if len(key_label) > 1:
+                kf = max(9, int(kf * 0.7))
+            fonts.draw(key_label, int(r.x + r.width - fonts.measure(key_label, kf) - 3),
+                       int(r.y + 2), kf, rl.Color(*GEM_KEY_GRAY))
 
     def _draw_flask_socket(self, inventory, px, s, mx, my):
         r     = self._flask_rect(px, s)
