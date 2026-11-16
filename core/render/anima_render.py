@@ -593,6 +593,75 @@ class AnimaRenderMixin:
                            sx + tile_size // 2, sy + tile_size // 2,
                            draw_size, e['angle'],
                            e.get('color', rl.WHITE), progress=progress)
+    def _draw_ambient_particles(self, cw, ch):
+        """Ambient delve atmosphere (issue #17): torch smoke wisps + dust
+        motes drifting in the lit ground.
+
+        Drawn as soft radial-gradient sprites (slow rotation + growth for
+        the smoke), never hard circles - the owner wants fluid, not
+        geometrical. Screen-space point markers stay circle-SHAPED per
+        BLUEPRINT rule 37; everything lives under the darkness overlay so
+        the gloom still swallows it past the light edge."""
+        ambient_sys = getattr(self, '_ambient', None)
+        if not ambient_sys or not ambient_sys.particles:
+            return
+        # soft sprites are built once (lazy, GL context required)
+        if ambient_sys._puff_tex is None or ambient_sys._puff_tex.id <= 0:
+            from systems import ambient as _amb_mod
+            ambient_sys._puff_tex = _amb_mod._soft_disc_texture(64, 2.2)
+            ambient_sys._mote_tex = _amb_mod._soft_disc_texture(16, 1.6)
+        puff_tex = ambient_sys._puff_tex
+        mote_tex = ambient_sys._mote_tex
+        if not puff_tex or puff_tex.id <= 0:
+            return
+        tile_size = int(ISO_W * self.iso.scale)
+        time_now  = ambient_sys.time
+        for particle in ambient_sys.particles:
+            sx, sy = self.iso.world_to_screen(particle['x'], particle['y'],
+                                              cw, ch)
+            screen_x = sx + tile_size // 2
+            screen_y = sy + tile_size // 2 - int(particle['z'] * tile_size)
+            life_k = particle['life'] / particle['max_life']
+            fade = math.sin(math.pi * min(1.0, life_k))   # in → out
+            if particle['kind'] == 'smoke':
+                if fade <= 0.02:
+                    continue
+                # the wisp swells as it climbs and rolls slowly around
+                size = tile_size * particle['size'] \
+                    * (0.55 + 0.9 * (1.0 - life_k))
+                alpha = int(48 * fade)
+                if alpha <= 0:
+                    continue
+                origin = rl.Vector2(size / 2.0, size / 2.0)
+                rl.draw_texture_pro(
+                    puff_tex,
+                    rl.Rectangle(0.0, 0.0, float(puff_tex.width),
+                                 float(puff_tex.height)),
+                    rl.Rectangle(screen_x - size / 2.0, screen_y - size / 2.0,
+                                 size, size),
+                    origin,
+                    particle['phase'] * 57.3
+                        + time_now * 30.0 * particle.get('spin', 0.3),
+                    rl.Color(178, 178, 190, alpha))
+            else:
+                if mote_tex is None or mote_tex.id <= 0:
+                    continue
+                pulse = 0.6 + 0.4 * math.sin(time_now * 1.4
+                                             + particle['phase'])
+                alpha = int(70 * min(1.0, life_k * 1.6) * pulse)
+                if alpha <= 0:
+                    continue
+                size = max(4.0, tile_size * particle['size'])
+                origin = rl.Vector2(size / 2.0, size / 2.0)
+                rl.draw_texture_pro(
+                    mote_tex,
+                    rl.Rectangle(0.0, 0.0, float(mote_tex.width),
+                                 float(mote_tex.height)),
+                    rl.Rectangle(screen_x - size / 2.0, screen_y - size / 2.0,
+                                 size, size),
+                    origin, 0.0,
+                    rl.Color(235, 220, 175, alpha))
+
     def _draw_glint_effects(self, cw, ch):
         tile_size = int(ISO_W * self.iso.scale)
         for e in self._glint_effects:

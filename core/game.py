@@ -56,6 +56,7 @@ import systems.abilities as abilities
 import systems.gems as gems
 import systems.currency as currency
 import systems.flasks as flasks
+import systems.ambient as ambient
 import core.map_gen as map_gen
 import ui.icons as icons
 from systems.shaders import ShaderManager
@@ -388,6 +389,37 @@ SHADER_EDGE_SCALE = 2.2
 _LIGHT_KIND_STRENGTH = {'pulse': 0.75, 'heart': 0.52, 'brazier': 0.45, 'torch': 0.40}
 
 
+def decor_candidates(map_data: list, node: dict,
+                     prop_cells=frozenset()) -> list:
+    """Open floor cells in and around a node's room - decor placement pool.
+
+    The anima grid has been wall-less since issues #24/#27 (rooms are
+distinct floor regions with no wall tiles between them), so the old
+    wall-adjacent scan found ZERO candidates and decor silently stopped
+    spawning. Decorating the node's room area (room bbox + an approach
+    margin) keeps the density per visit high no matter how big the 200x200
+    canvas grows, and keeps the Pulse heart's landing zone clear."""
+    if not map_data:
+        return []
+    node_col = int(node.get('col', len(map_data) / 2))
+    node_row = int(node.get('row', len(map_data[0]) / 2))
+    half_w = int(node.get('w', 15)) // 2 + 8     # room + approach margin
+    half_h = int(node.get('h', 17)) // 2 + 8
+    candidates = []
+    for col in range(max(0, node_col - half_w),
+                     min(len(map_data), node_col + half_w + 1)):
+        for row in range(max(0, node_row - half_h),
+                         min(len(map_data[0]), node_row + half_h + 1)):
+            if map_data[col][row] != 0:
+                continue
+            if (col - node_col) ** 2 + (row - node_row) ** 2 <= 6.25:
+                continue   # keep the Pulse heart's landing zone clear
+            if (col, row) in prop_cells:
+                continue   # ground props already claim this cell
+            candidates.append((col, row))
+    return candidates
+
+
 def _actor_tint_value(light_amount: float) -> float:
     """Map the light map's 0..1 amount to an actor tint value."""
     return ACTOR_MIN_LIGHT_TINT + (1.0 - ACTOR_MIN_LIGHT_TINT) * light_amount
@@ -652,6 +684,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self._save_notice_timer = 0.0
         self._inv_full_timer  = 0.0
         self._glint_effects   = []  # active: {'x','y','timer','color','scale','vel_x','vel_y'}
+        self._ambient         = ambient.AmbientParticles()   # delve smoke + dust (issue #17)
         self._flame_effects   = []  # active: {'x','y','timer','color'}
         self._glow_effects    = []  # active: {'x','y','timer','color','scale',
                                     # optional 'lift'} - 'lift' rides the effect
@@ -997,8 +1030,9 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         def _decor_atlas():
             for dname in ('torch', 'bones1', 'bones2', 'bones3',
                           'cactus1', 'cactus2', 'reed1', 'reed2',
-                          'bush_red', 'bush_red2', 'stone_s3', 'stone_s4',
-                          'pole'):
+                          'bush_red', 'bush_red2', 'bush_purple', 'bush_purple2',
+                          'stone_s1', 'stone_s2', 'stone_s3', 'stone_s4',
+                          'flower1', 'grass2', 'pole'):
                 self._decor_sprs[dname] = make_atlas_prop(dname, ('S', 'SE'))
         add(_decor_atlas)
 
@@ -1186,6 +1220,8 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self.audio.set_music_state('death')
         self._saved_anima = None
         self._anima = None
+        if getattr(self, '_ambient', None) is not None:
+            self._ambient.clear()
         import entities.progression as _prog
         _prog.clear_anima_data(self.char.id)
         self._raid_results = {
@@ -1832,6 +1868,13 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                         self.ground_items.remove(dt_gi)
                     self.drop_target = None
 
+        # ── ambient delve particles (issue #17): torch smoke + lit dust ──
+        ambient_sys = getattr(self, '_ambient', None)
+        if self._anima is not None and ambient_sys is not None:
+            torch_spots = [(d['x'], d['y']) for d in self._decor_items
+                           if d.get('type') == 'torch']
+            ambient_sys.update(dt, _rnd, torch_spots, self.px, self.py)
+
         # ── loot sparkle decay ──────────────────────────────────────────
         for s in self._loot_sparkles:
             s['timer'] -= dt
@@ -2224,38 +2267,24 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def _spawn_anima_objects(self):
         _m = self.map
+        node = (self._anima or {}).get('node', {})
+        candidates = decor_candidates(_m, node,
+                                      getattr(self.iso, '_any_prop_cells',
+                                              frozenset()))
 
-        walls_adjacent = []
-        corridor_tiles = set()
+        _rnd.shuffle(candidates)
 
-        for col in range(len(_m)):
-            for row in range(len(_m[0])):
-                if _m[col][row] != 0:
-                    continue
-                wall_n = 0
-                for dc, dr in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                    nc, nr = col + dc, row + dr
-                    if 0 <= nc < len(_m) and 0 <= nr < len(_m[0]) and _m[nc][nr] != 0:
-                        wall_n += 1
-                h_line = sum(1 for dc in (-2, -1, 1, 2)
-                            if 0 <= col + dc < len(_m) and _m[col + dc][row] == 0)
-                v_line = sum(1 for dr in (-2, -1, 1, 2)
-                            if 0 <= row + dr < len(_m[0]) and _m[col][row + dr] == 0)
-                if h_line >= 3 or v_line >= 3:
-                    corridor_tiles.add((col, row))
-                    continue
-                if wall_n >= 1:
-                    walls_adjacent.append((col, row))
-
-        _rnd.shuffle(walls_adjacent)
-        candidates = walls_adjacent
-
-        # Desert decor pool: lit campfires (torches), Anima graveyard
-        # pillars (bones*), cacti/reeds/bushes/rock piles, dead telegraph
-        # poles - all sliced from the desert tileset.
+        # Desert decor pool (issue #17): lit campfires (torches), Anima
+        # graveyard stones (bones*), cacti, reeds, dry bushes, rocks,
+        # flowers and a dead telegraph pole - all sliced from the desert
+        # tileset. Entries repeat to weight the roll toward the props that
+        # read well at world scale.
         _DECOR_TYPES = ['bones1', 'bones2', 'bones3',
-                        'cactus1', 'cactus2', 'reed1', 'reed2',
-                        'bush_red', 'bush_red2', 'stone_s3', 'stone_s4',
+                        'cactus1', 'cactus2',
+                        'reed1', 'reed2',
+                        'bush_red', 'bush_red2', 'bush_purple', 'bush_purple2',
+                        'stone_s1', 'stone_s2', 'stone_s3', 'stone_s4',
+                        'flower1', 'grass2',
                         'pole']
 
         total = len(candidates)
@@ -2263,11 +2292,14 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         idx = 0
 
 
-        for _ in range(_rnd.randint(20, 30)):
+        # issue #17: the delve should not feel empty - a sparse garnish
+        for _ in range(_rnd.randint(10, 15)):
             if idx >= total:
                 break
             col, row = candidates[idx]; idx += 1
-            decor_type = 'torch' if _rnd.random() < 0.3 else _rnd.choice(_DECOR_TYPES)
+            # ~1 in 12 props is a lit campfire: enough light anchors for
+            # the dust motes without flooding the room with flames
+            decor_type = 'torch' if _rnd.random() < 0.08 else _rnd.choice(_DECOR_TYPES)
             self._decor_items.append({
                 'x': float(col) + _rnd.uniform(0.1, 0.9),
                 'y': float(row) + _rnd.uniform(0.1, 0.9),
@@ -3460,6 +3492,9 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
             except Exception as exc:
                 print(f'[RECORDING] save failed: {exc}')
         self._save_anima()
+        # ambient particle soft sprites are cached VRAM - free them (rule 43)
+        if getattr(self, '_ambient', None) is not None:
+            self._ambient.dispose()
         # forge offerings are transient - ride them back into the backpack
         # before the final save so a hard exit never destroys offered items
         if self.inv.forge_open:
