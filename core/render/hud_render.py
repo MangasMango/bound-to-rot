@@ -51,6 +51,7 @@ from ui import fonts, icons
 from ui.inventory_ui import _rot_col
 from ui.menus import _btn
 from systems.items import ITEMS, EQUIP_SLOT_LABELS
+from systems import keybinds
 
 # Ability id → ui.icons logical name for the HUD Q/W/E/R slots. The real
 # ability art (assets/ability-icons/) is not distributed, so these existing
@@ -1147,7 +1148,10 @@ class HudRenderMixin:
                         rl.Rectangle(float(sx + bpx(12)), float(a_y + bpx(12)),
                                      float(asz - bpx(24)), float(asz - bpx(24))),
                         rl.Vector2(0, 0), 0.0, rl.Color(120, 120, 120, 160))
-            fonts.draw(key, sx + bpx(6), a_y + bpx(5), bfont(24),
+            # the slot letter mirrors the CURRENT binding (issue #14)
+            fonts.draw(keybinds.key_name_compact(
+                           keybinds.key(keybinds.GEM_SLOT_ACTIONS[key])),
+                       sx + bpx(6), a_y + bpx(5), bfont(24),
                        rl.Color(220, 220, 220, 230))
             cd = float(self._gem_cds.get(key, 0.0))
             if cd > 0:
@@ -1190,7 +1194,8 @@ class HudRenderMixin:
         else:
             icons.draw('melee', int(r_x + bpx(12)), int(a_y + bpx(12)),
                        max(1, asz - bpx(24)), rl.WHITE)
-        fonts.draw('R', r_x + bpx(6), a_y + bpx(5), bfont(24),
+        fonts.draw(keybinds.key_name_compact(keybinds.key('reload')),
+                   r_x + bpx(6), a_y + bpx(5), bfont(24),
                    rl.Color(220, 220, 220, 230))
         if reloading:
             rt = float(getattr(self, '_reload_t', 0.0))
@@ -1256,7 +1261,8 @@ class HudRenderMixin:
             fonts.draw('T', fl_x + asz // 2 - bfont(14) // 2,
                        fl_y + asz // 2 - bfont(14) // 2, bfont(14),
                        rl.Color(150, 150, 150, 200))
-        fonts.draw('T', fl_x + bpx(6), fl_y + bpx(5), bfont(24),
+        fonts.draw(keybinds.key_name_compact(keybinds.key('flask')),
+                   fl_x + bpx(6), fl_y + bpx(5), bfont(24),
                    rl.Color(220, 220, 220, 230))
         if (rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT)
                 and rl.check_collision_point_rec(
