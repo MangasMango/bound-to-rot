@@ -360,6 +360,8 @@ class AnimaFlowMixin:
                 self._anima, self.map, self.zombies, self.ground_items, self._decor_items)
             self._save_anima()
             self._anima = None
+            if getattr(self, '_ambient', None) is not None:
+                self._ambient.clear()   # delve smoke/dust end with the delve
             self.char_mgr.save()
             self._enter_hub()
 

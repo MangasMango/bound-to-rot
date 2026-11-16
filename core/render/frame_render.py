@@ -358,6 +358,7 @@ class FrameRenderMixin:
         self._draw_swoosh_effects(cw, ch)
         self._draw_flame_effects(cw, ch)
         self._draw_glint_effects(cw, ch)
+        self._draw_ambient_particles(cw, ch)
         self._draw_aura_range(cw, ch)
         self._draw_enemy_bars(cw, ch)
         # NOTE: _draw_dmg_numbers moved above the darkness overlay (drawn
