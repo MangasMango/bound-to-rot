@@ -672,3 +672,26 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+--------------------------------------------------------------------------------
+Additional permission under GNU GPL version 3 section 7 (issue #97)
+--------------------------------------------------------------------------------
+
+Copyright (C) 2026 MangasMango.
+
+If you modify this program, or any covered work, by linking or combining it
+with the Valve Steamworks SDK (including steam_api64.dll / libsteam_api.so /
+libsteam_api.dylib and their headers, obtained under Valve's own Steamworks
+terms), you may - subject to Valve's terms - distribute the linked
+combination, provided that the Steamworks SDK itself is not distributed in
+source or object form by this project and remains governed by Valve's terms.
+
+This additional permission applies only to the Valve Steamworks SDK. All
+other terms of the GNU General Public License version 3 continue to apply.
+
+Additionally, the copyright holder (MangasMango) may distribute builds of
+this program through commercial storefronts (such as Steam) under
+proprietary terms; such builds are governed by that storefront's end-user
+terms instead of this license, while the corresponding source remains
+available under GPLv3.
+--------------------------------------------------------------------------------

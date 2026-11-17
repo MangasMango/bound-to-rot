@@ -46,3 +46,13 @@ skin_*.png
 /steam-assets
 *.zip
 /.pi
+
+# Steamworks SDK - Valve's SDK is proprietary and must NEVER be committed.
+# The Steam build injects these locally (see systems/steam.py).
+steam_api64.dll
+steam_api64.lib
+steam_api.lib
+libsteam_api.so
+libsteam_api.dylib
+steamworks_sdk/
+steam_appid.txt

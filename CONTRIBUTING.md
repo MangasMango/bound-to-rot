@@ -77,6 +77,22 @@ analysis to the source code to "optimize" anything - my IDE can do that already.
 If the PR doesn't actually change anything useful, I'm not going to review or
 merge it.
 
+## Licensing of contributions
+
+The project is licensed under **GPLv3** (see [LICENSE](LICENSE)), with one
+additional permission for the Steam build (the Steamworks linking exception
+at the bottom of [LICENSE](LICENSE)).
+
+By submitting a pull request or patch to this repository you agree that your
+contribution is licensed **and may be relicensed** by the project owner
+(MangasMango) under terms beyond GPLv3 - specifically: a perpetual,
+irrevocable, royalty-free right to use, distribute, sublicense and sell the
+contribution as part of proprietary builds (Steam, consoles, storefronts)
+in addition to GPLv3. The project stays open source; this clause simply
+keeps the commercial build legally clean for everyone, contributors
+included. (This is the standard open-source-game arrangement used by
+Mindustry, Veloren and similar projects.)
+
 ## AI-assisted contributions
 
 AI coding assistants are allowed, but **not without human oversight**.
