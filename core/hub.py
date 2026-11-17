@@ -150,7 +150,10 @@ class HubMixin:
                 return
 
             if inp.key_pressed('hub.anima.close', rl.KEY_ESCAPE):
-                if self.inv.open and self.inv.search_focused:
+                if self.inv.open and self.inv._ctx is not None:
+                    # Esc closes the context menu first (issue #13)
+                    self.inv._ctx = None
+                elif self.inv.open and self.inv.search_focused:
                     # Esc unfocuses the bank search (issue #12), keeps the panel
                     self.inv.search_focused = False
                 elif self.inv.open:

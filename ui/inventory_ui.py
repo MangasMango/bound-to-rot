@@ -330,6 +330,13 @@ class InventoryUI:
         self.layout_dbg      = False  # inv_layout debug overlay
         self._notice         = None    # (text, remaining seconds) transient panel notice
         self._notice_timer   = 0.0
+        # Keyboard grid navigation (issue #13): a selection cursor over the
+        # focused grid + the highlighted context-menu option. Selection
+        # only - the cursor never moves items (ruling 19: no left-click
+        # moves; interaction stays right-click/context-menu driven).
+        self._kb_cursor      = None   # {'source','col','row'} or None
+        self._ctx_sel        = 0      # highlighted option while _ctx is open
+        self._kb_move_cd     = 0.0    # held-arrow repeat cooldown (seconds)
         # Stash search + filters (issue #12): the text input rides the
         # per-render-frame char queue (see ui/menus._TextInput docstring);
         # search_text is the live lower-cased filter the grid draws against.
@@ -426,6 +433,7 @@ class InventoryUI:
         if self.open:
             self.open = False
             self._ctx = None
+            self._kb_cursor = None   # the cursor is per-open session (issue #13)
 
     def open_stash(self, stash_grid):
         self.stash_open  = True
@@ -617,6 +625,14 @@ class InventoryUI:
                     self.on_apply_card(ap['entry'], ap['src'], ap['idx'],
                                        hit['source'], hit['index'])
                 self._apply_pending = None
+            elif inp.key_pressed(self, rl.KEY_ENTER) and self._kb_cursor:
+                # keyboard parity: the cursor slot is the apply target
+                hit = self._kb_slot_at(inventory)
+                if hit and hit['slot'] and self.on_apply_card:
+                    ap = self._apply_pending
+                    self.on_apply_card(ap['entry'], ap['src'], ap['idx'],
+                                       hit['source'], hit['index'])
+                self._apply_pending = None
             return
 
         # Pending drop confirmation - handle yes/no clicks
@@ -638,6 +654,12 @@ class InventoryUI:
         # the whole inventory - the context menu needs the gem sockets to know
         # whether SOCKET is currently available (issue #94)
         self._inventory_for_ctx  = inventory
+
+        # Keyboard navigation (issue #13): arrows move the grid cursor,
+        # Tab cycles the focused grid, Enter opens the context menu on the
+        # cursor slot. While a context menu is open the arrows/Enter drive
+        # its options instead.
+        self._update_kb_nav(inventory, stats)
         panel_w = stash_panel_w(ch)
         in_inv   = px <= mx < cw and 0 <= my < ch
         in_stash = (self.stash_open and self._stash_grid is not None
@@ -675,6 +697,147 @@ class InventoryUI:
         if rmb:
             self._ctx = self._rmb_hit(mx, my, inventory, px, s,
                                       in_inv, in_stash, in_forge)
+
+    # ── keyboard grid navigation (issue #13) ─────────────────────────
+
+    def _nav_grid_dims(self):
+        """(cols, rows) of the FOCUSED grid."""
+        if self._kb_cursor['source'] == 'stash':
+            return GRID_COLS, GRID_ROWS
+        if self._kb_cursor['source'] == 'forge':
+            return recipes_mod.FORGE_COLS, recipes_mod.FORGE_ROWS
+        return INV_COLS, INV_ROWS
+
+    def _nav_panels(self):
+        """Tab-cycle order over the grids that are currently open."""
+        panels = ['grid']
+        if self.stash_open and self._stash_grid is not None:
+            panels.append('stash')
+        if self.forge_open and self._forge_grid is not None:
+            panels.append('forge')
+        return panels
+
+    def _sync_kb_focus(self):
+        """Drop the cursor onto a panel that is actually open (a stash or
+        forge close must never leave the cursor pointing into thin air)."""
+        if self._kb_cursor is not None and self._kb_cursor['source'] in self._nav_panels():
+            return
+        self._kb_cursor = {'source': 'grid', 'col': 0, 'row': 0}
+
+    def _kb_slot_at(self, inventory):
+        """Hit dict {'source','index','slot'} for the cursor cell, or None
+        on an empty cell (or a grid that isn't open)."""
+        self._sync_kb_focus()
+        cursor = self._kb_cursor
+        source = cursor['source']
+        if source == 'grid':
+            grid = inventory['grid'] if isinstance(inventory, dict) else inventory
+            gmap = grid_build_map(grid, cols=INV_COLS, rows=INV_ROWS)
+        elif source == 'stash':
+            gmap = grid_build_map(self._stash_grid or [])
+        else:
+            gmap = grid_build_map(self._forge_grid or [],
+                                  cols=recipes_mod.FORGE_COLS,
+                                  rows=recipes_mod.FORGE_ROWS)
+        item_idx = gmap[cursor['row']][cursor['col']]
+        if item_idx is None:
+            return None
+        if source == 'grid':
+            grid = inventory['grid'] if isinstance(inventory, dict) else inventory
+            return {'source': 'grid', 'index': item_idx, 'slot': grid[item_idx]}
+        if source == 'stash':
+            return {'source': 'stash', 'index': item_idx,
+                    'slot': (self._stash_grid or [])[item_idx]}
+        return {'source': 'forge', 'index': item_idx,
+                'slot': (self._forge_grid or [])[item_idx]}
+
+    def _update_kb_nav(self, inventory, stats):
+        """Per-tick arrow/Tab/Enter handling for the grid cursor and the
+        open context menu (issue #13).
+
+        Movement uses ``rl.is_key_down`` + a self-managed cooldown (held
+        arrows repeat cell-by-cell); Tab/Enter are per-consumer edges.
+        Suppressed while the search box owns typing, and while confirm/
+        apply modes own the input."""
+        if self.search_focused or self._confirm_drop \
+                or self._confirm_dismantle or self._apply_pending is not None:
+            return
+
+        if self._ctx is not None:
+            opts = self._ctx_options()
+            if opts:
+                if inp.key_pressed(self, rl.KEY_DOWN):
+                    self._ctx_sel = min(len(opts) - 1, self._ctx_sel + 1)
+                if inp.key_pressed(self, rl.KEY_UP):
+                    self._ctx_sel = max(0, self._ctx_sel - 1)
+                if inp.key_pressed(self, rl.KEY_ENTER):
+                    action = opts[self._ctx_sel]
+                    if action.get('enabled', True):
+                        self._exec(action, inventory, stats)
+                        self._ctx = None
+                    else:
+                        self.notify(action.get('why') or action['label'])
+            self._kb_move_cd = 0.0
+            return
+
+        self._sync_kb_focus()
+
+        # Tab cycles the focused grid
+        if inp.key_pressed(self, rl.KEY_TAB):
+            panels = self._nav_panels()
+            if len(panels) > 1:
+                idx = panels.index(self._kb_cursor['source'])
+                nxt = panels[(idx + 1) % len(panels)]
+                self._kb_cursor = {'source': nxt, 'col': 0, 'row': 0}
+
+        # Held-arrow movement with a short repeat cooldown
+        self._kb_move_cd = max(0.0, self._kb_move_cd - rl.get_frame_time())
+        if self._kb_move_cd > 0.0:
+            return
+        cols, rows = self._nav_grid_dims()
+        moved = False
+        if rl.is_key_down(rl.KEY_UP):
+            self._kb_cursor['row'] = max(0, self._kb_cursor['row'] - 1)
+            moved = True
+        elif rl.is_key_down(rl.KEY_DOWN):
+            self._kb_cursor['row'] = min(rows - 1, self._kb_cursor['row'] + 1)
+            moved = True
+        elif rl.is_key_down(rl.KEY_LEFT):
+            self._kb_cursor['col'] = max(0, self._kb_cursor['col'] - 1)
+            moved = True
+        elif rl.is_key_down(rl.KEY_RIGHT):
+            self._kb_cursor['col'] = min(cols - 1, self._kb_cursor['col'] + 1)
+            moved = True
+        if moved:
+            self._kb_move_cd = 0.12
+
+        # Enter opens the context menu on the cursor slot (empty = no-op)
+        if inp.key_pressed(self, rl.KEY_ENTER):
+            hit = self._kb_slot_at(inventory)
+            if hit and hit['slot']:
+                anchor_x, anchor_y = self._kb_ctx_anchor()
+                self._ctx = {'x': anchor_x, 'y': anchor_y, **hit}
+                self._ctx_sel = 0
+
+    def _kb_ctx_anchor(self):
+        """Screen anchor for a keyboard-opened context menu: the centre of
+        the cursor cell, so the menu pops where the cursor sits."""
+        cursor = self._kb_cursor
+        cw = rl.get_screen_width()
+        ch = rl.get_screen_height()
+        if cursor['source'] == 'grid':
+            px, s = self._panel(cw, ch)
+            return (int(px + (GRID_AX + cursor['col'] * GRID_ACELL + 30) * s),
+                    int((GRID_AY + cursor['row'] * GRID_ACELL + 30) * s))
+        if cursor['source'] == 'stash':
+            sb_s = stash_panel_scale(ch)
+            cell = stash_cell_px(ch)
+            return (int(SBG_AX * sb_s + cursor['col'] * cell + 30),
+                    int(SBG_AY * sb_s + cursor['row'] * cell + 30))
+        fg_s = forge_panel_scale(ch)
+        cell = forge_cell_px(ch)
+        return (int(FBG_AX * fg_s + cursor['col'] * cell + 30),
+                int(FBG_AY * fg_s + cursor['row'] * cell + 30))
 
     def _rmb_hit(self, mx, my, inventory, px, s, in_inv, in_stash, in_forge):
         """Right-click hit-test for the context menu - panel priority is
@@ -1528,6 +1691,8 @@ class InventoryUI:
                              sx + iw - fonts.measure(cnt, fsz) - 2,
                              sy + ih - fsz - 3, fsz, C_COUNT)
 
+        self._draw_kb_cursor_cell('stash', gx, gy, cell, GRID_COLS, GRID_ROWS)
+
     # ── forge (blacksmith) panel draw ────────────────────────────────
 
     def _draw_forge_panel(self, inventory, screen_w, screen_h, mx, my):
@@ -1637,6 +1802,13 @@ class InventoryUI:
                 fonts.draw(cnt,
                              sx + iw - fonts.measure(cnt, fsz) - 2,
                              sy + ih - fsz - 3, fsz, C_COUNT)
+
+        # the cursor lives on the OFFERINGS grid only - the results grid is
+        # a receipt (its items already live in the backpack)
+        if ax == FBG_AX:
+            self._draw_kb_cursor_cell('forge', gx, gy, cell,
+                                      recipes_mod.FORGE_COLS,
+                                      recipes_mod.FORGE_ROWS)
 
     def _draw_confirm_dismantle(self, cw, ch, mx, my):
         """Draw the legendary/mythic dismantle confirmation popup."""
@@ -1754,6 +1926,19 @@ class InventoryUI:
         fonts.draw(key_label, int(r.x + r.width - fonts.measure(key_label, kf) - 3),
                    int(r.y + 2), kf, rl.Color(*GEM_KEY_GRAY))
 
+    def _draw_kb_cursor_cell(self, source, sx, sy, cell, cols, rows):
+        """Gold outline over the keyboard cursor's cell (issue #13), when
+        it belongs to the grid being drawn."""
+        cursor = self._kb_cursor
+        if not cursor or cursor['source'] != source:
+            return
+        if not (0 <= cursor['col'] < cols and 0 <= cursor['row'] < rows):
+            return
+        rect = rl.Rectangle(float(sx + cursor['col'] * cell),
+                            float(sy + cursor['row'] * cell),
+                            float(cell), float(cell))
+        rl.draw_rectangle_lines_ex(rect, 2, C_GOLD_TRIM)
+
     def _draw_grid(self, inventory, px, s, mx, my):
         cell = max(8, int(round(GRID_ACELL * s)))
         gx   = int(round(px + GRID_AX * s))
@@ -1823,6 +2008,8 @@ class InventoryUI:
                 fonts.draw(cnt,
                              sx + iw - fonts.measure(cnt, fsz) - 2,
                              sy + ih - fsz - 3, fsz, C_COUNT)
+
+        self._draw_kb_cursor_cell('grid', gx, gy, cell, INV_COLS, INV_ROWS)
 
     def _draw_tiles(self, px, s, mx, my):
         """7 vessel attribute tiles - display-only (click-through removed)."""
@@ -2126,7 +2313,8 @@ class InventoryUI:
         for i, opt in enumerate(opts):
             ry  = cy + 2 + i * item_h
             hov = cx <= mx < cx + menu_w and ry <= my < ry + item_h
-            if opt.get('enabled', True) and hov:
+            sel = (i == self._ctx_sel)   # keyboard highlight (issue #13)
+            if opt.get('enabled', True) and (hov or (sel and not hov)):
                 rl.draw_rectangle(cx + 1, ry, menu_w - 2, item_h, C_CTX_HV)
-            col = C_TITLE if hov else C_TEXT
+            col = C_TITLE if (hov or sel) else C_TEXT
             fonts.draw(opt['label'], cx + 10, ry + 6, 23, col)

@@ -56,7 +56,9 @@ ACTIONS = (
     ('char_stats',      'D.E.S.C.E.N.D. Panel', rl.KEY_C,    'interface'),
     ('combat_log',      'Combat Log',           rl.KEY_L,    'interface'),
     ('anima_chart',     'Anima Chart',          rl.KEY_TAB,  'interface'),
-    ('chat_console',    'Chat Console',         rl.KEY_GRAVE,'interface'),
+    # Chat console opens on `/` (the slash-command convention) - Enter was
+    # retired because it now interacts with the item grids (issues #13/#14)
+    ('chat_console',    'Chat Console',         rl.KEY_SLASH,'interface'),
     ('debug_overlay',   'Debug Overlay',        rl.KEY_F4,   'interface'),
     ('screenshot',      'Screenshot',           rl.KEY_F5,   'interface'),
 )
@@ -212,3 +214,22 @@ def key_name_compact(key_constant: int) -> str:
                'LEFT_SHIFT': 'SH', 'RIGHT_SHIFT': 'SH',
                'LEFT_ALT': 'AL', 'RIGHT_ALT': 'AL'}
     return aliases.get(name, name[:2])
+
+
+# Layout-friendly alternates for the chat console (issue #13 follow-up):
+# they open the console ONLY while the chat action still sits on its
+# untouched default - an explicit rebind silences them (same contract as
+# the _action_key layout mapping in core/input.py).
+CHAT_ALTERNATE_KEYS = (rl.KEY_Y, rl.KEY_GRAVE)
+
+
+def chat_open_keys() -> tuple:
+    """Every key that opens the chat console this tick.
+
+    The bound action key first; the alternates (Y and the old `) ride
+    along only while the binding is untouched."""
+    _ensure_loaded()
+    bound = _bindings.get('chat_console', DEFAULTS['chat_console'])
+    if bound == DEFAULTS['chat_console']:
+        return (bound,) + CHAT_ALTERNATE_KEYS
+    return (bound,)
