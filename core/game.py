@@ -1853,6 +1853,8 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                 self.interact_target = None
 
         # ── click-to-pickup: arrive at drop_target then pick it up ──────
+        # Issue #86: a slot that did not fit STAYS on the ground - the pile
+        # is consumed only slot by slot, never wholesale.
         if self.drop_target is not None:
             dt_gi = self.drop_target
             if dt_gi not in self.ground_items or not dt_gi.get('items'):
@@ -1861,11 +1863,20 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                 dist = math.hypot(dt_gi['x'] - self.px, dt_gi['y'] - self.py)
                 if dist < 0.65:
                     self.dest_col = self.dest_row = None
+                    picked_any = False
+                    remaining_slots = []
                     for item in dt_gi['items']:
-                        self._auto_place(item)
-                    self.tracker.loot += 1
-                    if dt_gi in self.ground_items:
-                        self.ground_items.remove(dt_gi)
+                        if self._auto_place(item):
+                            picked_any = True
+                        else:
+                            remaining_slots.append(item)
+                    if picked_any:
+                        self.tracker.loot += 1
+                    if not remaining_slots:
+                        if dt_gi in self.ground_items:
+                            self.ground_items.remove(dt_gi)
+                    else:
+                        dt_gi['items'] = remaining_slots
                     self.drop_target = None
 
         # ── ambient delve particles (issue #17): torch smoke + lit dust ──
@@ -2677,7 +2688,11 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         return heal
 
     def _auto_place(self, item):
-        """Route a picked-up item: gear → equip slot if free, else grid."""
+        """Route a picked-up item: gear → equip slot if free, else grid.
+
+        Returns True when the item landed, False when it could not be
+        placed (issue #86 - the caller must NOT consume a ground slot that
+        failed here)."""
         item_id = item['item']
         defn    = ITEMS.get(item_id, {})
 
@@ -2693,7 +2708,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                 # self.stats, so invalidate them the same way a manual implant
                 # does (see _on_gear_changed).
                 self._on_gear_changed()
-                return
+                return True
 
         # Fall through to grid
         placed = False
@@ -2707,6 +2722,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
             self.audio.item_pickup()
         else:
             self._inv_full_timer = 3.0
+        return placed
 
     def _restore_pre_raid_inventory(self):
         if not hasattr(self, '_pre_raid_inventory'):
