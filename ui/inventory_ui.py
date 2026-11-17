@@ -2174,12 +2174,14 @@ class InventoryUI:
             lines.append(("One use per wave. Refills when the next wave starts.",
                           C_LABEL))
 
-        # unidentified: rolled stats hidden until identified (The Joker)
+        # unidentified: ROLLED stats hidden until identified (The Joker).
+        # Issue #84 (owner ruling): the item level is base metadata - it
+        # shows even while unidentified, unlike affixes/implicits.
         if unid:
             lines.append(("Unidentified", _c(190, 160, 90, 255)))
 
-        # item level line
-        if inst and not unid:
+        # item level line (shown while unidentified too, issue #84)
+        if inst:
             ilvl = inst.get('ilvl', 0)
             lines.append((f"Item Level: {ilvl}", C_LABEL))
 

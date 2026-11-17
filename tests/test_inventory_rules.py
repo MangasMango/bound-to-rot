@@ -152,10 +152,12 @@ class TestUnidentifiedShowsNoStats(unittest.TestCase):
         ided_text = _tooltip_text(ui, ided, inv)
         self.assertIn('Unidentified', unid_text)
         self.assertIn('Item Level: 10', ided_text)
+        # issue #84 (owner ruling): item level is base metadata - it shows
+        # while unidentified; rolled stat text stays hidden
+        self.assertIn('Item Level: 10', unid_text)
         for text in unid_text:
             self.assertNotIn('Endurance', text)
             self.assertNotIn('Max Health', text)
-            self.assertNotIn('Item Level', text)
             self.assertNotIn('(up)', text)
             self.assertNotIn('(down)', text)
         self.assertTrue(any('Endurance' in t for t in ided_text))
@@ -164,8 +166,10 @@ class TestUnidentifiedShowsNoStats(unittest.TestCase):
         """The world/ground loot tooltip hides everything while unidentified."""
         src = Path('core/render/anima_render.py').read_text(encoding='utf-8')
         body = src.split('def _draw_ground_tooltip', 1)[1]
-        for needle in ('if inst and not unid:', 'if idef.get(\'equipSlot\') and not unid:',
-                       'if inst and not unid:'):
+        # issue #84: ilvl is metadata (unconditional); implicits/affixes
+        # stay gated on the unidentified flag
+        for needle in ('if idef.get(\'equipSlot\') and not unid:',
+                       'if inst and not unid:', 'if inst:'):
             self.assertIn(needle, body)
         self.assertIn('Unidentified', body)
 
@@ -178,8 +182,9 @@ class TestUnidentifiedShowsNoStats(unittest.TestCase):
         ided_text = [t for t, _c in core.game.Game._get_item_summary_lines(game, ided)]
         self.assertIn('Unidentified', unid_text)
         self.assertTrue(any('iLvl 10' in t for t in ided_text))
+        # issue #84 (owner ruling): item level shows while unidentified
+        self.assertTrue(any('iLvl 10' in t for t in unid_text))
         for text in unid_text:
-            self.assertNotIn('iLvl', text)
             self.assertNotIn('Endurance', text)
             self.assertNotIn('Max Health', text)
 
