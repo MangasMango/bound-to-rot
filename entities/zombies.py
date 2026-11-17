@@ -77,7 +77,7 @@ def _out_of_light(z, light_center, light_radius):
     """True while z stands outside the pulse's light radius.
 
     No geometry (hub fights and legacy callers) counts as lit, so the
-    charge multiplier never applies outside the delve."""
+    charge multiplier never applies outside the anima."""
     if light_center is None or light_radius <= 0.0:
         return False
     dx = z['x'] - light_center[0]
@@ -351,8 +351,8 @@ def _has_los(map_data, x0, y0, x1, y1):
     return True
 
 
-def _delve_damage_mult(level: int) -> float:
-    """Scale enemy damage by level so deeper delve enemies hit harder."""
+def _anima_damage_mult(level: int) -> float:
+    """Scale enemy damage by level so deeper anima enemies hit harder."""
     return max(0.5, level / 2.0)
 
 
@@ -451,7 +451,7 @@ def update_zombies(dt, zombies, players, map_data,
                         if evaluate_hit(p, z.get('accuracy', 80)):
                             lvl = z.get('level', 1)
                             incoming_damage[enemy_dmg_type] = (
-                                incoming_damage.get(enemy_dmg_type, 0.0) + SLIME_DAMAGE * _delve_damage_mult(lvl))
+                                incoming_damage.get(enemy_dmg_type, 0.0) + SLIME_DAMAGE * _anima_damage_mult(lvl))
                 if math.hypot(players[0]['x'] - z['x'], players[0]['y'] - z['y']) > MELEE_RANGE:
                     z['state'] = 'chase'
                     z['attack_anim_timer'] = 0.0
@@ -465,7 +465,7 @@ def update_zombies(dt, zombies, players, map_data,
                     if hit_dist <= MELEE_RANGE and evaluate_hit(p, z.get('accuracy', 100)):
                         lvl = z.get('level', 1)
                         incoming_damage[enemy_dmg_type] = (
-                            incoming_damage.get(enemy_dmg_type, 0.0) + MELEE_DAMAGE * _delve_damage_mult(lvl))
+                            incoming_damage.get(enemy_dmg_type, 0.0) + MELEE_DAMAGE * _anima_damage_mult(lvl))
                     z['hit_pending'] = False
                 if z['attack_anim_timer'] * ATTACK_FPS >= ATTACK_FRAMES:
                     z['state'] = 'chase'

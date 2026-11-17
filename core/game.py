@@ -56,6 +56,7 @@ import systems.abilities as abilities
 import systems.gems as gems
 import systems.currency as currency
 import systems.flasks as flasks
+import systems.ambient as ambient
 import core.map_gen as map_gen
 import ui.icons as icons
 from systems.shaders import ShaderManager
@@ -176,11 +177,11 @@ SKELETON_DROP_TABLE = [
     ('heart',         1, 1,  0.035),
     ('kidney',        1, 1,  0.020),
     ('intestine',     1, 1,  0.025),
-    # QWER ability gems (issue #73 DESIGN PIVOT) - rare kills-only drops
-    ('gem_blue',      1, 1,  0.010),
-    ('gem_green',     1, 1,  0.010),
-    ('gem_red',       1, 1,  0.008),
-    ('gem_white',     1, 1,  0.006),
+    # QWE ability gems (issue #73 pivot; issue #45 retired the white gem) -
+    # rare kills-only drops, the freed white weight redistributed evenly
+    ('gem_blue',      1, 1,  0.012),
+    ('gem_green',     1, 1,  0.012),
+    ('gem_red',       1, 1,  0.010),
     # T-slot flasks (issue #73 ADDITION; flask_mana retired with mana)
     ('flask_health',  1, 1,  0.012),
     ('flask_utility', 1, 1,  0.008),
@@ -256,7 +257,7 @@ _HUB_PATH_CELLS = frozenset({
 
 # ── Sanctuary anchors on the 200×200 open floor (absolute grid coords) ──
 # The hub feels infinite: only the torch-lit sanctuary is ever visible; the
-# rest of the floor dissolves into darkness exactly like the delve. Spread
+# rest of the floor dissolves into darkness exactly like the anima. Spread
 # for the native desert tile density (tiles are ~2.7× smaller on screen
 # than the old LoP canvas, so waypoints need more world tiles between them).
 HUB_SPAWN    = (100.5, 101.5)
@@ -271,14 +272,14 @@ _STASH_POS   = (104.5, 100.5)
 HOVER_GLOW_ALPHA   = 50
 HUB_CLICK_RADIUS   = 0.5
 HUB_INTERACT_RANGE = 0.3
-DELVE_CLICK_RADIUS = 0.2
+ANIMA_CLICK_RADIUS = 0.2
 
-# The Delve Heart is tall entity art standing well above its tile. Iso
+# The Anima Heart is tall entity art standing well above its tile. Iso
 # projection maps a click on its upper body to tiles far away from the base
-# diamond, so no tile-space HUB_CLICK_RADIUS bubble can cover the art — the
+# diamond, so no tile-space HUB_CLICK_RADIUS bubble can cover the art - the
 # vendor/stash sprites hug the ground and work fine that way. The heart is
 # therefore hit-tested in SCREEN space against its drawn art (same technique
-# as the delve pulse hitbox in core/input.py):
+# as the anima pulse hitbox in core/input.py):
 #   centre = tile centre lifted by HEART_CLICK_RISE tile px (sits on the
 #   visible heart's mass, biased up so the top edge stays clickable)
 #   radius = HEART_CLICK_SPAN × the heart's 256px-entity canvas, already a
@@ -291,7 +292,7 @@ HEART_CLICK_SPAN   = 0.35   # hitbox radius, fraction of the entity canvas
 # The anvil (blacksmith) is an inert waypoint - its shop died with the
 # gold economy (owner ruling 2026-09-27) and the campfires are gone.
 _HUB_LAYOUT = [
-    {'type': 'delve',  'x': _HEART_POS[0],   'y': _HEART_POS[1],
+    {'type': 'anima',  'x': _HEART_POS[0],   'y': _HEART_POS[1],
      'label': 'Enter the Anima', 'scale': 2.6, 'label_dy': 70,
      'color': (80, 200, 255, 255)},
     {'type': 'vendor', 'x': _VENDOR_POS[0],  'y': _VENDOR_POS[1],
@@ -302,7 +303,7 @@ _HUB_LAYOUT = [
      'color': (180, 180, 255, 255)},
 ]
 
-# The Delve Heart keeps the whole sanctuary lit (owner ruling: the
+# The Anima Heart keeps the whole sanctuary lit (owner ruling: the
 # campfires - braziers and pillar bowls - are gone). One light, kind
 # 'heart' (deep slow breathing). `r` is the VISIBLE LIGHT EDGE (the
 # lighting shader fades to ambient at exactly `r` - lighting.fs
@@ -350,19 +351,19 @@ _HUB_PROP_SPOTS = [
     ('cactus2',    107.2,  100.6, 0.8, 'S'),
 ]
 
-DELVE_PULSE_SPEED  = 2.2   # tiles/sec baseline (was 0.9 - issue #53: the
+ANIMA_PULSE_SPEED  = 2.2   # tiles/sec baseline (was 0.9 - issue #53: the
                            # heart slid at real walking pace; #11's enlarged
                            # rooms tripled the node-to-node distances)
 
-# Horde default (owner ruling, issue #53): every delve wave spawns x10 by
-# default; the console 'horde' lever only overrides per delve ('horde 0'
+# Horde default (owner ruling, issue #53): every anima wave spawns x10 by
+# default; the console 'horde' lever only overrides per anima ('horde 0'
 # restores this default, 'horde 1' forces the old stock pacing for QA).
 HORDE_DEFAULT_MULT = 10.0
-DELVE_LIGHT_RADIUS   = 5.5   # tiles illuminated by the pulse (scaled for the
+ANIMA_LIGHT_RADIUS   = 5.5   # tiles illuminated by the pulse (scaled for the
                              # native tile density - visual parity with the
                              # old 2.0-tile pool on the big LoP tiles)
-DELVE_PERSONAL_LIGHT = 5.5   # player's own ambient radius (same compensation)
-DELVE_DARKNESS_DPS   = 10.0  # HP/sec in full darkness at depth 1
+ANIMA_PERSONAL_LIGHT = 5.5   # player's own ambient radius (same compensation)
+ANIMA_DARKNESS_DPS   = 10.0  # HP/sec in full darkness at depth 1
 
 # Manual placement offsets for the pulse light in render-texture pixels (1280x720 RT)
 PULSE_OFFSET_X = 0
@@ -388,6 +389,37 @@ SHADER_EDGE_SCALE = 2.2
 _LIGHT_KIND_STRENGTH = {'pulse': 0.75, 'heart': 0.52, 'brazier': 0.45, 'torch': 0.40}
 
 
+def decor_candidates(map_data: list, node: dict,
+                     prop_cells=frozenset()) -> list:
+    """Open floor cells in and around a node's room - decor placement pool.
+
+    The anima grid has been wall-less since issues #24/#27 (rooms are
+distinct floor regions with no wall tiles between them), so the old
+    wall-adjacent scan found ZERO candidates and decor silently stopped
+    spawning. Decorating the node's room area (room bbox + an approach
+    margin) keeps the density per visit high no matter how big the 200x200
+    canvas grows, and keeps the Pulse heart's landing zone clear."""
+    if not map_data:
+        return []
+    node_col = int(node.get('col', len(map_data) / 2))
+    node_row = int(node.get('row', len(map_data[0]) / 2))
+    half_w = int(node.get('w', 15)) // 2 + 8     # room + approach margin
+    half_h = int(node.get('h', 17)) // 2 + 8
+    candidates = []
+    for col in range(max(0, node_col - half_w),
+                     min(len(map_data), node_col + half_w + 1)):
+        for row in range(max(0, node_row - half_h),
+                         min(len(map_data[0]), node_row + half_h + 1)):
+            if map_data[col][row] != 0:
+                continue
+            if (col - node_col) ** 2 + (row - node_row) ** 2 <= 6.25:
+                continue   # keep the Pulse heart's landing zone clear
+            if (col, row) in prop_cells:
+                continue   # ground props already claim this cell
+            candidates.append((col, row))
+    return candidates
+
+
 def _actor_tint_value(light_amount: float) -> float:
     """Map the light map's 0..1 amount to an actor tint value."""
     return ACTOR_MIN_LIGHT_TINT + (1.0 - ACTOR_MIN_LIGHT_TINT) * light_amount
@@ -403,16 +435,16 @@ _FALLBACK_CHAR = Character()
 
 from core.render.hub_render import HubRenderMixin
 from core.render.hud_render import HudRenderMixin
-from core.render.delve_render import DelveRenderMixin
+from core.render.anima_render import AnimaRenderMixin
 from core.render.chart_render import ChartRenderMixin
 from core.render.frame_render import FrameRenderMixin
 from core.render.weather_render import WeatherRenderMixin
 from core.hub import HubMixin
-from core.delve_flow import DelveFlowMixin
+from core.anima_flow import AnimaFlowMixin
 from core.input import InputMixin
 
 
-class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin, DelveRenderMixin,
+class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin, AnimaRenderMixin,
            ChartRenderMixin, WeatherRenderMixin, FrameRenderMixin):
     def __init__(self):
         self.state = STATE_MENU
@@ -505,9 +537,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # Dream params
         self._dream_strength = 10.0
 
-        # Delve
-        self._delve          = None   # active delve data dict, or None
-        self._saved_delve    = None   # persistent delve state saved when returning to hub
+        # Anima
+        self._anima          = None   # active anima data dict, or None
+        self._saved_anima    = None   # persistent anima state saved when returning to hub
         self._darkness_rt    = None   # RenderTexture2D for darkness compositing
         self._light_blob_tex = None   # pre-baked radial gradient for light sources
         self._lightmap_rt    = None   # low-res dim map (multiplied over scene)
@@ -528,13 +560,13 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._shake_timer     = 0.0
         self._shake_intensity = 0.0
 
-        # Delve chart screen + in-delve minimap
+        # Anima chart screen + in-anima minimap
         self._chart_screen  = None
-        self._delve_chart_open = False  # transient; never saved with delve state
+        self._anima_chart_open = False  # transient; never saved with anima state
         self._minimap       = None
         self._minimap_open  = False
         self._chart_entry   = None   # (chart, node_id) selected in hub chart
-        self._chart_resume  = False  # saved delve can be resumed
+        self._chart_resume  = False  # saved anima can be resumed
         self._chart_resume_rect = None
 
         # Organ ability state (keyed by organ slot)
@@ -582,6 +614,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self.inv     = InventoryUI()
         self.inv.char_provider = lambda: self.char
         self.inv.on_gear_change   = self._on_gear_changed
+        self.inv.on_grid_change   = self._on_stash_change   # backpack sorts persist too (issue #12)
         self.ground_items = []
         self._loot_sparkles = []
 
@@ -651,6 +684,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._save_notice_timer = 0.0
         self._inv_full_timer  = 0.0
         self._glint_effects   = []  # active: {'x','y','timer','color','scale','vel_x','vel_y'}
+        self._ambient         = ambient.AmbientParticles()   # delve smoke + dust (issue #17)
         self._flame_effects   = []  # active: {'x','y','timer','color'}
         self._glow_effects    = []  # active: {'x','y','timer','color','scale',
                                     # optional 'lift'} - 'lift' rides the effect
@@ -676,7 +710,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # Screen-space rects of visible drop labels - populated each draw frame
         self._drop_label_rects = []
         self._hovered_ground_item = None
-        # Interactable currently under the mouse (hub object or delve
+        # Interactable currently under the mouse (hub object or anima
         # portal/crate/barrel/brazier) - drives hover glow.
         self._hover_interact = None
 
@@ -696,9 +730,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         return self.char_mgr.active or _FALLBACK_CHAR
 
     def _current_item_level(self):
-        """Item level for non-delve rolls; delve rewards use effective depth."""
-        depth = self._delve.get('depth', 1) if self._delve else 1
-        from core.delve_gen import effective_level
+        """Item level for non-anima rolls; anima rewards use effective depth."""
+        depth = self._anima.get('depth', 1) if self._anima else 1
+        from core.anima_gen import effective_level
         return effective_level(max(1, depth))
 
     # ── startup ───────────────────────────────────────────────────────
@@ -750,11 +784,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                                   ('hit_flash', 'hit_flash.fs')):
                 ok = self.shaders.load(sname, fsname)
                 if ok is None:
-                    print(f"[shader] '{sname}' failed to load — using software path")
+                    print(f"[shader] '{sname}' failed to load - using software path")
                 else:
                     print(f"[shader] '{sname}' loaded OK")
             if self.shaders.load_fragment('gloss', 'gloss.fs') is None:
-                print("[shader] 'gloss' failed to load — using software fill")
+                print("[shader] 'gloss' failed to load - using software fill")
             self._load_lighting_textures()
 
             # Post-process shaders
@@ -791,7 +825,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             )
             for _sn, _fn in _vfx_shaders:
                 if self.shaders.load_fragment(_sn, _fn) is None:
-                    print(f"[shader] '{_sn}' failed to load — effect disabled")
+                    print(f"[shader] '{_sn}' failed to load - effect disabled")
                 else:
                     print(f"[shader] '{_sn}' loaded OK")
             self._vfx_white = rl.load_texture_from_image(
@@ -825,7 +859,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     rl.set_texture_wrap(tex, rl.TEXTURE_WRAP_CLAMP)
                 setattr(self, attr, tex)
             else:
-                print('[lightgen] texture generation failed — software fallback')
+                print('[lightgen] texture generation failed - software fallback')
 
     # ── state machine ─────────────────────────────────────────────────
 
@@ -856,7 +890,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self._pre_pause_state = self.state
         self.state = STATE_PAUSED
         # Flush any stale menu signal (e.g. 'return_to_hub' from an old popup)
-        # so opening the pause menu can't accidentally fire it mid-delve.
+        # so opening the pause menu can't accidentally fire it mid-anima.
         self.menu_sys.signal()
         self.menu_sys.set_state('paused')
 
@@ -931,7 +965,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     'slime_special_death', 7, 8.0)
 
         def _pulse_portal():
-            # Pulse sprite (delve crawler)
+            # Pulse sprite (anima crawler)
             pulse_p = os.path.join(_ASSETS, 'pulse', 'pulse.png')
             if os.path.exists(pulse_p):
                 self._pulse_tex = rl.load_texture(pulse_p)
@@ -996,8 +1030,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         def _decor_atlas():
             for dname in ('torch', 'bones1', 'bones2', 'bones3',
                           'cactus1', 'cactus2', 'reed1', 'reed2',
-                          'bush_red', 'bush_red2', 'stone_s3', 'stone_s4',
-                          'pole'):
+                          'bush_red', 'bush_red2', 'bush_purple', 'bush_purple2',
+                          'stone_s1', 'stone_s2', 'stone_s3', 'stone_s4',
+                          'flower1', 'grass2', 'pole'):
                 self._decor_sprs[dname] = make_atlas_prop(dname, ('S', 'SE'))
         add(_decor_atlas)
 
@@ -1117,19 +1152,19 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             self._enter_hub()
         elif sig == 'return_to_hub':
             self._enter_hub()
-        elif sig == 'return_to_hub_delve':
-            # Chart modal "RETURN TO HUB": bank the delve snapshot, then leave.
-            self._exit_delve()
-        elif sig == 'enter_delve':
-            self._enter_delve()
+        elif sig == 'return_to_hub_anima':
+            # Chart modal "RETURN TO HUB": bank the anima snapshot, then leave.
+            self._exit_anima()
+        elif sig == 'enter_anima':
+            self._enter_anima()
         elif sig == 'resume':
             pre = getattr(self, '_pre_pause_state', STATE_PLAYING)
             self.state = pre
             if pre == STATE_HUB:
                 self.audio.set_music_state('hub')
             else:
-                if self._delve is not None:
-                    self.audio.set_delve_music()   # playlist continues
+                if self._anima is not None:
+                    self.audio.set_anima_music()   # playlist continues
                 else:
                     self.audio.set_music_state('off')
             if hasattr(self, '_pre_pause_state'):
@@ -1145,9 +1180,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     # ── hub ───────────────────────────────────────────────────────────
 
     def _build_hub_map(self):
-        """The hub sits on the same 200×200 open floor as the delve - the
+        """The hub sits on the same 200×200 open floor as the anima - the
         world dissolves into darkness beyond the torch-lit sanctuary."""
-        import core.delve_gen as _dg
+        import core.anima_gen as _dg
         return [[0] * _dg.GRID_H for _ in range(_dg.GRID_W)]
 
     def _sync_weather(self, strength: float = None, seed: int = None,
@@ -1175,7 +1210,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
     def _on_death(self):
         """Death costs XP, not the character (issue #31, supersedes permadeath).
 
-        The delve is lost (snapshot cleared, waves reset); the character
+        The anima is lost (snapshot cleared, waves reset); the character
         survives with a PoE-style XP penalty and returns through the end
         screen to the menu."""
         import systems.xp as xp
@@ -1183,10 +1218,12 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         self.char_mgr.save()
         self.state = STATE_DEAD
         self.audio.set_music_state('death')
-        self._saved_delve = None
-        self._delve = None
+        self._saved_anima = None
+        self._anima = None
+        if getattr(self, '_ambient', None) is not None:
+            self._ambient.clear()
         import entities.progression as _prog
-        _prog.clear_delve_data(self.char.id)
+        _prog.clear_anima_data(self.char.id)
         self._raid_results = {
             'kills':       self.tracker.kills,
             'time':        self.tracker.time,
@@ -1198,7 +1235,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
 
-    # ── delve ─────────────────────────────────────────────────────────
+    # ── anima ─────────────────────────────────────────────────────────
 
 
 
@@ -1242,7 +1279,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
 
-    # ── delve chart graph ────────────────────
+    # ── anima chart graph ────────────────────
 
 
 
@@ -1258,7 +1295,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
 
-    # ── delve relics (checkpoint shrines) ─────
+    # ── anima relics (checkpoint shrines) ─────
 
 
 
@@ -1444,7 +1481,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
     def _light_anim(self, light):
         """(flicker factor, tint) per light kind - slow breathing, no strobe:
-        torches ≈0.7 Hz, braziers ≈0.4 Hz, the Delve Heart a deep slow pulse."""
+        torches ≈0.7 Hz, braziers ≈0.4 Hz, the Anima Heart a deep slow pulse."""
         t = rl.get_time()
         kind = light.get('kind', '')
         ph   = light.get('phase', 0.0)
@@ -1672,9 +1709,9 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             self.char_mgr.save()
             self._save_notice_timer = 2.0
 
-        # ── delve-specific logic ──────────────────────────────────────
-        if self._delve is not None:
-            self._update_delve(dt)
+        # ── anima-specific logic ──────────────────────────────────────
+        if self._anima is not None:
+            self._update_anima(dt)
             if self.state != STATE_PLAYING:
                 return
 
@@ -1707,10 +1744,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         speed_mult = stat_out['speed_mult'] * (1.0 + equip_effects['move_speed'])
         speed_mult *= getattr(self, '_flask_haste_mult', 1.0)   # utility flask (T)
         # Fracture zone: slowed while standing in darkness (Frozen Hollow, §5)
-        if (self._delve is not None and self._delve.get('_dark_slow')
+        if (self._anima is not None and self._anima.get('_dark_slow')
                 and 'juggernaut' not in itemgen.equipped_uniques(self.inventory)):
-            speed_mult *= (1.0 - self._delve['_dark_slow'])
-        if self._delve is not None:
+            speed_mult *= (1.0 - self._anima['_dark_slow'])
+        if self._anima is not None:
             speed_mult *= self._relic_effects().get('speed_mult', 1.0)
 
         # ── apply flat equipment stat bonuses ─────────────────────────
@@ -1805,8 +1842,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             if dist < 0.65:
                 self.dest_col = self.dest_row = None
                 if t.get('type') == 'portal':
-                    if t.get('delve_exit') and self._delve is not None:
-                        self._exit_delve('hub')
+                    if t.get('anima_exit') and self._anima is not None:
+                        self._exit_anima('hub')
                     else:
                         self.tracker.extracted = True
                         self._raid_results = self.tracker.finalize(self.char)
@@ -1831,6 +1868,13 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                         self.ground_items.remove(dt_gi)
                     self.drop_target = None
 
+        # ── ambient delve particles (issue #17): torch smoke + lit dust ──
+        ambient_sys = getattr(self, '_ambient', None)
+        if self._anima is not None and ambient_sys is not None:
+            torch_spots = [(d['x'], d['y']) for d in self._decor_items
+                           if d.get('type') == 'torch']
+            ambient_sys.update(dt, _rnd, torch_spots, self.px, self.py)
+
         # ── loot sparkle decay ──────────────────────────────────────────
         for s in self._loot_sparkles:
             s['timer'] -= dt
@@ -1847,14 +1891,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         players = [player_ref]
         # Dark charge (issue #53 review): the charge boundary is the visible
         # pool edge (pool light + personal light) - bodies past it close on
-        # the light way faster. Outside a delve (hub fights) no light
+        # the light way faster. Outside a anima (hub fights) no light
         # geometry is passed and the charge never applies.
-        delve = self._delve
-        if delve is not None:
+        anima = self._anima
+        if anima is not None:
             incoming_dmg_by_type = update_zombies(
                 dt, self.zombies, players, self.map,
-                light_center=(delve['pulse_x'], delve['pulse_y']),
-                light_radius=delve.get('light_r', 0.0) + DELVE_PERSONAL_LIGHT)
+                light_center=(anima['pulse_x'], anima['pulse_y']),
+                light_radius=anima.get('light_r', 0.0) + ANIMA_PERSONAL_LIGHT)
         else:
             incoming_dmg_by_type = update_zombies(dt, self.zombies, players, self.map)
         total_incoming = sum(incoming_dmg_by_type.values())
@@ -1980,11 +2024,11 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         # Sync post-process effects to game state
         self._pp_wave = max(self._pp_wave, self._shake_intensity * 0.3)
 
-        if self._delve is not None:
-            d_dist = math.hypot(self.px - self._delve['pulse_x'], self.py - self._delve['pulse_y'])
+        if self._anima is not None:
+            d_dist = math.hypot(self.px - self._anima['pulse_x'], self.py - self._anima['pulse_y'])
             # the dream-foreboding warp starts AT the visible pool edge
             # (light_r + the personal light) - never inside the lit pool
-            pool_edge = self._delve['light_r'] + DELVE_PERSONAL_LIGHT
+            pool_edge = self._anima['light_r'] + ANIMA_PERSONAL_LIGHT
             if d_dist > pool_edge:
                 darkness_pct = min(1.0, (d_dist - pool_edge) / 4.0)
                 self._pp_dream = max(self._pp_dream, darkness_pct * 0.6)
@@ -2076,7 +2120,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         return best
 
     def _heart_screen_hit(self, obj, mx: float, my: float, cw: int, ch: int):
-        """Delve Heart screen-space hitbox: see HEART_CLICK_RISE/SPAN.
+        """Anima Heart screen-space hitbox: see HEART_CLICK_RISE/SPAN.
         Tall iso art can't be covered by a tile-space click bubble, so the
         click is measured against the drawn art instead of the base tile."""
         ts = max(1, int(ISO_W * self.iso.scale))
@@ -2090,18 +2134,18 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         """Nearest interactable under the mouse, within `radius` tiles.
 
         `objects` is a list of dicts with world-position keys 'x'/'y'
-        (hub objects and delve ground-item interactables share the shape).
-        The hub Delve Heart is screen-hit instead (see _heart_screen_hit).
+        (hub objects and anima ground-item interactables share the shape).
+        The hub Anima Heart is screen-hit instead (see _heart_screen_hit).
         Purely visual - no player-distance check; the hover glow means
         "the art is under your cursor", not "you can use it yet".
         """
-        if self.inv.open or self._hub_popup or self._delve_chart_is_open():
+        if self.inv.open or self._hub_popup or self._anima_chart_is_open():
             return None
         mx, my = rl.get_mouse_x(), rl.get_mouse_y()
         tile_col, tile_row = self.iso.screen_to_world(mx, my, cw, ch)
         best, best_d = None, radius
         for obj in objects:
-            if obj.get('type') == 'delve':
+            if obj.get('type') == 'anima':
                 if not self._heart_screen_hit(obj, mx, my, cw, ch):
                     continue
                 d = 0.0   # on-art; beats any tile-space hit this frame
@@ -2221,40 +2265,26 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                     break
         return slimes
 
-    def _spawn_delve_objects(self):
+    def _spawn_anima_objects(self):
         _m = self.map
+        node = (self._anima or {}).get('node', {})
+        candidates = decor_candidates(_m, node,
+                                      getattr(self.iso, '_any_prop_cells',
+                                              frozenset()))
 
-        walls_adjacent = []
-        corridor_tiles = set()
+        _rnd.shuffle(candidates)
 
-        for col in range(len(_m)):
-            for row in range(len(_m[0])):
-                if _m[col][row] != 0:
-                    continue
-                wall_n = 0
-                for dc, dr in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                    nc, nr = col + dc, row + dr
-                    if 0 <= nc < len(_m) and 0 <= nr < len(_m[0]) and _m[nc][nr] != 0:
-                        wall_n += 1
-                h_line = sum(1 for dc in (-2, -1, 1, 2)
-                            if 0 <= col + dc < len(_m) and _m[col + dc][row] == 0)
-                v_line = sum(1 for dr in (-2, -1, 1, 2)
-                            if 0 <= row + dr < len(_m[0]) and _m[col][row + dr] == 0)
-                if h_line >= 3 or v_line >= 3:
-                    corridor_tiles.add((col, row))
-                    continue
-                if wall_n >= 1:
-                    walls_adjacent.append((col, row))
-
-        _rnd.shuffle(walls_adjacent)
-        candidates = walls_adjacent
-
-        # Desert decor pool: lit campfires (torches), Anima graveyard
-        # pillars (bones*), cacti/reeds/bushes/rock piles, dead telegraph
-        # poles - all sliced from the desert tileset.
+        # Desert decor pool (issue #17): lit campfires (torches), Anima
+        # graveyard stones (bones*), cacti, reeds, dry bushes, rocks,
+        # flowers and a dead telegraph pole - all sliced from the desert
+        # tileset. Entries repeat to weight the roll toward the props that
+        # read well at world scale.
         _DECOR_TYPES = ['bones1', 'bones2', 'bones3',
-                        'cactus1', 'cactus2', 'reed1', 'reed2',
-                        'bush_red', 'bush_red2', 'stone_s3', 'stone_s4',
+                        'cactus1', 'cactus2',
+                        'reed1', 'reed2',
+                        'bush_red', 'bush_red2', 'bush_purple', 'bush_purple2',
+                        'stone_s1', 'stone_s2', 'stone_s3', 'stone_s4',
+                        'flower1', 'grass2',
                         'pole']
 
         total = len(candidates)
@@ -2262,11 +2292,14 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
         idx = 0
 
 
-        for _ in range(_rnd.randint(20, 30)):
+        # issue #17: the delve should not feel empty - a sparse garnish
+        for _ in range(_rnd.randint(10, 15)):
             if idx >= total:
                 break
             col, row = candidates[idx]; idx += 1
-            decor_type = 'torch' if _rnd.random() < 0.3 else _rnd.choice(_DECOR_TYPES)
+            # ~1 in 12 props is a lit campfire: enough light anchors for
+            # the dust motes without flooding the room with flames
+            decor_type = 'torch' if _rnd.random() < 0.08 else _rnd.choice(_DECOR_TYPES)
             self._decor_items.append({
                 'x': float(col) + _rnd.uniform(0.1, 0.9),
                 'y': float(row) + _rnd.uniform(0.1, 0.9),
@@ -2284,8 +2317,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 slot  = itemgen.roll_for(item_id, count, self._current_item_level(),
                                          rarity_mod=drop_rarity_mod)
                 # ROT ETERNAL roll (§27): 2% on organ drops at depth 1-10
-                if self._delve is not None:
-                    itemgen.try_rot_mythic(slot, self._delve.get('depth', 1), _rnd)
+                if self._anima is not None:
+                    itemgen.try_rot_mythic(slot, self._anima.get('depth', 1), _rnd)
                 angle = _rnd.uniform(0, 6.2832)
                 dist  = _rnd.uniform(0.3, 1.2)
                 self.ground_items.append({
@@ -2764,7 +2797,7 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
 
         `enemy` is the killed enemy dict when the caller has it in scope;
         its `level` key drives the XP award (issue #31). Falls back to the
-        delve's depth-derived level when unavailable."""
+        anima's depth-derived level when unavailable."""
         self.tracker.kills += 1
         now = rl.get_time()
         if now - self._last_kill_t <= ANGEL_STREAK_WINDOW:
@@ -2800,8 +2833,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             except (TypeError, ValueError):
                 monster_level = None
         if monster_level is None:
-            from core.delve_gen import effective_level
-            depth = (self._delve or {}).get('depth', 1)
+            from core.anima_gen import effective_level
+            depth = (self._anima or {}).get('depth', 1)
             monster_level = effective_level(depth)
         award = xp.award_for_kill(self.char.level, monster_level, self._kill_streak)
         gained = xp.grant_xp(self.char, award)
@@ -3277,24 +3310,24 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 output = (f'Zoom {ref:.2f} (1080p reference) → world scale '
                           f'{self.iso.scale:.2f}')
         elif command == 'horde':
-            # Horde QA lever (rule 44 backdoor): scales every delve wave
-            # for the rest of the delve by pushing _horde_mult in the delve
-            # dict (consumed by _delve_spawn_wave, ✓delve-flow). Not part
-            # of progression; survives pause/resume via the delve snapshot.
-            if not in_raid or self._delve is None:
+            # Horde QA lever (rule 44 backdoor): scales every anima wave
+            # for the rest of the anima by pushing _horde_mult in the anima
+            # dict (consumed by _anima_spawn_wave, ✓anima-flow). Not part
+            # of progression; survives pause/resume via the anima snapshot.
+            if not in_raid or self._anima is None:
                 output = 'Not in raid'
             elif len(parts) < 2:
-                mult = self._delve.get('_horde_mult', HORDE_DEFAULT_MULT)
+                mult = self._anima.get('_horde_mult', HORDE_DEFAULT_MULT)
                 output = (f'Horde x{mult:g} (default x{HORDE_DEFAULT_MULT:g}; '
                           'usage: horde <1..10>, horde 0 restores default) '
                           '- applies from the next wave')
             elif parts[1].isdigit() and int(parts[1]) == 0:
                 # 0 restores the owner-ruling default by dropping the override.
-                self._delve.pop('_horde_mult', None)
+                self._anima.pop('_horde_mult', None)
                 output = f'Wave size back to default x{HORDE_DEFAULT_MULT:g}'
             elif parts[1].isdigit():
                 mult = max(1, min(10, int(parts[1])))
-                self._delve['_horde_mult'] = mult
+                self._anima['_horde_mult'] = mult
                 output = f'Wave size x{mult:g} from the next wave on'
             else:
                 output = 'Usage: horde <1..10>'
@@ -3360,8 +3393,8 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
             output = '/god  /heal  /kill  /give <item> [n|rarity]  /zoom <n>  /horde <1..10>'
             output += '\n/descend <attr> <0..10>   /perk <id> <0..max>   /pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
             output += '\n/pp contrast|sat|bright <v>   /pp_bloom samples|quality|threshold|intensity <v>'
-            output += '\n/weather [on|off] — toggle wet FX · /clear — wipe chat history'
-            output += '\n/record [gif|webm|mp4] [1-60] — dev clip (%APPDATA%/BTR/clips; bare /record = mp4)'
+            output += '\n/weather [on|off] - toggle wet FX · /clear - wipe chat history'
+            output += '\n/record [gif|webm|mp4] [1-60] - dev clip (%APPDATA%/BTR/clips; bare /record = mp4)'
             output += '\nevery command needs its / prefix - plain text is a chat say'
         elif command == 'pp':
             if len(parts) < 2:
@@ -3458,7 +3491,10 @@ class Game(InputMixin, HubMixin, DelveFlowMixin, HubRenderMixin, HudRenderMixin,
                 self.recorder.finish()
             except Exception as exc:
                 print(f'[RECORDING] save failed: {exc}')
-        self._save_delve()
+        self._save_anima()
+        # ambient particle soft sprites are cached VRAM - free them (rule 43)
+        if getattr(self, '_ambient', None) is not None:
+            self._ambient.dispose()
         # forge offerings are transient - ride them back into the backpack
         # before the final save so a hard exit never destroys offered items
         if self.inv.forge_open:

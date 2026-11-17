@@ -19,7 +19,7 @@ import pyray as rl
 
 from core.game import (
     DARKNESS_AMBIENT,
-    DELVE_PERSONAL_LIGHT,
+    ANIMA_PERSONAL_LIGHT,
     HIT_VFX_DUR,
     HIT_VFX_SCALE,
     HOVER_GLOW_ALPHA,
@@ -49,7 +49,7 @@ def _cmp_sign(col):
     return 0
 
 
-class DelveRenderMixin:
+class AnimaRenderMixin:
     def _draw_scene_to_screen(self, cw: int, ch: int):
         flip_src = rl.Rectangle(0.0, float(ch), float(cw), -float(ch))
         no_flip  = rl.Rectangle(0.0, 0.0, float(cw), float(ch))
@@ -68,23 +68,23 @@ class DelveRenderMixin:
         if self._darkness_rt is None or self._darkness_rt.id <= 0:
             print("[darkness] WARNING: render texture creation FAILED")
     def _draw_darkness(self, cw: int, ch: int):
-        if self._delve is None:
+        if self._anima is None:
             return
-        d = self._delve
-        # The Pulse is the delve's light source: kind 'pulse' - brighter than
+        d = self._anima
+        # The Pulse is the anima's light source: kind 'pulse' - brighter than
         # the hub heart (no deep breathing dip). The radius is the VISIBLE
         # LIGHT EDGE (lighting.fs EDGE_SCALE semantics) and matches the
-        # gameplay light check exactly (delve_flow: light_r + personal).
+        # gameplay light check exactly (anima_flow: light_r + personal).
         lights = [{'x': d['pulse_x'], 'y': d['pulse_y'],
-                   'r': d['light_r'] + DELVE_PERSONAL_LIGHT,
+                   'r': d['light_r'] + ANIMA_PERSONAL_LIGHT,
                    'kind': 'pulse', 'phase': 0.0, 'ax': 0.0, 'ay': 0.0}]
         self._render_darkness(cw, ch, lights, d.get('dark_timer', 0.0))
     def _render_darkness(self, cw: int, ch: int, lights: list, dark_timer: float):
         """Fire-light pass over arbitrary light anchors.
 
-        lights: [{'x', 'y', 'r', 'kind', 'phase'}] in tile coords - the delve
+        lights: [{'x', 'y', 'r', 'kind', 'phase'}] in tile coords - the anima
         passes the Pulse, the hub passes torches/braziers/
-        the Delve Heart. Outside every light the dark_timer drives the red
+        the Anima Heart. Outside every light the dark_timer drives the red
         danger pulse. Primary path is the lighting shader (Godot-style log
         falloff + noise churn); the software blob pass is the fallback.
         """
@@ -248,16 +248,16 @@ class DelveRenderMixin:
         rl.end_blend_mode()
     def _draw_pulse_sprite(self, cw: int, ch: int):
         """Re-draw pulse sprite on top of the darkness overlay so it stays bright."""
-        if self._delve is None or self._pulse_tex is None or self._pulse_tex.id <= 0:
+        if self._anima is None or self._pulse_tex is None or self._pulse_tex.id <= 0:
             return
-        d = self._delve
+        d = self._anima
         sx, sy = self.iso.world_to_screen(d['pulse_x'], d['pulse_y'], cw, ch)
         tile_size = max(1, int(ISO_W * self.iso.scale))
         half = tile_size * 0.5
 
         # Attract pulse animation when ready; always-on hub-heart breathing
         # (1.0 + 0.06·sin, 2.2 Hz) so the pulse reads as the same heart art
-        # as the hub's Delve Heart (hub_render.py:29-35).
+        # as the hub's Anima Heart (hub_render.py:29-35).
         # The pulse is the interactive light anchor, not floor art: it keeps
         # the ENTITY canvas scale so its click target stays readable.
         tint = rl.WHITE
@@ -281,9 +281,9 @@ class DelveRenderMixin:
         rl.draw_texture_pro(self._pulse_tex, src, dst, rl.Vector2(0.0, 0.0), 0.0, tint)
     def _draw_pulse_label(self, cw: int, ch: int):
         """Draw PULSE label above the pulse sprite in world space."""
-        if self._delve is None:
+        if self._anima is None:
             return
-        d = self._delve
+        d = self._anima
         sx, sy = self.iso.world_to_screen(d['pulse_x'], d['pulse_y'], cw, ch)
         ts = max(1, int(ISO_W * self.iso.scale))
         cx = sx + ts // 2
@@ -299,12 +299,12 @@ class DelveRenderMixin:
                    + PULSE_LABEL_NUDGE_PX)
         fonts.draw(label, cx - lw // 2, label_y, 14,
                    rl.Color(255, 210, 80, 200))
-    def _draw_delve_junction(self, cw: int, ch: int):
+    def _draw_anima_junction(self, cw: int, ch: int):
         """Forward-path choice, hosted inside the Anima panel frame."""
-        d = self._delve
-        kids = self._delve_children()
-        import core.delve_gen as _dg
-        from ui.delve_chart import _reward_icon
+        d = self._anima
+        kids = self._anima_children()
+        import core.anima_gen as _dg
+        from ui.anima_chart import _reward_icon
 
         content, x_clicked = self._draw_anima_panel(cw, ch)
         if x_clicked:
@@ -357,9 +357,9 @@ class DelveRenderMixin:
             rects.append((rect, kid))
 
         d['_junction_rects'] = rects
-    def _draw_delve_relics(self, cw: int, ch: int):
+    def _draw_anima_relics(self, cw: int, ch: int):
         """1-of-3 run-boon choice at checkpoint shrines, in the Anima panel."""
-        d = self._delve
+        d = self._anima
         offer = d.get('_relic_offer') or []
         content, x_clicked = self._draw_anima_panel(cw, ch)
         if x_clicked:
@@ -397,7 +397,7 @@ class DelveRenderMixin:
                                  tile_center_y: int, tile_size: int,
                                  tint=None) -> bool:
         """Draw the visible ground sprite for a drop item. Returns True when
-        a sprite was drawn (used by the world layer, the delve darkness
+        a sprite was drawn (used by the world layer, the anima darkness
         overlay and the hub so the item is visible at all times)."""
         drop_spr, spr_scale = self._drop_sprite_for(gi)
         if not drop_spr:
@@ -593,6 +593,75 @@ class DelveRenderMixin:
                            sx + tile_size // 2, sy + tile_size // 2,
                            draw_size, e['angle'],
                            e.get('color', rl.WHITE), progress=progress)
+    def _draw_ambient_particles(self, cw, ch):
+        """Ambient delve atmosphere (issue #17): torch smoke wisps + dust
+        motes drifting in the lit ground.
+
+        Drawn as soft radial-gradient sprites (slow rotation + growth for
+        the smoke), never hard circles - the owner wants fluid, not
+        geometrical. Screen-space point markers stay circle-SHAPED per
+        BLUEPRINT rule 37; everything lives under the darkness overlay so
+        the gloom still swallows it past the light edge."""
+        ambient_sys = getattr(self, '_ambient', None)
+        if not ambient_sys or not ambient_sys.particles:
+            return
+        # soft sprites are built once (lazy, GL context required)
+        if ambient_sys._puff_tex is None or ambient_sys._puff_tex.id <= 0:
+            from systems import ambient as _amb_mod
+            ambient_sys._puff_tex = _amb_mod._soft_disc_texture(64, 2.2)
+            ambient_sys._mote_tex = _amb_mod._soft_disc_texture(16, 1.6)
+        puff_tex = ambient_sys._puff_tex
+        mote_tex = ambient_sys._mote_tex
+        if not puff_tex or puff_tex.id <= 0:
+            return
+        tile_size = int(ISO_W * self.iso.scale)
+        time_now  = ambient_sys.time
+        for particle in ambient_sys.particles:
+            sx, sy = self.iso.world_to_screen(particle['x'], particle['y'],
+                                              cw, ch)
+            screen_x = sx + tile_size // 2
+            screen_y = sy + tile_size // 2 - int(particle['z'] * tile_size)
+            life_k = particle['life'] / particle['max_life']
+            fade = math.sin(math.pi * min(1.0, life_k))   # in → out
+            if particle['kind'] == 'smoke':
+                if fade <= 0.02:
+                    continue
+                # the wisp swells as it climbs and rolls slowly around
+                size = tile_size * particle['size'] \
+                    * (0.55 + 0.9 * (1.0 - life_k))
+                alpha = int(48 * fade)
+                if alpha <= 0:
+                    continue
+                origin = rl.Vector2(size / 2.0, size / 2.0)
+                rl.draw_texture_pro(
+                    puff_tex,
+                    rl.Rectangle(0.0, 0.0, float(puff_tex.width),
+                                 float(puff_tex.height)),
+                    rl.Rectangle(screen_x - size / 2.0, screen_y - size / 2.0,
+                                 size, size),
+                    origin,
+                    particle['phase'] * 57.3
+                        + time_now * 30.0 * particle.get('spin', 0.3),
+                    rl.Color(178, 178, 190, alpha))
+            else:
+                if mote_tex is None or mote_tex.id <= 0:
+                    continue
+                pulse = 0.6 + 0.4 * math.sin(time_now * 1.4
+                                             + particle['phase'])
+                alpha = int(70 * min(1.0, life_k * 1.6) * pulse)
+                if alpha <= 0:
+                    continue
+                size = max(4.0, tile_size * particle['size'])
+                origin = rl.Vector2(size / 2.0, size / 2.0)
+                rl.draw_texture_pro(
+                    mote_tex,
+                    rl.Rectangle(0.0, 0.0, float(mote_tex.width),
+                                 float(mote_tex.height)),
+                    rl.Rectangle(screen_x - size / 2.0, screen_y - size / 2.0,
+                                 size, size),
+                    origin, 0.0,
+                    rl.Color(235, 220, 175, alpha))
+
     def _draw_glint_effects(self, cw, ch):
         tile_size = int(ISO_W * self.iso.scale)
         for e in self._glint_effects:

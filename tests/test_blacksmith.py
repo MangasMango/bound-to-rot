@@ -446,7 +446,7 @@ def test_dismantle_full_backpack_consumes_nothing():
                                     'affixes': {'prefixes': {},
                                                 'suffixes': {}}}})
     ui._forge_grid = [_organ('kidney', 'epic'), _organ('liver', 'epic')]
-    assert not ui.dismantle(inv), 'no backpack room — refuse the trade'
+    assert not ui.dismantle(inv), 'no backpack room - refuse the trade'
     assert len(ui._forge_grid) == 2, 'offerings are never lost'
     assert ui._forge_out == []
 
@@ -504,7 +504,7 @@ def test_close_forge_with_full_backpack_keeps_panel_open():
                                                 'suffixes': {}}}})
     lung = _organ('lungs', 'common')
     ui._forge_grid = [lung]
-    assert not ui.close_forge(inv), 'backpack full — nothing may be lost'
+    assert not ui.close_forge(inv), 'backpack full - nothing may be lost'
     assert ui.forge_open, 'panel stays open'
     assert ui._forge_grid == [{k: v for k, v in lung.items()
                                if k not in ('col', 'row')}], \

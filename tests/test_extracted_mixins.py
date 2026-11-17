@@ -25,7 +25,7 @@ import core.input as game_input
 import pyray as rl
 
 
-MODULES = [Path('core/hub.py'), Path('core/delve_flow.py'), Path('core/input.py')]
+MODULES = [Path('core/hub.py'), Path('core/anima_flow.py'), Path('core/input.py')]
 EXTRACTED = MODULES + list(Path('core/render').glob('*_render.py'))
 
 
@@ -84,7 +84,7 @@ def test_enter_hub_constructs_layout_and_interactables(monkeypatch):
 
     assert len(game._hub_objects) == len(hub._HUB_LAYOUT)
     assert game._hub_objects[0]['color'] == tuple(hub._HUB_LAYOUT[0]['color'])
-    assert any(obj['type'] == 'delve' for obj in game._hub_objects)
+    assert any(obj['type'] == 'anima' for obj in game._hub_objects)
     assert any(obj['type'] == 'stash' for obj in game._hub_objects)
     assert game._hub_lights == hub._HUB_LIGHTS
 
@@ -92,7 +92,7 @@ def test_enter_hub_constructs_layout_and_interactables(monkeypatch):
 def test_input_dispatch_turns_key_press_into_inventory_intent(monkeypatch):
     game = SimpleNamespace()
     game.state = game_input.STATE_PLAYING
-    game._delve = None
+    game._anima = None
     game._minimap_open = False
     game._chat_open = False
     game._chat_buf = ''
@@ -140,8 +140,8 @@ def test_mouse_dispatch_turns_right_click_into_move_intent(monkeypatch):
         map=[[0]], iso=SimpleNamespace(screen_to_world=lambda x, y, w, h: (3.0, 2.0)),
         attack_target=None, interact_target=None, drop_target=None,
         _char_stats_open=False,
-        _drop_label_rects=[], _delve=None,
-        _delve_chart_is_open=lambda: False,
+        _drop_label_rects=[], _anima=None,
+        _anima_chart_is_open=lambda: False,
         _hud_over_action=lambda x, y: False,
         _flash_hud=lambda action: None,
     )

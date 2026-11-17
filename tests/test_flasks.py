@@ -96,7 +96,7 @@ class TestFlaskUsage(unittest.TestCase):
         self.assertIsNotNone(flasks.use_flask(inv, state, make_stats()))
 
     def test_reset_for_wave_ties_to_wave_lifecycle(self):
-        # reset_for_wave is what _delve_spawn_wave calls; never a timer.
+        # reset_for_wave is what _anima_spawn_wave calls; never a timer.
         inv = make_inventory()
         inv['flask_slot'] = {'item': 'flask_utility', 'count': 1, 'charges': 0}
         flasks.reset_for_wave(inv)

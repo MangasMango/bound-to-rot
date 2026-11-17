@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Delve room enlargement - issue #11.
+"""Anima room enlargement - issue #11.
 
 Covers:
   1. Room spans hit the owner's 10-18 tiles-per-axis target
@@ -29,11 +29,11 @@ Covers:
 import random
 import unittest
 
-import core.delve_gen as dg
-from core.delve_gen import (CORRIDOR_LEN_MAX, CORRIDOR_LEN_MIN, GRID_H,
+import core.anima_gen as dg
+from core.anima_gen import (CORRIDOR_LEN_MAX, CORRIDOR_LEN_MIN, GRID_H,
                             GRID_W, HIDDEN_WING_MIN_DIST, ROOM_MAX, ROOM_MIN,
                             generate_hidden_wing, generate_segment,
-                            init_delve_room)
+                            init_anima_room)
 
 
 def aabb_overlap(ac, ar, ahw, ahh, bc, br, bhw, bhh):
@@ -50,7 +50,7 @@ class RoomSpanBand(unittest.TestCase):
     def test_rooms_actually_carve_in_band(self):
         """Across seeds, start rooms always sit inside 11..17 per axis."""
         for seed in range(60):
-            out = init_delve_room(seed=seed, depth=1)
+            out = init_anima_room(seed=seed, depth=1)
             node = out['node']
             self.assertTrue(ROOM_MIN * 2 + 1 <= node['w'] <= ROOM_MAX * 2 + 1)
             self.assertTrue(ROOM_MIN * 2 + 1 <= node['h'] <= ROOM_MAX * 2 + 1)
@@ -64,7 +64,7 @@ class CorridorScaling(unittest.TestCase):
         squash the geometry under test."""
         for seed in range(60):
             rng = random.Random(seed)
-            data = init_delve_room(seed=seed, depth=2)
+            data = init_anima_room(seed=seed, depth=2)
             grid, node = data['grid'], data['node']
             depth = 2
             for _ in range(12):
@@ -88,7 +88,7 @@ class CorridorScaling(unittest.TestCase):
         self.assertGreaterEqual(CORRIDOR_LEN_MIN, (ROOM_MAX * 2 + 1) // 2)
 
     def test_segment_rooms_bounded_in_grid(self):
-        out = init_delve_room(seed=3, depth=1)
+        out = init_anima_room(seed=3, depth=1)
         grid, node = out['grid'], out['node']
         rng = random.Random(99)
         depth = 1

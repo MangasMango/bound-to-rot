@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Delve chart rework: compact layout, navigation rules, depth record, modal UI.
+"""Anima chart rework: compact layout, navigation rules, depth record, modal UI.
 
 Covers the four delivered parts:
 - generator-owned compact node positions (+ re-layout of older saved charts)
@@ -29,17 +29,17 @@ from unittest.mock import patch
 
 import pyray as rl
 
-import core.delve_gen as delve_gen
-import ui.delve_chart as chart_mod
-from ui.delve_chart import DelveChartScreen, ZOOM_DEFAULT, ZOOM_MAX
+import core.anima_gen as anima_gen
+import ui.anima_chart as chart_mod
+from ui.anima_chart import AnimaChartScreen, ZOOM_DEFAULT, ZOOM_MAX
 
 
 def _chart(seed=7, depth_rows=3):
-    graph = delve_gen.init_delve(seed)
+    graph = anima_gen.init_anima(seed)
     rng = random.Random(seed ^ 0x5EED)
     while graph['max_depth'] < depth_rows:
-        delve_gen.generate_next_depth(graph, rng)
-    delve_gen.layout_positions(graph)
+        anima_gen.generate_next_depth(graph, rng)
+    anima_gen.layout_positions(graph)
     return {
         'graph': graph,
         'current_node_id': graph['start_node_id'],
@@ -54,7 +54,7 @@ def _play_forward(chart, steps):
     """Walk `steps` depth rows forward, clearing each node on the way."""
     graph = chart['graph']
     for _ in range(steps):
-        enterable = delve_gen.enterable_node_ids(graph, chart)
+        enterable = anima_gen.enterable_node_ids(graph, chart)
         forward = [nid for nid in enterable
                    if graph['nodes'][nid]['depth']
                    == graph['nodes'][chart['current_node_id']]['depth'] + 1]
@@ -62,7 +62,7 @@ def _play_forward(chart, steps):
             break
         nxt = forward[0]
         prev = chart['current_node_id']
-        graph['nodes'][prev]['state'] = delve_gen.STATE_CLEARED
+        graph['nodes'][prev]['state'] = anima_gen.STATE_CLEARED
         if prev not in chart['visited']:
             chart['visited'].append(prev)
         chart['current_node_id'] = nxt
@@ -84,7 +84,7 @@ class ZoomTests(unittest.TestCase):
 
     def test_open_centres_camera_on_current_node(self):
         chart = _play_forward(_chart(), 2)
-        screen = DelveChartScreen(object())
+        screen = AnimaChartScreen(object())
         screen.open(chart, selectable_ids=())
         node = chart['graph']['nodes'][chart['current_node_id']]
         self.assertEqual(screen.cam_x, node['px'])
@@ -102,12 +102,12 @@ class LayoutTests(unittest.TestCase):
             self.assertIn('px', node)
             self.assertIn('py', node)
             self.assertEqual((node['px'], node['py']),
-                             delve_gen.node_pos(node['depth'], node['col']))
+                             anima_gen.node_pos(node['depth'], node['col']))
 
     def test_rows_are_compact(self):
         """Row spacing must be visibly tighter than the old 170px layout."""
-        self.assertLess(delve_gen.CHART_ROW_SPACING, 170.0 * 0.5)
-        self.assertLess(delve_gen.CHART_COL_SPACING, 900.0 * 0.5)
+        self.assertLess(anima_gen.CHART_ROW_SPACING, 170.0 * 0.5)
+        self.assertLess(anima_gen.CHART_COL_SPACING, 900.0 * 0.5)
 
     def test_layout_positions_is_deterministic_and_rebuilds_old_charts(self):
         chart = _chart()
@@ -118,12 +118,12 @@ class LayoutTests(unittest.TestCase):
         for node in graph['nodes'].values():
             node['px'] = node['col'] * 900.0
             node['py'] = node['depth'] * 170.0
-        delve_gen.layout_positions(graph)
+        anima_gen.layout_positions(graph)
         after = {nid: (n['px'], n['py']) for nid, n in graph['nodes'].items()}
         self.assertEqual(before, after)
 
         # Re-running is a no-op: same graph, same positions, always.
-        delve_gen.layout_positions(graph)
+        anima_gen.layout_positions(graph)
         self.assertEqual(after, {nid: (n['px'], n['py'])
                                  for nid, n in graph['nodes'].items()})
 
@@ -134,7 +134,7 @@ class LayoutTests(unittest.TestCase):
         # Nodes without stored coordinates fall back to the same formula.
         self.assertEqual(
             chart_mod.node_world_pos({'depth': 4, 'col': 0.5}),
-            delve_gen.node_pos(4, 0.5))
+            anima_gen.node_pos(4, 0.5))
 
 
 # ── Part 3: navigation rules ───────────────────────────────────────────
@@ -145,15 +145,15 @@ class SelectionRuleTests(unittest.TestCase):
         chart = _chart()
         graph = chart['graph']
         start = graph['start_node_id']
-        forward = {k['id'] for k in delve_gen.chart_children(graph, start)
+        forward = {k['id'] for k in anima_gen.chart_children(graph, start)
                    if not k.get('dead_end')}
         self.assertTrue(forward)
-        self.assertTrue(forward <= set(delve_gen.enterable_node_ids(graph, chart)))
+        self.assertTrue(forward <= set(anima_gen.enterable_node_ids(graph, chart)))
 
     def test_cleared_nodes_are_never_enterable(self):
         chart = _play_forward(_chart(), 3)
         graph = chart['graph']
-        enterable = delve_gen.enterable_node_ids(graph, chart)
+        enterable = anima_gen.enterable_node_ids(graph, chart)
         for nid in chart['visited']:
             self.assertNotIn(nid, enterable,
                              f'cleared node {nid} offered for entry')
@@ -165,13 +165,13 @@ class SelectionRuleTests(unittest.TestCase):
         # Left-behind siblings: the start row's lateral neighbour (the grid
         # topology links row 1 as a chain, so start has exactly one).
         start_depth = graph['nodes'][start]['depth']
-        siblings = [k for k in delve_gen.chart_children(graph, start)
+        siblings = [k for k in anima_gen.chart_children(graph, start)
                     if not k.get('dead_end')
                     and k['depth'] == start_depth][:2]
         self.assertGreaterEqual(len(siblings), 1)
         # Clear the start row only.
-        graph['nodes'][start]['state'] = delve_gen.STATE_CLEARED
-        enterable = set(delve_gen.enterable_node_ids(graph, chart))
+        graph['nodes'][start]['state'] = anima_gen.STATE_CLEARED
+        enterable = set(anima_gen.enterable_node_ids(graph, chart))
         for kid in siblings:
             self.assertIn(kid['id'], enterable)
 
@@ -181,9 +181,9 @@ class SelectionRuleTests(unittest.TestCase):
                          if graph['nodes'][n]['depth'] == 2)
         self.assertTrue(forward)
         chart['current_node_id'] = forward[0]
-        graph['nodes'][forward[0]]['state'] = delve_gen.STATE_CLEARED
+        graph['nodes'][forward[0]]['state'] = anima_gen.STATE_CLEARED
         chart['visited'].append(forward[0])
-        enterable = set(delve_gen.enterable_node_ids(graph, chart))
+        enterable = set(anima_gen.enterable_node_ids(graph, chart))
         for kid in siblings:
             self.assertIn(kid['id'], enterable,
                           'left-behind node became unenterable')
@@ -193,8 +193,8 @@ class SelectionRuleTests(unittest.TestCase):
         graph = chart['graph']
         cleared = {graph['start_node_id']}
         current = chart['current_node_id']
-        forward = {k['id'] for k in delve_gen.chart_children(graph, current)}
-        enterable = set(delve_gen.enterable_node_ids(graph, chart))
+        forward = {k['id'] for k in anima_gen.chart_children(graph, current)}
+        enterable = set(anima_gen.enterable_node_ids(graph, chart))
         for parent, child in graph['edges']:
             if parent in cleared or child in forward:
                 continue
@@ -204,7 +204,7 @@ class SelectionRuleTests(unittest.TestCase):
     def test_dead_ends_are_not_enterable(self):
         chart = _chart()
         graph = chart['graph']
-        enterable = set(delve_gen.enterable_node_ids(graph, chart))
+        enterable = set(anima_gen.enterable_node_ids(graph, chart))
         for nid in enterable:
             self.assertFalse(graph['nodes'][nid].get('dead_end'))
 
@@ -215,16 +215,16 @@ class SelectionRuleTests(unittest.TestCase):
         chart = _chart()
         graph = chart['graph']
         start = graph['start_node_id']
-        forward = [k for k in delve_gen.chart_children(graph, start)
+        forward = [k for k in anima_gen.chart_children(graph, start)
                    if k['depth'] == 2 and not k.get('dead_end')]
         self.assertTrue(forward, 'seed produced no live depth-2 child')
         child = forward[0]
         for nid in (start, child['id']):
-            graph['nodes'][nid]['state'] = delve_gen.STATE_CLEARED
+            graph['nodes'][nid]['state'] = anima_gen.STATE_CLEARED
             if nid not in chart['visited']:
                 chart['visited'].append(nid)
         chart['current_node_id'] = start            # retreated to the parent
-        enterable = set(delve_gen.enterable_node_ids(graph, chart))
+        enterable = set(anima_gen.enterable_node_ids(graph, chart))
         self.assertNotIn(child['id'], enterable,
                          'beaten child offered for a redo')
         self.assertNotIn(start, enterable)
@@ -243,7 +243,7 @@ class DepthTests(unittest.TestCase):
             node = graph['nodes'][graph['start_node_id']]
             chain = [node]
             for _ in range(2):
-                kids = [k for k in delve_gen.chart_children(graph, node['id'])
+                kids = [k for k in anima_gen.chart_children(graph, node['id'])
                         if k['depth'] == node['depth'] + 1
                         and not k.get('dead_end')]
                 if not kids:
@@ -264,7 +264,7 @@ class DepthTests(unittest.TestCase):
 
     def test_depth_record_never_decreases(self):
         chart = _play_forward(_chart(), 3)
-        record = delve_gen.chart_best_depth(chart)
+        record = anima_gen.chart_best_depth(chart)
         self.assertGreaterEqual(record, 3)
 
         # Retreat to a shallower node: the record must stay put.
@@ -272,13 +272,13 @@ class DepthTests(unittest.TestCase):
         shallow = min((nid for nid in chart['visited']),
                       key=lambda nid: graph['nodes'][nid]['depth'])
         chart['current_node_id'] = shallow
-        self.assertEqual(delve_gen.chart_best_depth(chart), record)
+        self.assertEqual(anima_gen.chart_best_depth(chart), record)
 
     def test_record_survives_a_chart_with_only_a_stored_value(self):
         chart = _chart()
         chart['best_depth'] = 42
         chart['visited'] = []
-        self.assertEqual(delve_gen.chart_best_depth(chart), 42)
+        self.assertEqual(anima_gen.chart_best_depth(chart), 42)
 
 
 class FlowSelectionTests(unittest.TestCase):
@@ -287,25 +287,25 @@ class FlowSelectionTests(unittest.TestCase):
     def _game(self, chart, depth):
         from core.game import Game
         game = Game.__new__(Game)
-        game._delve = {'state': 'ready', 'depth': depth, 'chart': chart}
+        game._anima = {'state': 'ready', 'depth': depth, 'chart': chart}
         game._chart_rng = random.Random(3)
         return game
 
-    def test_delve_children_exposes_backward_and_forward_nodes(self):
+    def test_anima_children_exposes_backward_and_forward_nodes(self):
         chart = _chart()
         graph = chart['graph']
         start = graph['start_node_id']
-        forward = [k['id'] for k in delve_gen.chart_children(graph, start)
+        forward = [k['id'] for k in anima_gen.chart_children(graph, start)
                    if not k.get('dead_end') and k['depth'] == 2]
-        graph['nodes'][start]['state'] = delve_gen.STATE_CLEARED
+        graph['nodes'][start]['state'] = anima_gen.STATE_CLEARED
         chart['current_node_id'] = forward[0]
-        graph['nodes'][forward[0]]['state'] = delve_gen.STATE_CLEARED
+        graph['nodes'][forward[0]]['state'] = anima_gen.STATE_CLEARED
         chart['visited'].append(start)
 
         game = self._game(chart, 2)
-        ids = [k['id'] for k in game._delve_children()]
+        ids = [k['id'] for k in game._anima_children()]
         self.assertNotIn(start, ids)                       # cleared: no
-        kids = {k['id'] for k in delve_gen.chart_children(graph, forward[0])
+        kids = {k['id'] for k in anima_gen.chart_children(graph, forward[0])
                 if not k.get('dead_end')}
         self.assertTrue(kids, 'the depth-2 node has no children')
         self.assertTrue(kids <= set(ids), 'forward children not offered')
@@ -325,15 +325,15 @@ class FlowSelectionTests(unittest.TestCase):
         chart = _chart()
         graph = chart['graph']
         start = graph['start_node_id']
-        forward = [k['id'] for k in delve_gen.chart_children(graph, start)
+        forward = [k['id'] for k in anima_gen.chart_children(graph, start)
                    if not k.get('dead_end') and k['depth'] == 2]
-        graph['nodes'][start]['state'] = delve_gen.STATE_CLEARED
+        graph['nodes'][start]['state'] = anima_gen.STATE_CLEARED
         chart['current_node_id'] = forward[0]
         chart['visited'].append(start)
 
         from entities.progression import Character
         game = Game.__new__(Game)
-        game._saved_delve = {'delve': {'chart': chart}, 'map': [], 'zombies': [],
+        game._saved_anima = {'anima': {'chart': chart}, 'map': [], 'zombies': [],
                              'ground_items': [], 'decor_items': []}
         game._char = Character('audit-1', 'Audit')
         game._chart_screen = _Screen()
@@ -341,7 +341,7 @@ class FlowSelectionTests(unittest.TestCase):
         game._hub_popup = None
         game._open_anima_panel()
         offered = game._chart_screen.selectable_ids
-        kids = {k['id'] for k in delve_gen.chart_children(
+        kids = {k['id'] for k in anima_gen.chart_children(
             graph, chart['current_node_id']) if not k.get('dead_end')}
         self.assertTrue(kids <= set(offered),
                         'the resume path locked out forward children')
@@ -354,14 +354,14 @@ class FlowSelectionTests(unittest.TestCase):
         chart = _play_forward(_chart(), 2)
         graph = chart['graph']
         cleared = set(chart['visited'])
-        enterable = set(delve_gen.enterable_node_ids(graph, chart))
+        enterable = set(anima_gen.enterable_node_ids(graph, chart))
         self.assertEqual(cleared & enterable, set())
         uncleared = enterable - cleared
         self.assertTrue(uncleared,
                         'no discovered-uncleared node to re-enter')
         for nid in uncleared:
             self.assertNotEqual(graph['nodes'][nid]['state'],
-                                delve_gen.STATE_CLEARED)
+                                anima_gen.STATE_CLEARED)
 
 
 # ── Part 4: modal UI ───────────────────────────────────────────────────
@@ -422,7 +422,7 @@ class ModalUiTests(unittest.TestCase):
     def _draw_modal(self, chart, selectable=()):
         patches, drawn = _install_headless()
         try:
-            screen = DelveChartScreen(object())
+            screen = AnimaChartScreen(object())
             screen.open(chart, selectable_ids=selectable)
             screen.draw(1280, 720, origin=self.ORIGIN, view=self.VIEW)
             return screen, drawn
@@ -445,14 +445,14 @@ class ModalUiTests(unittest.TestCase):
 
     def test_best_depth_is_drawn_on_the_screen_frame(self):
         chart = _play_forward(_chart(), 2)
-        record = delve_gen.chart_best_depth(chart)
+        record = anima_gen.chart_best_depth(chart)
         _screen, drawn = self._draw_modal(chart)
         outside = [d for d in drawn
                    if 'BEST DEPTH' in d[0] and not self._in_modal(d[1], d[2])]
         self.assertTrue(outside, 'BEST DEPTH is not drawn outside the modal')
         # The record value, not the current (possibly shallower) depth.
         current = chart['graph']['nodes'][chart['current_node_id']]['depth']
-        self.assertEqual(record, delve_gen.chart_best_depth(chart))
+        self.assertEqual(record, anima_gen.chart_best_depth(chart))
         self.assertGreaterEqual(record, current)
         values = [d for d in drawn
                   if d[0].strip() == str(record)
@@ -472,7 +472,7 @@ class ModalUiTests(unittest.TestCase):
     def test_return_button_click_is_reported(self):
         patches, _drawn = _install_headless()
         try:
-            screen = DelveChartScreen(object())
+            screen = AnimaChartScreen(object())
             screen.open(_chart(), selectable_ids=())
             screen.draw(1280, 720, origin=self.ORIGIN, view=self.VIEW)
             rect = screen._return_btn
@@ -500,7 +500,7 @@ class ModalUiTests(unittest.TestCase):
         'charges' entry can never come back through persistence."""
         import ast
         from pathlib import Path
-        tree = ast.parse(Path('core/delve_flow.py').read_text(encoding='utf-8'))
+        tree = ast.parse(Path('core/anima_flow.py').read_text(encoding='utf-8'))
         literals = {n.value for n in ast.walk(tree)
                     if isinstance(n, ast.Constant) and isinstance(n.value, str)}
         self.assertNotIn('charges', literals)
@@ -530,15 +530,15 @@ class DrawSmokeTests(unittest.TestCase):
         chart = _play_forward(_chart(), 2)
         patches, _drawn = _install_headless()
         try:
-            screen = DelveChartScreen(object())
-            enterable = delve_gen.enterable_node_ids(chart['graph'], chart)
+            screen = AnimaChartScreen(object())
+            enterable = anima_gen.enterable_node_ids(chart['graph'], chart)
             screen.open(chart, selectable_ids=enterable,
                         on_select=lambda _nid: None)
             for _ in range(3):
                 self.assertIsNone(
                     screen.update(0.016, origin=(10, 10), view=(800, 500)))
             screen.draw(1280, 720, origin=(10, 10), view=(800, 500))
-            # Fullscreen (in-delve minimap) mode too.
+            # Fullscreen (in-anima minimap) mode too.
             screen.draw(1280, 720)
             self.assertIsNone(screen._tooltip_btn)
         finally:

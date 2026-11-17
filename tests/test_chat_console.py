@@ -13,15 +13,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""PoE-style chat console (bottom-left) — .ai/CHAT_CONSOLE_PLAN.md.
+"""PoE-style chat console (bottom-left) - .ai/CHAT_CONSOLE_PLAN.md.
 
 Covers:
-  1. Fade math — fresh rows hold full alpha, then decay linearly to 0.
-  2. Log model — (prompt, output, birth) triples, retention cap, empty
+  1. Fade math - fresh rows hold full alpha, then decay linearly to 0.
+  2. Log model - (prompt, output, birth) triples, retention cap, empty
      outputs keep the entry compact.
-  3. Console grammar stays intact — `_exec_console` keeps its name and
+  3. Console grammar stays intact - `_exec_console` keeps its name and
      behavior through the rename, with command multi-line outputs appended.
-  4. Gambling-free inputs — Enter opens the chat only in gameplay states
+  4. Gambling-free inputs - Enter opens the chat only in gameplay states
      (via the new open-edge + primed submit latch), GRAVE still toggles.
 """
 
@@ -127,7 +127,7 @@ def test_record_start_closes_the_chat_via_the_renamed_flag():
     game.recorder.cancel()            # no clip pollution
 
 
-# ── 5. / grammar — commands need the slash, plain text is a say ──────
+# ── 5. / grammar - commands need the slash, plain text is a say ──────
 
 def _submitting_game():
     """Game stripped to what _chat_submit touches."""
@@ -189,7 +189,7 @@ def test_say_cap_respects_the_log_retention():
     assert game._chat_log[-1][0] == f'<You> say {CHAT_LOG_CAP + 6}'
 
 
-# ── 6. /clear — wipe the history ────────────────────────────────────
+# ── 6. /clear - wipe the history ────────────────────────────────────
 
 def test_clear_wipes_the_log_leaving_one_confirmation_row():
     game = _submitting_game()

@@ -25,7 +25,7 @@ instant stop). States:
     (loading)   off - silence while the loading screen runs
     hub         Settlers Caravan           the Hub
     death       Western guitar stab        permadeath screen
-    game        western_ingame playlist    the delve - the three in-game
+    game        western_ingame playlist    the anima - the three in-game
                 western_ingame1/2/3.ogg    tracks play one after another,
                 continuously (crossfaded end-to-end, endless loop) and are
                 NEVER re-triggered by waves, depths or node choices.
@@ -55,13 +55,13 @@ _MUSIC_FILES = {
     'hub':        'ost/western_hub.ogg',
     'death':      'ost/westernguitarstab.ogg',
 }
-# The delve playlist - plays continuously, one after another, forever.
+# The anima playlist - plays continuously, one after another, forever.
 _GAME_PLAYLIST = (
     'ost/western_ingame1.ogg',
     'ost/western_ingame2.ogg',
     'ost/western_ingame3.ogg',
 )
-GAME_MUSIC_STATE = 'game'   # logical state name for the delve playlist
+GAME_MUSIC_STATE = 'game'   # logical state name for the anima playlist
 
 # Death-cue rate guard (see enemy_dead): with x10 hordes and fire-aura DoT
 # bursts the 6-voice death pool could stack dozens of howls per second.
@@ -112,7 +112,7 @@ class AudioSystem:
                 self._file_streams[rel] = stream
             if stream is not None:
                 self._music[name] = stream
-        # Delve playlist - every track loaded once, in playlist order
+        # Anima playlist - every track loaded once, in playlist order
         self._playlist_streams = []
         for rel in _GAME_PLAYLIST:
             stream = self._file_streams.get(rel)
@@ -258,7 +258,7 @@ class AudioSystem:
     def set_music_state(self, state: str):
         """Scene-state music with a crossfade: the old track fades out while
         the new one fades in (FADE_SECONDS each way) - never an instant stop.
-        State 'game' is the delve playlist: entering it RESTARTS the playlist
+        State 'game' is the anima playlist: entering it RESTARTS the playlist
         at the first track (owner ruling), and track-to-track switching is
         then driven purely by track ends in tick() - never by gameplay."""
         if not self._music_ready:
@@ -267,12 +267,12 @@ class AudioSystem:
         if state == self._music_state:
             return
         if state == GAME_MUSIC_STATE:
-            self._playlist_index = 0   # entering the delve restarts the list
+            self._playlist_index = 0   # entering the anima restarts the list
         self._crossfade_to(state)
         self._music_state = state
 
-    def set_delve_music(self):
-        """Delve music - the continuous western playlist."""
+    def set_anima_music(self):
+        """Anima music - the continuous western playlist."""
         self.set_music_state(GAME_MUSIC_STATE)
 
     def _state_stream(self, state: str):
@@ -286,7 +286,7 @@ class AudioSystem:
 
     def _crossfade_to(self, state: str):
         # `_music` is keyed by LOGICAL STATE NAME ('menu', 'hub', …) and the
-        # delve playlist lives in _playlist_streams - resolve the target
+        # anima playlist lives in _playlist_streams - resolve the target
         # stream, then every stream keeps EXACTLY ONE fader: the incoming
         # track fades in (target 1.0), every other stream fades out
         # (target 0.0), retargeting mid-fade streams in place so a cut never
@@ -333,7 +333,7 @@ class AudioSystem:
                 continue          # fade complete - volume pinned, drop fader
             remaining.append(f)
         self._fades = remaining
-        # Continuous delve playlist of last resort: while in the delve the
+        # Continuous anima playlist of last resort: while in the anima the
         # playlist is the ONLY music driver - when the current track ends
         # (and nothing is fading), roll to the next one, forever.
         if (self._music_state == GAME_MUSIC_STATE and not self._fades

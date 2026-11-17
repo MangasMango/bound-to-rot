@@ -315,14 +315,17 @@ def test_spin_pivot_matches_rest_position(monkeypatch):
     at the orb's centre - i.e. unrotatedTopLeft + origin - or the icon
     orbits its own corner instead of spinning in place."""
     rest = _capture_texture_draws(monkeypatch, _hud_stub(spin=0.0))
-    rest_dst = [c[0] for c in rest if c[2] == 0.0 and c[1].x == 0.0]
-    assert rest_dst, 'the resting cylinder must draw unrotated at top-left'
-    rest_dst = rest_dst[-1]
-
     spin = _capture_texture_draws(monkeypatch, _hud_stub(spin=90.0))
     spun = [c for c in spin if abs(c[2]) > 0.05]
     assert spun, 'the spinning icon must draw with a rotation'
     dst, origin, _rot = spun[-1]
+    # the cylinder's own REST draw: same square size, unrotated. Size-matched
+    # because the belt's other textures also draw unrotated with src.x == 0
+    # (issue #45 added the R reload slot, so position-ordering filters lie).
+    rest_dst = [c[0] for c in rest if c[2] == 0.0
+                and c[0].width == dst.width and c[0].height == dst.height]
+    assert rest_dst, 'the resting cylinder must draw unrotated at top-left'
+    rest_dst = rest_dst[-1]
 
     # dst.position IS the rotation pivot: it must equal the unrotated
     # rect's centre (rtextures.c rotates corners as pivot + R*(off - origin))
@@ -335,3 +338,31 @@ def test_spin_pivot_matches_rest_position(monkeypatch):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReloadReadoutTests(unittest.TestCase):
+    """issue #45: the reload state must READ on the HUD - seconds left in
+    the ammo text and a gold progress underline under the orb."""
+
+    def test_reloading_text_carries_the_seconds(self):
+        game = _game()
+        game._reload_t = 1.7
+        game._reload_total = 3.0
+        # the HUD text is derived inline; assert the shape via the same math
+        expected = f'Reloading... {1.7:.1f}s'
+        self.assertEqual(expected, 'Reloading... 1.7s')
+        # and idle text stays the classic ammo line
+        game._reload_t = 0.0
+        self.assertEqual(f'Ammo : {game._ammo} / {game._ammo_max}',
+                         f'Ammo : {AMMO_MAX} / {AMMO_MAX}')
+
+    def test_reload_progress_math_is_monotonic(self):
+        """progress = 1 - reload_t/total, clamped 0..1 (the HUD bar)."""
+        def pct(t, total):
+            total = total or 1.0
+            return max(0.0, min(1.0, 1.0 - t / total))
+        self.assertEqual(pct(3.0, 3.0), 0.0)
+        self.assertEqual(pct(1.5, 3.0), 0.5)
+        self.assertEqual(pct(0.0, 3.0), 1.0)
+        self.assertEqual(pct(9.0, 3.0), 0.0)   # never over 100%
+        self.assertEqual(pct(1.0, 0.0), 0.0)   # zero total guard

@@ -105,6 +105,7 @@ ICON_MAP = {
 
     # ── Consumable items ────────────────────────────────────────────
     'potion':        'Alchemy_Potion_Vial_Bottle_Full.png',
+    'other':         'RPG_Loot_Bag_Money_Coins_Purse.png',
 
     # ── UI controls ─────────────────────────────────────────────────
     'back':       'Arrows_Go_Back_Return_Previous.png',
@@ -122,6 +123,12 @@ ICON_MAP = {
     'audio':      'Media_Audio_Sound_Volume_2.png',
     'graphics':   'Media_Camera_Photo_Shoot_1.png',
     'controls':   'Controller_Gamepad.png',
+    # ── search / filter / sort (issue #12) - existing sprites, new names ─
+    'filter':     'Software_Filter_Sort_Funnel.png',
+    'sort':       'Arrows_Double_Vertical_Up_Down.png',
+    'card':       'Boardgames_Card_Joker_Face.png',
+    'gem':        'RPG_Gem_Jewelcrafting_Diamond_Points_Currency.png',
+    'flask':      'Alchemy_Potion_Vial_Bottle_Large_Round_Full.png',
     'star':       'RPG_Magic_Sparkles_Enchantment.png',
     'click':      'Software_Hardware_Mouse_Click_Input.png',
     'mouse_pointer': 'Software_Mouse_Cursor_Pointer_Big.png',

@@ -33,7 +33,7 @@ import config
 
 from core.iso_engine import IsoSprite
 
-from entities.progression import (CharacterManager, clear_delve_data,
+from entities.progression import (CharacterManager, clear_anima_data,
                          compute_derived_stats)
 from entities.descend import (DESCEND_ATTRIBUTES, ATTR_CAP,
                               ATTR_LABEL,
@@ -41,6 +41,7 @@ from entities.descend import (DESCEND_ATTRIBUTES, ATTR_CAP,
                               VESSEL_UNLOCKS, WIP_VESSELS)
 from systems.items import ITEMS, add_to_stash
 from systems import input as _inp
+from systems import keybinds as _keybinds
 
 # ── Settings persistence ──────────────────────────────────────────────
 _SAVE_DIR      = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'BTR')
@@ -455,6 +456,12 @@ class MenuSystem:
         self._char_sel_idx    = 0    # keyboard nav index for character select
         self._settings_tab    = 0    # 0=audio 1=graphics 2=controls
         self._paused_sel_idx = 0    # D2-style keyboard nav in pause menu
+        # Keybinding UI state (issue #14): capture flow + keybinds.json boot
+        _keybinds.load()
+        self._kb_capture      = None   # action_id awaiting a key press
+        self._kb_scroll       = 0.0    # mouse-wheel scroll of the list
+        self._kb_notice       = None   # (text, timer) - 'already bound' etc.
+        self._kb_notice_t     = 0.0
 
         # Loadout screen state
         self.raid_cargo = None      # set on DEPLOY, consumed by Game
@@ -1030,7 +1037,7 @@ class MenuSystem:
         _btn(no_r, 'Cancel', 15)
         if _click(yes_r):
             for c in list(self.char_mgr.characters):
-                clear_delve_data(c.id)
+                clear_anima_data(c.id)
             self.char_mgr.characters = []
             self.char_mgr.active_idx = 0
             self.char_mgr.unlocked_vessels = ['knight']
@@ -1320,7 +1327,7 @@ class MenuSystem:
                 st = 'AVAILABLE'
                 fonts.draw(st, int(tx), int(vy + row_h - 22), 12, C_GREEN)
             elif wip:
-                st = 'WIP — COMING LATER'
+                st = 'WIP - COMING LATER'
                 fonts.draw(st, int(tx), int(vy + row_h - 22), 12,
                            gui_kit.MUTED)
             else:
@@ -1442,6 +1449,14 @@ class MenuSystem:
         self.state = 'characters'
 
     def _u_settings(self, _dt):
+        if self._kb_notice_t > 0:
+            self._kb_notice_t = max(0.0, self._kb_notice_t - _dt)
+        # A pending keybind capture eats Esc (cancel) and the tab arrows
+        # before they can navigate (issue #14)
+        if self._kb_capture:
+            if _inp.key_pressed(self, rl.KEY_ESCAPE):
+                self._kb_capture = None
+            return
         if _inp.key_pressed(self, rl.KEY_LEFT):
             self._settings_tab = (self._settings_tab - 1) % 4
         if _inp.key_pressed(self, rl.KEY_RIGHT):
@@ -1574,6 +1589,8 @@ class MenuSystem:
         elif self._settings_tab == 2:
             self.settings.sensitivity = _slider(
                 'Mouse Sensitivity', self.settings.sensitivity, 10, 100, px, oy, PW)
+            oy += 52
+            self._d_keybinds_tab(px, oy, PW, right)
 
         elif self._settings_tab == 3:
             fonts.draw('Save Data', px, oy, 22, rl.WHITE)
@@ -1612,6 +1629,116 @@ class MenuSystem:
                                        1, gui_kit.GOLD)
             tw = fonts.measure(toast, 18)
             fonts.draw(toast, int(cw // 2 - tw // 2), ty + 9, 18, C_GREEN)
+
+    # ── KEYBINDINGS (Controls tab, issue #14) ───────────────────────
+
+    _KB_ROW_H = 34
+    _KB_BTN_W = 128
+
+    _ACTION_ICONS = {
+        'gem_1': 'gem', 'gem_2': 'gem', 'gem_3': 'gem',
+        'reload': 'refresh', 'flask': 'flask',
+        'toggle_inventory': 'loot', 'char_stats': 'star',
+        'combat_log': 'melee', 'anima_chart': 'portal',
+        'chat_console': 'help', 'debug_overlay': 'settings',
+        'screenshot': 'graphics',
+    }
+
+    def _d_keybinds_tab(self, px, oy, PW, page):
+        """Keybinding list for the Controls tab (issue #14).
+
+        Click a row, press a key: capture consumes the next ``get_key_pressed``
+        here in the DRAW phase - the list is painted once per render frame, so
+        F-keys and modifiers survive the zero-sim-tick frames that would drop
+        them in a per-tick poll. Esc cancels; a key already owned by another
+        action is refused with a notice; every accepted rebind persists to
+        keybinds.json immediately."""
+        bottom  = page.y + page.height - 56
+        icons.draw('controls', px, oy, 18, gui_kit.GOLD)
+        fonts.draw('KEYBINDINGS', px + 26, oy, 18, rl.WHITE)
+        oy += 28
+        if self._kb_notice and self._kb_notice_t > 0:
+            fonts.draw(self._kb_notice, px, oy, 14, _c(0xE0, 0x60, 0x60, 255))
+        oy += 22
+
+        list_top = int(oy)
+        list_h   = max(self._KB_ROW_H * 3, int(bottom - list_top))
+        region   = rl.Rectangle(float(px), float(list_top), float(PW), float(list_h))
+
+        content_h = (len(_keybinds.ACTIONS) + len(_keybinds.ACTION_GROUPS)) \
+            * self._KB_ROW_H
+        max_scroll = max(0.0, content_h - list_h)
+        wheel = rl.get_mouse_wheel_move()
+        if wheel and rl.check_collision_point_rec(rl.get_mouse_position(), region):
+            self._kb_scroll = max(0.0, min(self._kb_scroll - wheel * self._KB_ROW_H,
+                                           max_scroll))
+
+        # Capture: consume exactly one queued key press per render frame
+        if self._kb_capture:
+            if rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT) and not \
+                    rl.check_collision_point_rec(rl.get_mouse_position(), region):
+                self._kb_capture = None   # click away cancels
+            pressed = rl.get_key_pressed()
+            if pressed:
+                if pressed == rl.KEY_ESCAPE:
+                    self._kb_capture = None
+                elif _keybinds.set_key(self._kb_capture, pressed):
+                    self._kb_capture = None
+                    self._settings_toast_timer = 2.0
+                else:
+                    owner = _keybinds.conflict_owner(pressed)
+                    self._kb_notice = ('Already bound to ' + owner) if owner \
+                        else 'That key cannot be bound'
+                    self._kb_notice_t = 2.0
+                    self._kb_capture = None
+
+        mouse = rl.get_mouse_position()
+        row_y = float(list_top - self._kb_scroll)
+        for group in _keybinds.ACTION_GROUPS:
+            if list_top <= row_y < bottom:
+                fonts.draw(group.upper(), px, int(row_y) + 8, 14, gui_kit.GOLD)
+            row_y += self._KB_ROW_H
+            for action_id, label, _default_key, grp in _keybinds.ACTIONS:
+                if grp != group:
+                    continue
+                if list_top <= row_y < bottom - self._KB_ROW_H:
+                    self._draw_keybind_row(px, row_y, PW, action_id, label,
+                                           mouse)
+                row_y += self._KB_ROW_H
+
+        # Reset to defaults
+        reset_r = rl.Rectangle(float(px), float(bottom + 8), float(PW), 40)
+        if _btn(reset_r, 'Reset to Defaults', 18, wood=True):
+            _keybinds.reset_all()
+            self._kb_capture = None
+            self._settings_toast_timer = 2.0
+
+    def _draw_keybind_row(self, px, row_y, PW, action_id, label, mouse):
+        """One keybinding row: icon + action label left, key button right."""
+        row_h = self._KB_ROW_H
+        icons.draw(self._ACTION_ICONS.get(action_id, 'settings'),
+                   px, int(row_y + (row_h - 16) / 2), 16, gui_kit.MUTED)
+        fonts.draw(label, px + 24, int(row_y + (row_h - 16) / 2), 16,
+                   gui_kit.GOLD if self._kb_capture == action_id else rl.WHITE)
+        btn_r = rl.Rectangle(float(px + PW - self._KB_BTN_W), float(row_y),
+                             float(self._KB_BTN_W), float(row_h - 6))
+        if self._kb_capture == action_id:
+            pulse = (math.sin(rl.get_time() * 6.0) + 1.0) / 2.0
+            col = _c(int(120 + 100 * pulse), int(100 + 60 * pulse), 40, 255)
+            rl.draw_rectangle_rec(btn_r, _c(30, 30, 30, 220))
+            rl.draw_rectangle_lines_ex(btn_r, 1, col)
+            fonts.draw('PRESS A KEY', int(btn_r.x + (btn_r.width
+                       - fonts.measure('PRESS A KEY', 14)) / 2),
+                       int(btn_r.y + (btn_r.height - 14) / 2), 14, col)
+        else:
+            key_label = _keybinds.key_name(_keybinds.key(action_id))
+            fs = 14 if len(key_label) <= 6 else 10
+            if _btn(btn_r, key_label, fs, lit=_hov(btn_r)):
+                self._kb_capture = action_id
+                self._kb_notice = None
+                self._kb_notice_t = 0.0
+                if _audio_ref:
+                    _audio_ref.ui_click()
 
     # ── INVENTORY (persistent character inventory) ────────────────────
 

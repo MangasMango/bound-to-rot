@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from unittest import mock
 
-from core.delve_gen import effective_level
+from core.anima_gen import effective_level
 from entities.progression import Character, CharacterManager
 from entities.zombies import enemy_evasion
 from systems.combat import skeleton_accuracy

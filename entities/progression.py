@@ -75,7 +75,7 @@ CHARS_PATH = os.path.join(_SAVE_DIR, 'characters.json')
 # ── Save schema versioning (issue #126) ────────────────────────────────────
 # The one constant to bump when the save format changes. Bump it, add a
 # _migrate_<n>_to_<n+1> step and register it in _MIGRATIONS below.
-SAVE_SCHEMA_VERSION = 5
+SAVE_SCHEMA_VERSION = 6
 SAVE_FORMAT_VERSION = SAVE_SCHEMA_VERSION   # legacy alias kept for call sites
 
 # Save files written before the framework existed carry no explicit key; the
@@ -84,10 +84,17 @@ FIRST_SCHEMA_VERSION = 1
 
 BACKUP_DIR = os.path.join(_SAVE_DIR, 'backups')
 
-DELVE_SAVE_DIR = _SAVE_DIR                               # same dir for delve snapshots
+ANIMA_SAVE_DIR = _SAVE_DIR                               # same dir for anima snapshots
 
-def delve_save_path(char_id: str) -> str:
-    return os.path.join(DELVE_SAVE_DIR, f'delve_{char_id}.json')
+def anima_save_path(char_id: str) -> str:
+    return os.path.join(ANIMA_SAVE_DIR, f'anima_{char_id}.json')
+
+
+def legacy_anima_save_path(char_id: str) -> str:
+    """Pre-rename snapshot file name (issue #61: delve -> Anima). Older
+    builds wrote delve_<char_id>.json; loaders fall back to it and a
+    successful save to the new name clears it."""
+    return os.path.join(ANIMA_SAVE_DIR, f'delve_{char_id}.json')
 
 
 class SaveMigrationError(Exception):
@@ -407,6 +414,79 @@ def _migrate_4_to_5(data: dict) -> dict:
     return data
 
 
+def _migrate_5_to_6(data: dict) -> dict:
+    """v5 -> v6: the R gem slot is gone (issue #45 - R is a pure reload
+    key). Every stored white gem converts value-preserving into a random
+    Q/W/E gem at the same rarity (ability re-rolled from the new slot's
+    pool), and any 'R' key in gem_sockets disappears. Idempotent."""
+    if not isinstance(data, dict):
+        raise SaveMigrationError('the save file is not valid save data.')
+    import random as _rnd
+    import systems.gems as _gems
+    import systems.itemgen as _itemgen
+
+    GEM_IDS = ('gem_blue', 'gem_green', 'gem_red')
+    notes = []
+
+    def _convert_white(slot_dict):
+        """gem_white -> a random Q/W/E gem at the same rarity (in place)."""
+        inst = slot_dict.get('instance_data') or {}
+        rarity = inst.get('rarity', 'uncommon')
+        new_id = _gems.gem_item_id(_rnd.choice(('Q', 'W', 'E')))
+        ability = _gems.random_ability_for_gem_slot(
+            {'gem_blue': 'Q', 'gem_green': 'W', 'gem_red': 'E'}[new_id])
+        slot_dict['item'] = new_id
+        slot_dict['count'] = slot_dict.get('count', 1)
+        old_name = inst.get('display_name', 'White Gem')
+        slot_dict['instance_data'] = {
+            'rarity': rarity,
+            'display_name': (ability or 'Gem').replace('_', ' ').title(),
+            'ilvl': int(inst.get('ilvl', 1)),
+            'identified': True,          # gems are always identified
+            'ability': ability,
+        }
+        return f'{old_name} -> {new_id}'
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            for key in list(obj.keys()):
+                if key == 'gem_sockets' and isinstance(obj[key], dict):
+                    sockets = obj[key]
+                    r_entry = sockets.pop('R', None)
+                    if r_entry is not None:
+                        notes.append(_convert_white(r_entry))
+                        # the converted gem must keep a home: a free slot
+                        # if one exists, else the inventory grid
+                        free = [k for k, v in sockets.items() if v is None]
+                        if free:
+                            sockets[free[0]] = r_entry
+                        else:
+                            obj.setdefault('grid', []).append(r_entry)
+                    for entry in sockets.values():
+                        if isinstance(entry, dict) and entry.get('item') == 'gem_white':
+                            notes.append(_convert_white(entry))
+                    for keep in ('Q', 'W', 'E'):
+                        sockets.setdefault(keep, None)   # normalize the slot set
+                    continue    # do not descend into socket entries
+                if isinstance(obj[key], list):
+                    for gi in obj[key]:
+                        if isinstance(gi, dict) and gi.get('item') == 'gem_white':
+                            notes.append(_convert_white(gi))
+                _walk(obj[key])
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
+
+    _walk(data)
+    if notes:
+        header = ('The White Gem was retired (R is a reload key now); '
+                  'stored white gems were converted:')
+        data['migration_note'] = '\n'.join(
+            [header] + notes + [str(d.get('migration_note', ''))
+                                for d in [data] if d.get('migration_note')])
+    return data
+
+
 # ── MIGRATION REGISTRY ─────────────────────────────────────────────────────
 # Single place to update for any future schema change: bump
 # SAVE_SCHEMA_VERSION and add the matching step here. Keys are *from* versions.
@@ -415,6 +495,7 @@ _MIGRATIONS: dict[int, callable] = {
     2: _migrate_2_to_3,
     3: _migrate_3_to_4,
     4: _migrate_4_to_5,
+    5: _migrate_5_to_6,
 }
 
 
@@ -460,43 +541,70 @@ def migrate_save(data, source: str = '') -> dict:
     data['save_schema_version'] = SAVE_SCHEMA_VERSION
     return data
 
-def _delve_sanitize(data: dict) -> dict:
+def _anima_sanitize(data: dict) -> dict:
     """Deep-copy and convert non-JSON-safe types for serialization."""
     data = copy.deepcopy(data)
-    delve = data.get('delve')
-    if not delve:
+    anima = data.get('anima')
+    if not anima:
         return data
-    if isinstance(delve.get('enemy_ids'), set):
-        delve['enemy_ids'] = list(delve['enemy_ids'])
-    delve.pop('extend_rng', None)
-    delve.pop('_chart_rng_state', None)
-    delve.pop('_close_btn', None)
-    delve.pop('_hub_btn', None)
-    delve.pop('_hovered_node', None)
-    delve.pop('delve_map_open', None)
-    delve.pop('_dir_buttons', None)
-    delve.pop('_dir_close_btn', None)
-    delve.pop('_dir_hover', None)
-    delve.pop('_dir_inline_btns', None)
-    delve.pop('_dir_inline_hover', None)
-    delve.pop('_card_close_btn', None)
-    delve.pop('_card_flip_timer', None)
-    delve.pop('_card_show_timer', None)
-    delve.pop('hovered_card', None)
-    delve.pop('cards', None)
+    if isinstance(anima.get('enemy_ids'), set):
+        anima['enemy_ids'] = list(anima['enemy_ids'])
+    anima.pop('extend_rng', None)
+    anima.pop('_chart_rng_state', None)
+    anima.pop('_close_btn', None)
+    anima.pop('_hub_btn', None)
+    anima.pop('_hovered_node', None)
+    anima.pop('anima_map_open', None)
+    anima.pop('_dir_buttons', None)
+    anima.pop('_dir_close_btn', None)
+    anima.pop('_dir_hover', None)
+    anima.pop('_dir_inline_btns', None)
+    anima.pop('_dir_inline_hover', None)
+    anima.pop('_card_close_btn', None)
+    anima.pop('_card_flip_timer', None)
+    anima.pop('_card_show_timer', None)
+    anima.pop('hovered_card', None)
+    anima.pop('cards', None)
     return data
 
-def _delve_restore(data: dict) -> dict:
+def _anima_restore(data: dict) -> dict:
     """Convert JSON-safe types back to runtime equivalents."""
-    delve = data.get('delve')
-    if not delve:
+    # issue #61 rename: legacy snapshots keyed the payload 'delve' - read
+    # either, normalize to the new key before the runtime conversion
+    if 'anima' not in data and isinstance(data.get('delve'), dict):
+        data['anima'] = data.pop('delve')
+    # issue #45: the white gem is retired - convert any stored ones found
+    # in older anima snapshots (ground items) the same way the save
+    # migration does for character inventories
+    import random as _rnd
+    import systems.gems as _gems
+
+    def _convert_white(gi):
+        rarity = ((gi.get('instance_data') or {}).get('rarity', 'uncommon'))
+        new_slot = _rnd.choice(('Q', 'W', 'E'))
+        ability = _gems.random_ability_for_gem_slot(new_slot)
+        gi['item'] = _gems.gem_item_id(new_slot)
+        inst = gi.get('instance_data') or {}
+        inst.update({
+            'rarity': rarity,
+            'display_name': (ability or 'Gem').replace('_', ' ').title(),
+            'identified': True,
+            'ability': ability,
+        })
+        gi['instance_data'] = inst
+
+    for items in (data.get('ground_items') or []):
+        if isinstance(items, dict) and items.get('item') == 'gem_white':
+            _convert_white(items)
+    anima = data.get('anima')
+    if not anima:
         return data
-    if isinstance(delve.get('enemy_ids'), list):
-        delve['enemy_ids'] = set(delve['enemy_ids'])
-    delve.setdefault('pending_rewards', [])
+    if isinstance(anima.get('enemy_ids'), list):
+        anima['enemy_ids'] = set(anima['enemy_ids'])
+    anima.setdefault('pending_rewards', [])
     # JSON stringifies dict keys - the chart graph's node map must come back
     # as int-keyed or every node lookup by id silently fails after a restart.
-    graph = (delve.get('chart') or {}).get('graph')
+    graph = (anima.get('chart') or {}).get('graph')
     if isinstance(graph, dict) and isinstance(graph.get('nodes'), dict):
         graph['nodes'] = {int(k): v for k, v in graph['nodes'].items()}
         for id_key in ('start_node_id', 'current_node_id'):
@@ -504,53 +612,67 @@ def _delve_restore(data: dict) -> dict:
                 graph[id_key] = int(graph[id_key])
     # Tarot cards are transient (regenerated on Pulse click); a saved
     # 'show_cards' state has no cards, so recover to 'ready'.
-    if delve.get('state') == 'show_cards':
-        delve['state'] = 'ready'
-    if isinstance(delve.get('state'), str) and delve['state'] not in ('clearing', 'show_cards', 'ready', 'arriving'):
-        delve['state'] = 'clearing'
+    if anima.get('state') == 'show_cards':
+        anima['state'] = 'ready'
+    if isinstance(anima.get('state'), str) and anima['state'] not in ('clearing', 'show_cards', 'ready', 'arriving'):
+        anima['state'] = 'clearing'
     return data
 
-def save_delve_data(char_id: str, data):
-    """Write the delve snapshot to disk (JSON), stamped with the schema version."""
+def save_anima_data(char_id: str, data):
+    """Write the anima snapshot to disk (JSON), stamped with the schema version."""
     try:
-        sanitized = _delve_sanitize(data)
+        sanitized = _anima_sanitize(data)
         sanitized['save_schema_version'] = SAVE_SCHEMA_VERSION
-        with open(delve_save_path(char_id), 'w') as f:
+        with open(anima_save_path(char_id), 'w') as f:
             json.dump(sanitized, f)
+        # a written new-name snapshot retires the legacy delve_<id>.json
+        legacy = legacy_anima_save_path(char_id)
+        if os.path.exists(legacy):
+            os.remove(legacy)
     except Exception:
-        print("[save] ERROR: Failed to save delve data")
+        print("[save] ERROR: Failed to save anima data")
         traceback.print_exc()
 
-def load_delve_data(char_id: str):
-    """Read the delve snapshot from disk, or None.
+def load_anima_data(char_id: str):
+    """Read the anima snapshot from disk, or None.
 
     A snapshot written by a newer build is backed up and ignored rather than
     misread: resuming a raid from a payload this build cannot understand risks
     corrupting a run, and the character save itself is unaffected.
+    Legacy delve_<id>.json files (pre issue-#61 rename) are read as-is.
     """
-    path = delve_save_path(char_id)
+    path = anima_save_path(char_id)
+    if not os.path.exists(path):
+        legacy = legacy_anima_save_path(char_id)
+        if os.path.exists(legacy):
+            path = legacy
     try:
         with open(path) as f:
             data = json.load(f)
         stored = data.get('save_schema_version') if isinstance(data, dict) else None
         if isinstance(stored, int) and not isinstance(stored, bool) \
                 and stored > SAVE_SCHEMA_VERSION:
-            backup = backup_save_file(path, 'delve snapshot is from a newer build')
-            print(f"[save] Delve snapshot from a newer build ignored; backed up to {backup}")
+            backup = backup_save_file(path, 'anima snapshot is from a newer build')
+            print(f"[save] Anima snapshot from a newer build ignored; backed up to {backup}")
             return None
-        return _delve_restore(data)
+        return _anima_restore(data)
     except Exception:
         return None
 
-def clear_delve_data(char_id: str):
-    """Remove the delve snapshot from disk."""
+def clear_anima_data(char_id: str):
+    """Remove the anima snapshot from disk (new and legacy file names)."""
     try:
-        os.remove(delve_save_path(char_id))
+        os.remove(anima_save_path(char_id))
     except FileNotFoundError:
         pass
     except Exception:
-        print("[save] ERROR: Failed to clear delve data")
+        print("[save] ERROR: Failed to clear anima data")
         traceback.print_exc()
+    finally:
+        try:
+            os.remove(legacy_anima_save_path(char_id))
+        except OSError:
+            pass
 
 # ── Derived stats ──────────────────────────────────────────────────────────
 
@@ -596,7 +718,7 @@ def compute_derived_stats(descend: dict, perk_bonuses: dict = None,
         'accuracy':              300 + dex * 4 + bonus('accuracy_flat'),
         'attack_damage_mult':    1.0 + 0.05 * str_ + bonus('attack_damage_mult_pct') / 100.0,
         'max_energy_shield':     end * 3 + bonus('max_energy_shield'),
-        'delve_light_radius':    nrv * 0.5 + bonus('delve_light_radius'),
+        'anima_light_radius':    nrv * 0.5 + bonus('anima_light_radius'),
         'darkness_resist_pct':   (end * 2 + bonus('darkness_resist_pct')) / 100.0,
         'move_speed_pct':        (bonus('move_speed_pct') + dex * 3.0) / 100.0,
         'attack_speed_pct':      (bonus('attack_speed_pct') + dex * 3.0) / 100.0,
@@ -641,9 +763,9 @@ class Character:
 
     @property
     def seed(self) -> int:
-        """Stable per-character delve seed, derived from the id.
+        """Stable per-character anima seed, derived from the id.
 
-        The delve layout is bound to the character: same character → same
+        The anima layout is bound to the character: same character → same
         chart and rooms on every visit; death deletes the character (new
         id → new seed → fresh layout). Never stored - recomputed.
         """

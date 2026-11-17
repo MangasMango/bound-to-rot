@@ -226,3 +226,27 @@ class LayoutKeyTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+
+
+class ActionKeyTests(unittest.TestCase):
+    """Issue #21 with issue #14's rebinding: defaults follow the layout,
+    an explicit rebind is used exactly as the player chose it."""
+
+    def setUp(self):
+        import core.game  # noqa: F401 - breaks the game/input import cycle
+        from core import input as core_input
+        from systems import keybinds
+        self.core_input = core_input
+        self.keybinds = keybinds
+
+    def test_default_follows_the_layout(self):
+        with patch.object(self.keybinds, 'key', lambda _a: rl.KEY_Q), \
+                patch.object(self.keybinds, 'DEFAULTS', {'gem_1': rl.KEY_Q}), \
+                patch.object(self.core_input.inp, 'layout_key', lambda k: k + 1000):
+            self.assertEqual(self.core_input._action_key('gem_1'), rl.KEY_Q + 1000)
+
+    def test_explicit_rebind_is_used_as_bound(self):
+        with patch.object(self.keybinds, 'key', lambda _a: rl.KEY_K), \
+                patch.object(self.keybinds, 'DEFAULTS', {'gem_1': rl.KEY_Q}), \
+                patch.object(self.core_input.inp, 'layout_key', lambda k: k + 1000):
+            self.assertEqual(self.core_input._action_key('gem_1'), rl.KEY_K)

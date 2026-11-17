@@ -20,6 +20,7 @@ import time
 import pyray as rl
 
 from systems import input as inp
+from systems import keybinds
 from systems.chat import CHAT_LOG_CAP
 from core.game import *
 
@@ -28,6 +29,21 @@ from core.game import *
 # purpose: its Enter is the menu-confirm key, and menus keep their own
 # semantics regardless (open question #1 of .ai/CHAT_CONSOLE_PLAN.md).
 _CHAT_OPEN_STATES = (STATE_PLAYING, STATE_HUB)
+
+
+def _action_key(action_id):
+    """Key to sample for a rebindable action (issue #21 + #14).
+
+    An untouched default follows the letter it names on the active OS
+    layout, so Q/W/E/R/T work on AZERTY, Dvorak or Colemak without the
+    player switching to English. Once the player rebinds an action, the
+    stored key is used exactly as chosen - it is a physical key they picked,
+    and re-mapping it by layout would silently move their binding.
+    """
+    bound = keybinds.key(action_id)
+    if bound == keybinds.DEFAULTS.get(action_id):
+        return inp.layout_key(bound)
+    return bound
 
 
 class InputMixin:
@@ -46,6 +62,9 @@ class InputMixin:
                 if self._chat_open:
                     if len(self._chat_pending) < 64:
                         self._chat_pending.append(chr(ch))
+                elif getattr(self.inv, 'search_focused', False):
+                    # Bank search box (issue #12): typing goes to the filter
+                    self.inv.stash_search.push(chr(ch))
                 else:
                     self.menu_sys.char_name_input.push(chr(ch))
 
@@ -63,7 +82,7 @@ class InputMixin:
             float(getattr(self, '_zoom_ref', DEFAULT_SCALE)))
         self._update_mouse_transform()
 
-        if inp.key_pressed(self,rl.KEY_GRAVE) and self.state != STATE_EDITOR:
+        if inp.key_pressed(self, keybinds.key('chat_console')) and self.state != STATE_EDITOR:
             self._chat_open = not self._chat_open
             self._chat_buf = ''
 
@@ -76,10 +95,10 @@ class InputMixin:
             self._chat_buf = ''
             self._chat_enter.mark_down()
 
-        if inp.key_pressed(self,rl.KEY_F4):
+        if inp.key_pressed(self, keybinds.key('debug_overlay')):
             self.menu_sys.settings.debug_overlay = not self.menu_sys.settings.debug_overlay
 
-        if inp.key_pressed(self,rl.KEY_F5):
+        if inp.key_pressed(self, keybinds.key('screenshot')):
             self._take_screenshot()
 
         if self._chat_open:
@@ -141,25 +160,27 @@ class InputMixin:
             return
 
         if self.state == STATE_PLAYING:
-            if self._delve is not None and inp.key_pressed(self,rl.KEY_TAB):
+            if self._anima is not None and inp.key_pressed(self, keybinds.key('anima_chart')):
                 self._minimap_open = not self._minimap_open
             if self._minimap_open:
                 if inp.key_pressed(self,rl.KEY_ESCAPE):
                     self._minimap_open = False
-                chart = self._delve.get('chart')
+                chart = self._anima.get('chart')
                 if chart is None:
                     self._minimap_open = False
                 else:
-                    from ui.delve_chart import DelveChartScreen
+                    from ui.anima_chart import AnimaChartScreen
                     if self._minimap is None:
-                        self._minimap = DelveChartScreen(self)
+                        self._minimap = AnimaChartScreen(self)
                     if self._minimap.chart is not chart:
                         self._minimap.open(chart, selectable_ids=(),
                                            title='Anima Chart', closable=False)
                     self._minimap.update(dt)
                 return
             if inp.key_pressed(self,rl.KEY_ESCAPE):
-                if self._char_stats_open:
+                if self.inv.open and self.inv.search_focused:
+                    self.inv.search_focused = False   # Esc unfocuses the search, keeps the panel
+                elif self._char_stats_open:
                     self._char_stats_open = False   # ESC closes the panel first
                 elif self.inv.open:
                     self.inv.close()
@@ -167,14 +188,18 @@ class InputMixin:
                 else:
                     self._go_to_pause()
                 return
-            if inp.key_pressed(self,rl.KEY_I):
+            # While the bank search box is focused, typed keys are text -
+            # none of the gameplay toggles below may fire on them.
+            _typing_search = self.inv.open and self.inv.search_focused
+            if inp.key_pressed(self, keybinds.key('toggle_inventory')) \
+                    and not _typing_search:
                 self.inv.toggle()
                 if self.inv.open:
                     self.audio.inv_open()
                 else:
                     self.audio.inv_close()
             opened_now = False
-            if inp.key_pressed(self,rl.KEY_C):
+            if inp.key_pressed(self, keybinds.key('char_stats')) and not _typing_search:
                 from ui import descend_ui
                 descend_ui.toggle(self)
                 opened_now = self._char_stats_open
@@ -189,31 +214,30 @@ class InputMixin:
                         self, rl.get_mouse_x(), rl.get_mouse_y(),
                         rl.get_render_width(), rl.get_render_height())
                     return
-            if inp.key_pressed(self,rl.KEY_L):
+            if inp.key_pressed(self, keybinds.key('combat_log')) \
+                    and not _typing_search:
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
-            if not self.inv.open and not self._delve_chart_is_open():
-                # NOTE: the delve Q/E tool keybinds (flares, dynamite) were
+            if not self.inv.open and not self._anima_chart_is_open():
+                # NOTE: the anima Q/E tool keybinds (flares, dynamite) were
                 # removed. Q/W/E/R belong to the gem ability slots below and
                 # T is the flask - see systems/flasks.py. Both are blocked
                 # while the Anima panel is open (modal decision UI).
-                # Issue #21: Q/W/E/R/T follow the letter the key types on
-                # the active layout, so skills work without an EN layout.
-                for _gk in gems.GEM_SLOTS:
-                    if inp.key_pressed(self, inp.layout_key(getattr(rl, 'KEY_' + _gk))):
-                        self._use_gem_ability(_gk)
-            if inp.key_pressed(self, inp.layout_key(rl.KEY_T)) and not self.inv.open \
-                    and not self._delve_chart_is_open():
+                for slot_id, action_id in keybinds.GEM_SLOT_ACTIONS.items():
+                    if inp.key_pressed(self, _action_key(action_id)):
+                        self._use_gem_ability(slot_id)
+            if inp.key_pressed(self, _action_key('flask')) and not self.inv.open \
+                    and not self._anima_chart_is_open():
                 self._use_flask()
-            # R: spin the cylinder early (ammo mechanic). Runs on its own
-            # per-consumer edge ('game.reload') - the R gem-slot edge above
-            # consumed the shared 'self' edge, so R used to cast the gem
-            # instead of reloading. Priority: a socketed white gem owns R;
-            # empty slots fall back to reload.
-            if inp.key_pressed('game.reload', inp.layout_key(rl.KEY_R)) \
-                    and not self._delve_chart_is_open() \
-                    and gems.socketed_ability(self.inventory, 'R') is None:
+            # R: spin the cylinder early (ammo mechanic). Issue #45: the R
+            # GEM SLOT IS GONE - R is a pure reload key, no socket consult.
+            # Own per-consumer edge ('game.reload'); the HUD R slot flashes
+            # so the keypress reads on the belt.
+            if inp.key_pressed('game.reload', _action_key('reload')) \
+                    and not self._anima_chart_is_open() \
+                    and not _typing_search:
                 if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
+                    self._flash_hud('R')
                     self._start_reload()
             self.inv.update(self.inventory, self.stats)
             self._update_game(dt)
@@ -222,8 +246,8 @@ class InputMixin:
         # The Anima panel is modal: while it is open, world clicks (move /
         # attack / interact / the Pulse heart) must not fire - the panel
         # overlaps the Pulse heart on screen, and an unguarded click on the
-        # panel used to re-trigger the heart (or worse, `_delve_descend`).
-        if self._delve_chart_is_open():
+        # panel used to re-trigger the heart (or worse, `_anima_descend`).
+        if self._anima_chart_is_open():
             return
         # The DESCEND panel is modal too (issue #31): the game is paused
         # under it, so no world clicks may fire.
@@ -274,28 +298,28 @@ class InputMixin:
                     clicked_drop = gi
                     break
 
-            if (clicked_drop is None and self._delve is not None
-                    and self._delve['state'] == 'ready'):
+            if (clicked_drop is None and self._anima is not None
+                    and self._anima['state'] == 'ready'):
                 ts = max(1, int(ISO_W * self.iso.scale))
                 ent_px = ENTITY_BASE * self.iso.scale
                 raw_sx, raw_sy = self.iso.world_to_screen(
-                    self._delve['pulse_x'], self._delve['pulse_y'], cw, ch)
+                    self._anima['pulse_x'], self._anima['pulse_y'], cw, ch)
                 # the enlarged hub art pushed the heart's visible mass up:
                 # keep the hitbox a few pixels above the tile centre and a
                 # touch wider than the base sprite so clicks still land
                 pulse_cx = raw_sx + ts // 2
                 pulse_cy = raw_sy + ts // 4 - ts // 12
                 if math.hypot(mx_s - pulse_cx, my_s - pulse_cy) < ent_px * 0.7:
-                    kids = self._delve_children()
+                    kids = self._anima_children()
                     if kids:
-                        self._open_delve_anima_panel()
+                        self._open_anima_anima_panel()
                     else:
-                        self._delve_descend()
+                        self._anima_descend()
                     return True
 
             clicked_enemy = self._find_enemy_near(mx_s, my_s, cw, ch)
             clicked_obj = self._find_interact_object(
-                tile_col, tile_row, radius=DELVE_CLICK_RADIUS)
+                tile_col, tile_row, radius=ANIMA_CLICK_RADIUS)
 
             if clicked_drop:
                 self.dest_col = clicked_drop['x']

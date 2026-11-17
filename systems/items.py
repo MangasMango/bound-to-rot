@@ -48,7 +48,6 @@ ITEMS = {
     'gem_blue':  {'name': 'Blue Gem',  'img': 'items/gem_blue.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'Q'},
     'gem_green': {'name': 'Green Gem', 'img': 'items/gem_green.png', 'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'W'},
     'gem_red':   {'name': 'Red Gem',   'img': 'items/gem_red.png',   'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'E'},
-    'gem_white': {'name': 'White Gem', 'img': 'items/gem_white.png', 'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isGem': 'R'},
     # ── flasks (issue #73 ADDITION: T-slot flask, one use per wave) ───
     # flask_mana retired with the mana system (owner ruling 2026-10-29)
     'flask_health':  {'name': 'Health Flask',  'img': 'items/health.png', 'rarity': 'common', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isFlask': 'health',  'charges': 1},
@@ -249,7 +248,7 @@ def make_inventory():
             'kidney':    None,
         },
         'grid':        [],
-        'gem_sockets': {'Q': None, 'W': None, 'E': None, 'R': None},
+        'gem_sockets': {'Q': None, 'W': None, 'E': None},   # issue #45: no R slot
         'flask_slot':  None,
         'grid_v':      INV_GRID_VERSION,
     }
@@ -370,5 +369,128 @@ def grid_auto_place(grid, item_id, count, cols=None, rows=None):
                     placed = True
                     break
         if not placed:
+            return False
+    return True
+
+
+# ── search / filter / sort (issue #12) ────────────────────────────────
+
+# Cycle values for the stash-panel filter buttons ('all' first). Membership
+# lives here so the UI and tests share one source of truth.
+RARITY_CYCLE = ('all', 'common', 'uncommon', 'rare', 'epic', 'legendary',
+                'mythic')
+ITEM_TYPE_CYCLE = ('all', 'organ', 'gem', 'card', 'flask', 'potion', 'other')
+
+# Rarity comparison rank for sorting (low → high). Unknown rarities sort
+# before 'common' so odd data never crashes a sort.
+RARITY_RANK = {name: rank for rank, name in enumerate(RARITY_CYCLE[1:])}
+
+
+def entry_item_type(item_id):
+    """Coarse item-type category of a base item (one of ITEM_TYPE_CYCLE[1:]).
+
+    Derived purely from the ITEMS table - currency cards are detected by
+    their `isCard` key (note: The Joker carries `isCard: 0`, so presence
+    and not truthiness is the test).
+    """
+    idef = ITEMS.get(item_id, {})
+    if idef.get('equipSlot'):
+        return 'organ'
+    if idef.get('isGem'):
+        return 'gem'
+    if 'isCard' in idef:
+        return 'card'
+    if idef.get('isFlask'):
+        return 'flask'
+    if idef.get('isPotion'):
+        return 'potion'
+    return 'other'
+
+
+def entry_search_text(entry):
+    """Lower-cased text a search matches an entry against.
+
+    Owner rule: an unidentified item exposes no stat text anywhere - and a
+    rolled `display_name` carries affix words, so for unidentified gear only
+    the base item name feeds the search. Identified items match both names.
+    """
+    if not isinstance(entry, dict):
+        return ''
+    idef = ITEMS.get(entry.get('item', ''), {})
+    parts = [idef.get('name', '')]
+    from systems.itemgen import is_identified
+    if isinstance(entry.get('instance_data'), dict) and is_identified(entry):
+        display_name = entry['instance_data'].get('display_name')
+        if display_name:
+            parts.append(display_name)
+    return ' '.join(parts).lower()
+
+
+def entry_matches_search(entry, text):
+    """True when the entry matches the search text (empty text matches all)."""
+    if not text:
+        return True
+    return text.lower() in entry_search_text(entry)
+
+
+def entry_rarity(entry):
+    """Instance rarity if rolled, else the base item's static rarity."""
+    if not isinstance(entry, dict):
+        return 'common'
+    inst = entry.get('instance_data')
+    if isinstance(inst, dict):
+        return inst.get('rarity', 'common')
+    return ITEMS.get(entry.get('item', ''), {}).get('rarity', 'common')
+
+
+def entry_matches_filters(entry, rarity='all', item_type='all'):
+    """True when the entry passes the optional rarity / item-type filters."""
+    if rarity not in (None, 'all') and entry_rarity(entry) != rarity:
+        return False
+    if item_type not in (None, 'all') \
+            and entry_item_type(entry.get('item', '')) != item_type:
+        return False
+    return True
+
+
+def sort_grid_entries(grid, key, cols=None, rows=None):
+    """Re-place every grid entry sorted by `key` ('name' | 'rarity' | 'ilvl').
+
+    Owner rules honoured: placement goes through ``grid_auto_place_instance``
+    (never direct insertion) and ITEMS base data is never mutated - entries
+    keep every key, only col/row are recomputed. Every item footprint is
+    (1, 1) (BLUEPRINT §31), so a grid that held these entries always fits
+    them again; a capacity check still guards the no-op contract and the
+    grid is left untouched when it fails. Returns True on success."""
+    if not isinstance(grid, list):
+        return False
+    if key not in ('name', 'rarity', 'ilvl'):
+        return False
+    entries = [entry for entry in grid if isinstance(entry, dict)]
+    if len(entries) != len(grid):
+        return False
+    cols = GRID_COLS if cols is None else cols
+    rows = GRID_ROWS if rows is None else rows
+    if len(entries) > cols * rows:
+        return False
+
+    def sort_key(entry):
+        idef = ITEMS.get(entry.get('item', ''), {})
+        inst = entry.get('instance_data') or {}
+        base_name = idef.get('name', '').lower()
+        if key == 'name':
+            from systems.itemgen import is_identified
+            display = (inst.get('display_name') if is_identified(entry) else None)
+            return (display or idef.get('name', '')).lower()
+        if key == 'rarity':
+            return (RARITY_RANK.get(inst.get('rarity', 'common'), -1), base_name)
+        # 'ilvl' - highest item level first; uninstanced entries read 0
+        return (-int(inst.get('ilvl', 0) or 0), base_name)
+
+    ordered = sorted(entries, key=sort_key)
+    grid.clear()
+    for entry in ordered:
+        stripped = {k: v for k, v in entry.items() if k not in ('col', 'row')}
+        if not grid_auto_place_instance(grid, stripped, cols=cols, rows=rows):
             return False
     return True

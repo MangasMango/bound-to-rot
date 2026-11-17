@@ -71,7 +71,7 @@ CURRENCY_CARDS = {
     13: {'name': 'Ace of Pikes',      'target': 'item',  'depth_min': 4,
          'description': 'Divine overhaul: destroys current values, full new roll.'},
     14: {'name': 'Queen of Hearts',   'target': 'organ', 'depth_min': 1,
-         'description': 'Cleanses an organ\'s rot — a ROTTEN organ fully reverts.'},
+         'description': 'Cleanses an organ\'s rot - a ROTTEN organ fully reverts.'},
     15: {'name': 'Jack of Pikes',     'target': 'item',  'depth_min': 4,
          'description': 'Duplicates the item as a cursed perfect reflection.'},
     17: {'name': 'Ace of Diamonds',   'target': 'gem',   'depth_min': 3,

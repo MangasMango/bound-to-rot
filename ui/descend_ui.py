@@ -29,7 +29,7 @@ Rows read ``ATTRIBUTE LEVEL | NAME | RANK WORD + (+)``:
 - band below the rows: "CharPoints available: N" (plus LEVEL and XP progress)
 - the lower stone area: the character's in-depth stats.
 
-The panel is openable anywhere (hub or delve) and pauses the game; ESC or
+The panel is openable anywhere (hub or anima) and pauses the game; ESC or
 C closes it. All geometry lives in art space and scales to the screen.
 """
 

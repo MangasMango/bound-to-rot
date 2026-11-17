@@ -1,0 +1,176 @@
+# Automated release kick-off (owner ruling 2026-11; branch-protection aware).
+#
+# TWO legs, keyed off who authored the merged PR:
+#
+#   LEG 1 - a HUMAN-authored PR merges into main carrying the `release`
+#   label: this workflow opens a "chore(release): vX.Y.Z" PULL REQUEST
+#   (branch release/vX.Y.Z) with the version bump. It never pushes to main
+#   directly - branch protection requires PRs and the bot cannot bypass.
+#
+#   LEG 2 - that bot-authored release PR merges (one human click): the
+#   workflow detects its own PR (author github-actions[bot], title starts
+#   with "chore(release):"), skips the bump, and pushes the vX.Y.Z tag.
+#   The tag push drives release.yml -> build matrix -> DRAFT release.
+#
+# Publishing the draft stays a manual human step (see RELEASE.md).
+#
+# Double-bump protection: LEG 1 never runs for bot-authored PRs, and the
+# tag guard refuses an existing tag.
+
+name: Release kick-off (on merge)
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write         # push the release branch / the tag
+  pull-requests: write    # open the release PR (gh pr create)
+
+jobs:
+  release-pr:
+    name: Open the release PR (human-authored merge)
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.user.login != 'github-actions[bot]' &&
+      contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Compute the next version (read BEFORE any write)
+        id: bump
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          python - <<'PY'
+          import json, os, re
+
+          # read FIRST - opening the file for write truncates it and a
+          # later read would return '' (the v0.2.2 empty-pyproject bug)
+          raw = open('pyproject.toml').read()
+          version = re.search(r'^version = "([^"]+)"', raw,
+                              re.MULTILINE).group(1)
+          major, minor, patch = (int(p) for p in version.split('.'))
+          labels = os.environ['LABELS'].split()
+          if 'release:minor' in labels:
+              minor, patch = minor + 1, 0
+          else:
+              patch += 1              # default: patch bump (RELEASE.md)
+          new = f'{major}.{minor}.{patch}'
+          print(f'::notice::Bumping {version} -> {new}')
+          updated = re.sub(r'^version = "[^"]+"', f'version = "{new}"',
+                           raw, flags=re.MULTILINE)
+          assert 'version = "%s"' % new in updated, 'bump did not land'
+          open('pyproject.toml', 'w').write(updated)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'version={new}\n')
+          PY
+
+      - name: Guard - the tag must not exist yet
+        env:
+          TAG: v${{ steps.bump.outputs.version }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists - refusing to re-tag."
+            exit 1
+          fi
+
+      - name: Open the release PR
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -eu
+          BRANCH="release/v${VERSION}"
+          git config user.name "release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add pyproject.toml
+          # the branch may already exist from an earlier leg-1 run with the
+          # same content - force-with-lease is safe: this branch is
+          # bot-owned and freshly derived from the merge commit
+          git commit -m "chore(release): v${VERSION}"
+          git push origin "$BRANCH" --force-with-lease
+          # an open PR for this head may already exist - that is fine
+          if gh pr list --head "$BRANCH" --state open --json id | grep -q '"id"'; then
+            echo "::notice::release PR for $BRANCH already open - nothing to do"
+            exit 0
+          fi
+          gh pr create \
+            --base main --head "$BRANCH" \
+            --label "release" \
+            --title "chore(release): v${VERSION}" \
+            --body "Automated release PR: bumps the version to ${VERSION}. Merging this PR tags v${VERSION} and drafts the release. Publish the draft from the Releases tab."
+
+  tag-on-release-pr:
+    name: Tag the release (release PR merged)
+    # Fires for the bot's PR AND for a manually-opened one from the
+    # release/vX.Y.Z branch (fallback when gh pr create lacked
+    # permissions on the first live run).
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.title, 'chore(release):') &&
+      (github.event.pull_request.user.login == 'github-actions[bot]' ||
+       startsWith(github.event.pull_request.head.ref, 'release/v'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Derive the tag from the release PR title
+        id: tag
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python - <<'PY'
+          import os, re
+          m = re.match(r'chore\(release\): v(\d+\.\d+\.\d+)',
+                       os.environ['TITLE'])
+          assert m, f'not a release PR title: {os.environ["TITLE"]!r}'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"tag=v{m.group(1)}\n")
+          PY
+
+      - name: Guard - version in pyproject must match the tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          python - <<'PY'
+          import os, re, sys, tomllib
+          version = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
+          expected = os.environ['TAG'].lstrip('v')
+          if version != expected:
+              sys.exit(f'tag mismatch: pyproject {version} vs tag {expected}')
+          PY
+
+      - name: Guard - the tag must not exist yet
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::$TAG already exists - refusing to re-tag."
+            exit 1
+          fi
+
+      - name: Push the tag (drives the draft release)
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git config user.name "release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"

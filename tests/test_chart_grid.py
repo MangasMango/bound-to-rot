@@ -27,14 +27,14 @@
 import random
 import unittest
 
-import core.delve_gen as delve_gen
+import core.anima_gen as anima_gen
 
 
 def _grown_graph(seed=7, rows=6):
-    graph = delve_gen.init_delve(seed)
+    graph = anima_gen.init_anima(seed)
     rng = random.Random(seed ^ 0x5EED)
     for _ in range(rows):
-        delve_gen.generate_next_depth(graph, rng)
+        anima_gen.generate_next_depth(graph, rng)
     return graph
 
 
@@ -80,16 +80,16 @@ class TestOrthogonalEdges(unittest.TestCase):
 
 class TestRowShape(unittest.TestCase):
     def test_row_one_is_four_fixed_lanes(self):
-        graph = delve_gen.init_delve(seed=3)
+        graph = anima_gen.init_anima(seed=3)
         row1 = [n for n in graph['nodes'].values() if n['depth'] == 1]
-        self.assertEqual(len(row1), delve_gen.CHART_LANES)
+        self.assertEqual(len(row1), anima_gen.CHART_LANES)
         self.assertEqual(sorted(round(n['col'], 4) for n in row1),
-                         sorted(round(c, 4) for c in delve_gen.LANE_COLS))
+                         sorted(round(c, 4) for c in anima_gen.LANE_COLS))
         self.assertTrue(all(not n.get('dead_end') for n in row1),
                         'row 1 is always fully alive')
 
     def test_row_one_laterals_form_a_full_chain(self):
-        graph = delve_gen.init_delve(seed=3)
+        graph = anima_gen.init_anima(seed=3)
         row1 = sorted((n for n in graph['nodes'].values() if n['depth'] == 1),
                       key=lambda n: n['col'])
         for a, b in zip(row1, row1[1:]):
@@ -98,11 +98,11 @@ class TestRowShape(unittest.TestCase):
 
     def test_every_batch_keeps_at_least_one_live_lane(self):
         for seed in (1, 7, 42):
-            graph = delve_gen.init_delve(seed)
+            graph = anima_gen.init_anima(seed)
             rng = random.Random(seed ^ 0xABCD)
             for _ in range(8):
                 before = set(graph['nodes'])
-                delve_gen.generate_next_depth(graph, rng)
+                anima_gen.generate_next_depth(graph, rng)
                 newborn = [n for nid, n in graph['nodes'].items()
                            if nid not in before]
                 self.assertTrue(newborn)
@@ -156,14 +156,14 @@ class TestFindRouteBothWays(unittest.TestCase):
         if lateral is None:
             self.skipTest('seed produced no lateral edges')
         left, right = lateral
-        self.assertEqual(delve_gen.find_route(graph, right, left),
+        self.assertEqual(anima_gen.find_route(graph, right, left),
                          [right, left])
         # and up-lanes (against the parent→child direction)
         down = next(e for e in graph['edges']
                     if graph['nodes'][e[1]]['depth']
                     == graph['nodes'][e[0]]['depth'] + 1)
         up_from, down_to = down
-        self.assertEqual(delve_gen.find_route(graph, down_to, up_from),
+        self.assertEqual(anima_gen.find_route(graph, down_to, up_from),
                          [down_to, up_from])
 
 

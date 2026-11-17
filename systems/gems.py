@@ -39,8 +39,8 @@ import systems.abilities as abilities
 from systems.abilities import CONE_POOL, MOVEMENT_POOL, PASSIVE_POOL
 
 # ── key slot -> gem color/item ────────────────────────────────────────
-GEM_SLOTS    = ('Q', 'W', 'E', 'R')
-GEM_COLOR_FOR_SLOT = {'Q': 'blue', 'W': 'green', 'E': 'red', 'R': 'white'}
+GEM_SLOTS    = ('Q', 'W', 'E')   # issue #45: R is a pure reload key now
+GEM_COLOR_FOR_SLOT = {'Q': 'blue', 'W': 'green', 'E': 'red'}
 GEM_SLOT_FOR_COLOR = {v: k for k, v in GEM_COLOR_FOR_SLOT.items()}
 GEM_ITEM_FOR_SLOT = {slot: f'gem_{color}'
                      for slot, color in GEM_COLOR_FOR_SLOT.items()}
@@ -50,7 +50,6 @@ SLOT_GEM_POOLS = {
     'Q': list(CONE_POOL),
     'W': list(MOVEMENT_POOL),
     'E': list(PASSIVE_POOL) + list(CONE_POOL),
-    'R': list(CONE_POOL) + list(MOVEMENT_POOL) + list(PASSIVE_POOL),
 }
 
 GEM_RARITIES = ('common', 'uncommon', 'rare', 'epic', 'legendary')
@@ -66,7 +65,7 @@ def random_ability_for_gem_slot(slot_key, rng=None):
 
 
 def gem_item_id(slot_key):
-    return GEM_ITEM_FOR_SLOT.get(slot_key, 'gem_white')
+    return GEM_ITEM_FOR_SLOT.get(slot_key, 'gem_blue')
 
 
 def random_gem_slot(slot_key, ilvl, seed=None):

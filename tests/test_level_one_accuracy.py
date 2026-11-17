@@ -17,7 +17,7 @@
 
 import unittest
 
-from core.delve_gen import effective_level
+from core.anima_gen import effective_level
 from entities.progression import compute_derived_stats
 from entities.zombies import enemy_evasion
 from systems.combat import hit_chance, skeleton_accuracy

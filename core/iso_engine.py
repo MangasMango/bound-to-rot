@@ -214,6 +214,183 @@ _PATH_TILES_PATH = os.path.join(_ASSETS, 'environment', 'path_tiles.png')
 _PROP_CANVAS     = 256          # engine world-sprite canvas convention
 _PROP_ALPHA_TIP  = 120 / 255.0  # 'content' threshold (slicer ALPHA_TIP)
 
+# ── ground decals (issue #17) ─────────────────────────────────────────
+# Flat wear-and-grime overlays drawn on open floor tiles, same tile-diamond
+# footprint convention as the variation textures. No decal art ships: if
+# assets/decals/<kind>_<n>.png exists it is used, otherwise the texture is
+# painted procedurally at load (deterministic - never AI-generated art).
+_DECAL_DIR       = os.path.join(_ASSETS, 'decals')
+_DECAL_SIZE      = 128          # 2x the native tile cell - thin web lines need it
+DECAL_BLOOD      = (0, 2)       # texture index ranges per kind
+DECAL_SCORCH     = (2, 4)
+DECAL_COBWEB     = (4, 6)
+_DECAL_KINDS     = ('blood_splat', 'scorch_mark', 'cobweb')
+
+
+def _decal_rand(seed: int, index: int) -> float:
+    """Deterministic 0..1 pseudo-random for decal painting (hash, no random)."""
+    hash_val = (seed * 0x9E3779B1 + index * 0x85EBCA77) & 0xFFFFFFFF
+    hash_val ^= hash_val >> 13
+    hash_val = (hash_val * 0xC2B2AE35) & 0xFFFFFFFF
+    hash_val ^= hash_val >> 16
+    return (hash_val & 0xFFFF) / 65535.0
+
+
+def _decal_pixel_color(kind: str, variant: int,
+                       dx: float, dy: float, edge: float):
+    """Colour of one decal pixel in diamond-local space, or None.
+
+    (dx, dy) are normalised diamond coordinates (-1..1 across the tile);
+    blobs expressed in that space come out iso-squashed, which is exactly
+    the perspective a floor splat should have. ``edge`` fades 0..1 at the
+    diamond rim so nothing spills onto neighbour tiles."""
+    if kind == 'blood_splat':
+        # dried blood: a soft soaked-in stain + scattered satellite drops.
+        # Dark, mostly translucent - it must never read as red paint.
+        cx = -0.2 if variant else 0.16
+        cy = 0.1 if variant else -0.14
+        main_r = 0.42 if variant else 0.36
+        dist = math.hypot(dx - cx, dy - cy)
+        ang = math.atan2(dy - cy, dx - cx)
+        jitter = 0.75 + 0.45 * _decal_rand(variant + 1,
+                                           int((ang + math.pi)
+                                               / math.pi * 90) % 90)
+        inside = dist < main_r * jitter
+        if not inside:
+            for i in range(16):
+                drop_ang = _decal_rand(variant + 2, i) * math.tau
+                drop_d = main_r * (0.9 + _decal_rand(variant + 3, i) * 1.1)
+                drop_r = 0.03 + _decal_rand(variant + 4, i) * 0.045
+                if math.hypot(dx - (cx + math.cos(drop_ang) * drop_d),
+                              dy - (cy + math.sin(drop_ang) * drop_d)) < drop_r:
+                    inside = True
+                    break
+        if not inside:
+            return None
+        core_k = max(0.0, 1.0 - dist / max(main_r, 0.001))
+        if not inside or dist > main_r:
+            alpha = int(min(1.0, edge) * 115)           # satellite drops
+        else:
+            alpha = int(min(1.0, edge) * (55 + 75 * core_k))
+        return rl.Color(94, 12, 11, alpha)
+
+    if kind == 'scorch_mark':
+        # burnt patch stretched along one diamond axis: charred heart,
+        # warm ember ring, ragged noise edge
+        dist = math.hypot(dx / 1.45, dy)
+        ang = math.atan2(dy, dx)
+        jitter = 0.8 + 0.4 * _decal_rand(9 + variant,
+                                         int((ang + math.pi)
+                                             / math.pi * 90) % 90)
+        if dist > 0.78 * jitter:
+            return None
+        edge_k = max(0.0, 1.0 - dist / (0.78 * jitter))
+        alpha = int(min(1.0, edge) * (55 + 150 * edge_k ** 1.4))
+        if alpha <= 0:
+            return None
+        if dist < 0.32:
+            return rl.Color(15, 12, 9, alpha)           # charred heart
+        ember = int(80 * max(0.0, 1.0 - abs(dist - 0.5) / 0.24))
+        return rl.Color(30 + ember, 21 + ember // 3, 13, alpha)
+
+    return None   # cobweb is line-drawn in _decal_image, not per-pixel
+
+
+def _paint_cobweb(img, variant):
+    """Corner web drawn with real lines: 9 spokes fanned from the top of
+    the tile + 4 sagging arcs between them. 128px canvas, 1px strokes."""
+    size = _DECAL_SIZE
+    ax, ay = size * 0.5, size * 0.16
+    col = rl.Color(224, 218, 202, 150)
+    spokes = []
+    for spoke_i in range(9):
+        ang = math.radians(20 + spoke_i * (140 / 8)
+                           + (4 if variant else -4))
+        length = size * (0.42 + 0.09 * _decal_rand(variant + 1, spoke_i))
+        spokes.append((math.sin(ang), math.cos(ang), length))
+        rl.image_draw_line(img, int(ax), int(ay),
+                           int(ax + math.sin(ang) * length),
+                           int(ay + math.cos(ang) * length), col)
+    for ring_k in (0.3, 0.55, 0.75, 0.92):
+        points = []
+        for spoke_i, (sin_a, cos_a, length) in enumerate(spokes):
+            sag = int((1.0 - abs(spoke_i - 4) / 4.0)
+                      * (7 if ring_k < 0.9 else 0))
+            radius = length * ring_k
+            points.append((int(ax + sin_a * radius),
+                           int(ay + cos_a * radius + sag)))
+        for p, q in zip(points, points[1:]):
+            rl.image_draw_line(img, p[0], p[1], q[0], q[1], col)
+
+
+def _decal_image(kind: str, variant: int):
+    """Paint one diamond-masked decal canvas (pure Python, tiny).
+
+    blood/scorch are per-pixel fields with the rim fade baked in; the
+    cobweb is line-drawn first, then masked onto the tile diamond."""
+    size = _DECAL_SIZE
+    img  = rl.gen_image_color(size, size, rl.BLANK)
+    if kind == 'cobweb':
+        _paint_cobweb(img, variant)
+        # mask the line art onto the tile diamond with a rim fade
+        half = size / 2 - 0.5
+        a_radius = size * 0.46
+        b_radius = a_radius * 0.5
+        for pixel_y in range(size):
+            for pixel_x in range(size):
+                dx = (pixel_x - half) / a_radius
+                dy = (pixel_y - half) / b_radius
+                diamond = abs(dx) + abs(dy)
+                if diamond > 1.0:
+                    rl.image_draw_pixel(img, pixel_x, pixel_y, rl.BLANK)
+                    continue
+                col = rl.get_image_color(img, pixel_x, pixel_y)
+                if col.a == 0:
+                    continue
+                fade = min(1.0, (1.0 - diamond) * 5.0)
+                rl.image_draw_pixel(img, pixel_x, pixel_y,
+                                    rl.Color(col.r, col.g, col.b,
+                                             int(col.a * fade)))
+        return img
+    half = size / 2 - 0.5
+    a_radius = size * 0.46
+    b_radius = a_radius * 0.5
+    for pixel_y in range(size):
+        for pixel_x in range(size):
+            dx = (pixel_x - half) / a_radius
+            dy = (pixel_y - half) / b_radius
+            diamond = abs(dx) + abs(dy)
+            if diamond > 1.0:
+                continue
+            edge = min(1.0, (1.0 - diamond) * 5.0)
+            col = _decal_pixel_color(kind, variant, dx, dy, edge)
+            if col is not None:
+                rl.image_draw_pixel(img, pixel_x, pixel_y, col)
+    return img
+
+
+def _load_decal_textures():
+    """Build the decal texture pool: a real PNG per slot when the owner has
+    dropped art into assets/decals/, else the procedural paint above."""
+    textures = []
+    for kind in _DECAL_KINDS:
+        for variant in (0, 1):
+            path = os.path.join(_DECAL_DIR, f'{kind}_{variant}.png')
+            if os.path.exists(path):
+                tex = rl.load_texture(path)
+                rl.set_texture_filter(tex, rl.TEXTURE_FILTER_POINT)
+            else:
+                img = _decal_image(kind, variant)
+                tex  = rl.load_texture_from_image(img)
+                rl.unload_image(img)
+            if tex and tex.id > 0 and not os.path.exists(path):
+                # procedural decals are soft art - bilinear keeps the thin
+                # web/splat edges smooth at tile scale (owner PNGs keep POINT,
+                # matching the shipped pixel-art convention)
+                rl.set_texture_filter(tex, rl.TEXTURE_FILTER_BILINEAR)
+            textures.append(tex)
+    return textures
+
 _PROP_WINDOWS = {
     # name:        (x0, y0, x1, y1, upscale)   into tileset_desert.png
     'crate':         (122, 278, 182, 332, 4),
@@ -229,23 +406,27 @@ _PROP_WINDOWS = {
     'column1':       (260, 394, 318, 484, 4),
     'torch':         (380, 262, 452, 336, 2),
     'pole':          (706, 374, 774, 476, 4),
-    'rocks':         (392, 432, 486, 480, 4),
-    'mushrooms':     (976, 356, 1014, 390, 3),
+    # issue #17 fix-up pass: windows re-aimed at the real art (component
+    # scan of the atlas). The old stone_s3/s4 + rocks windows landed on the
+    # cut-stone BRICK piles; reed/bush_red windows grabbed neighbours or
+    # fragmented across two pieces.
+    'rocks':         (458, 986, 500, 1020, 4),      # round boulder
+    'mushrooms':     (976, 356, 1014, 390, 3),      # dry tuft (nearest art)
     'bush1':         (26, 348, 90, 396, 4),
     'bush2':         (140, 344, 206, 400, 4),
-    'reed1':         (236, 344, 306, 398, 4),
-    'reed2':         (388, 344, 456, 398, 4),
-    'bush_purple':   (522, 342, 570, 398, 4),
-    'bush_purple2':  (590, 342, 632, 398, 4),
-    'bush_red':      (692, 338, 780, 404, 4),
-    'bush_red2':     (786, 338, 874, 404, 4),
+    'reed1':         (136, 341, 186, 392, 4),       # tall reed clump 1
+    'reed2':         (200, 340, 250, 392, 4),       # reed clump 2
+    'bush_purple':   (524, 342, 572, 398, 4),
+    'bush_purple2':  (588, 342, 640, 398, 4),
+    'bush_red':      (778, 336, 828, 400, 4),       # dry bush (pole-free)
+    'bush_red2':     (843, 340, 884, 400, 4),
     'grass1':        (8, 350, 58, 392, 3),
-    'grass2':        (841, 353, 880, 392, 4),
+    'grass2':        (906, 352, 956, 390, 4),
     'grass3':        (976, 353, 1016, 392, 4),
-    'stone_s1':      (0, 434, 64, 480, 4),
-    'stone_s2':      (138, 436, 192, 480, 4),
-    'stone_s3':      (278, 432, 370, 480, 4),
-    'stone_s4':      (392, 432, 484, 480, 4),
+    'stone_s1':      (76, 432, 122, 478, 4),        # stone pair
+    'stone_s2':      (142, 434, 188, 478, 4),       # single boulder
+    'stone_s3':      (204, 438, 244, 474, 4),       # small rock trio
+    'stone_s4':      (0, 432, 52, 478, 4),          # pebble + stone pair
     'cactus1':       (514, 936, 564, 1038, 4),
     'cactus2':       (576, 936, 634, 1038, 4),
     # ── hub dressing & waypoints (tents / chest / anvil / flowers / graveyard)
@@ -414,6 +595,8 @@ class IsoRenderer:
         self._cam_y = 0.0
         self._floor_tex    = None   # ground tile Texture2D
         self._variation_textures = []     # ground variation textures
+        self._decal_textures = []   # ground decal pool (issue #17)
+        self._decal_cells    = {}   # (col, row) -> (texture_index, tint_a)
         self._prop_sprites = {} # static prop IsoSprites keyed by name
         # Precomputed per-level prop placements (populated by generate_props)
         self._tile_cells       = set()   # (col, row)
@@ -440,13 +623,14 @@ class IsoRenderer:
             return tex
         # Desert tileset floors (plain_1..16, brush_17..32) sliced by
         # scripts/slice_environment.py - native 64×64 cells; plain_1 is the
-        # base ground, the other 31 are the hash-picked variation pool.
+        # base ground. Variation pool: plain_2..16 ONLY - the brush_* tiles
+        # are garbled dark scrub patches that read as dirt smudges strewn
+        # over a third of the floor (issue #17 owner feedback: 'fucked up
+        # bricks'). They stay on disk; they just don't scatter anymore.
         self._floor_tex = _load_tex('environment/plain_1.png')
         self._variation_textures = [
-            t for t in ([_load_tex(f'environment/plain_{n}.png')
-                         for n in range(2, 17)]
-                        + [_load_tex(f'environment/brush_{n}.png')
-                           for n in range(17, 33)]) if t is not None
+            t for t in [_load_tex(f'environment/plain_{n}.png')
+                        for n in range(2, 17)] if t is not None
         ]
         # Scatter props - cropped from the master atlas at load (no per-prop
         # PNGs ship anymore; scripts/slice_environment.py bakes only the
@@ -461,9 +645,12 @@ class IsoRenderer:
             else:
                 sprite = make_atlas_prop(name, ('SE', 'SW'))
             self._prop_sprites[name] = sprite
+        # Ground decals (issue #17) - procedural paint or owner-dropped art
+        self._decal_textures = _load_decal_textures()
 
     def unload(self):
-        for t in [self._floor_tex] + self._variation_textures:
+        for t in [self._floor_tex] + self._variation_textures \
+                + list(self._decal_textures):
             if t and t.id > 0:
                 rl.unload_texture(t)
         for sprite in self._prop_sprites.values():
@@ -472,7 +659,38 @@ class IsoRenderer:
             rl.unload_render_texture(self._minimap_render_tex)
             self._minimap_render_tex = None
 
-    # ── Prop precomputation ───────────────────────────────────────────
+    def _plan_decals(self, map_data: list):
+        """Deterministic ground-decal pass (issue #17).
+
+        Pure hash, no random (BLUEPRINT rule 39): ~3% of open floor tiles
+        get a decal (cobweb / blood / scorch in equal thirds). Cells that
+        already carry a floor prop or path tile are left alone. Density
+        stays low on purpose - a smudge every ~30 tiles reads as grime,
+        anything denser reads as dirt wallpaper."""
+        self._decal_cells.clear()
+        cols = len(map_data)
+        rows = len(map_data[0]) if map_data else 0
+        for col in range(cols):
+            for row in range(rows):
+                if map_data[col][row] not in _FLOOR_TIDS:
+                    continue
+                cell = (col, row)
+                if cell in self._any_prop_cells:
+                    continue
+                hash_val = self._prop_hash(col, row) ^ 0x5DEEC66D
+                slot = hash_val % 100
+                if slot >= 3:
+                    continue
+                if slot < 1:
+                    kind = DECAL_COBWEB
+                elif slot < 2:
+                    kind = DECAL_BLOOD
+                else:
+                    kind = DECAL_SCORCH
+                variant = (hash_val >> 7) & 1
+                self._decal_cells[cell] = (kind[0] + variant, 210)
+
+    # ── Prop precomputation ───────────────────────────────────────
 
     def generate_props(self, map_data: list):
         """Call once after each level load to build deterministic prop placement."""
@@ -483,7 +701,7 @@ class IsoRenderer:
         # Walls are removed from the game entirely - flatten every wall tile
         # (1/2/3) to open floor so collision, minimap, spawning and the
         # renderer all see a wall-free battlefield. Runs on every level
-        # load and segment carve, since delve generation keeps placing
+        # load and segment carve, since anima generation keeps placing
         # wall tiles.
         for col in range(cols):
             map_row = map_data[col]
@@ -573,6 +791,8 @@ class IsoRenderer:
                     self._PROP_DIRS[(n >> 20) % 2])
 
         self._rebuild_any_prop_cells()
+        # Decals last (issue #17): they skip cells the props above claimed
+        self._plan_decals(map_data)
 
     def generate_puddles(self, map_data: list, strength: float = 0.0):
         """Deterministic puddle placement for the wet-weather look.
@@ -741,6 +961,9 @@ class IsoRenderer:
         floor_tex      = self._floor_tex if self._floor_tex and self._floor_tex.id > 0 else None
         any_prop_cells = self._any_prop_cells
         puddle_cells   = self._puddle_cells
+        decal_textures = self._decal_textures
+        decal_cells_get = self._decal_cells.get
+        decal_cells = self._decal_cells
 
         # Pre-compute projection constants so inner loops avoid attribute lookups.
         _cam_x   = self._cam_x
@@ -790,6 +1013,15 @@ class IsoRenderer:
                                    [var_h % var_count])
                         if var_tex and var_tex.id > 0:
                             rl.draw_texture_pro(var_tex, _src, _dst, _orig, 0.0, rl.WHITE)
+                # ground decal (issue #17) - flat wear under everything
+                if decal_cells:
+                    decal = decal_cells_get((col, row))
+                    if decal is not None:
+                        decal_tex = decal_textures[decal[0]]
+                        if decal_tex and decal_tex.id > 0:
+                            rl.draw_texture_pro(
+                                decal_tex, _src, _dst, _orig, 0.0,
+                                rl.Color(255, 255, 255, decal[1]))
                 # wet-weather puddle base - flat colour disc the reflection
                 # shader composites over later
                 if puddle_cells and (col, row) in puddle_cells:
@@ -890,6 +1122,8 @@ class IsoRenderer:
         for cell in [c for c in self._floor_prop_cells
                      if (c[0] - cc) ** 2 + (c[1] - cr) ** 2 <= r2]:
             del self._floor_prop_cells[cell]
+        self._decal_cells = {c: v for c, v in self._decal_cells.items()
+                             if (c[0] - cc) ** 2 + (c[1] - cr) ** 2 > r2}
         self._tile_cells = {c for c in self._tile_cells
                             if (c[0] - cc) ** 2 + (c[1] - cr) ** 2 > r2}
         self._puddle_cells = frozenset(

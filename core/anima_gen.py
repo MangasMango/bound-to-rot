@@ -14,7 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 """
-PoE-style Delve Map system.
+PoE-style Anima Map system.
 Graph-based generation with depth rows, explicit edges, node states, and
 uniform level scaling per depth. The chart is rendered as an interactive
 popup mini-map with connection lines, node icons, and state-based visuals.
@@ -121,7 +121,7 @@ NODE_ICONS = {
 # projects ('px','py') onto the screen.  The spacing is deliberately tight so
 # several depth rows fit on screen at the chart's default (max) zoom.
 # Owner ruling 2026-10-07: nodes sit closer together (was 380/60) while the
-# node icons grew (delve_chart radius 11/14).
+# node icons grew (anima_chart radius 11/14).
 CHART_COL_SPACING = 300.0   # px per 1.0 of the 0-1 row column axis
 CHART_ROW_SPACING = 46.0    # px per depth row (depth 1 sits at y = 0)
 
@@ -232,10 +232,10 @@ def _carve_corridor(grid, start_c, start_r, end_c, end_r):
 # same single roll. Every row needs a matching ITEM_NAMES entry.
 REWARD_TABLES = {
     'combat':   [('gem_blue', 1, 1, 0.10), ('gem_green', 1, 1, 0.08),
-                 ('gem_red', 1, 1, 0.06),  ('gem_white', 1, 1, 0.05)],
+                 ('gem_red', 1, 1, 0.06),  ('gem_red', 1, 1, 0.05)],
     'chest':    [('lungs', 1, 1, 0.5),   ('heart', 1, 1, 0.4),
                  ('kidney', 1, 1, 0.3),     ('intestine', 1, 1, 0.2),
-                 ('gem_white', 1, 1, 0.08)],
+                 ('gem_red', 1, 1, 0.08)],
     'armour':   [('heart', 1, 1, 0.4), ('lungs', 1, 1, 0.5),
                  ('kidney', 1, 1, 0.25), ('gem_blue', 1, 1, 0.08)],
     'breach':   [('liver', 1, 1, 0.2)],
@@ -248,7 +248,7 @@ ITEM_NAMES = {
     'lungs': 'Lungs', 'heart': 'Heart', 'liver': 'Liver',
     'intestine': 'Intestine', 'kidney': 'Kidney',
     'gem_blue': 'Blue Gem', 'gem_green': 'Green Gem',
-    'gem_red': 'Red Gem', 'gem_white': 'White Gem',
+    'gem_red': 'Red Gem',
 }
 
 
@@ -332,7 +332,7 @@ def _make_node(rng, depth, col, is_start=False, allow_boss=False,
     }
 
 
-def init_delve(seed: int = 0, current_depth: int = 1) -> dict:
+def init_anima(seed: int = 0, current_depth: int = 1) -> dict:
     rng = random.Random(seed + current_depth * 7919)
     graph = {'nodes': {}, 'edges': [], 'max_depth': 1,
              'start_node_id': None, 'current_node_id': None}
@@ -542,10 +542,10 @@ def _pick_connections(rng, exclude=None):
     return result
 
 
-def init_delve_room(seed=0, depth=1):
-    """Create a starting room w/ node+connections for direction-based delve."""
+def init_anima_room(seed=0, depth=1):
+    """Create a starting room w/ node+connections for direction-based anima."""
     rng = random.Random(seed + depth * 7919)
-    # Open arena: the whole delve grid starts as walkable floor. Rooms are
+    # Open arena: the whole anima grid starts as walkable floor. Rooms are
     # still carved as distinct floor regions (their size/position recorded on
     # the node), but no wall tiles separate them - see issue #24 / #27.
     grid = [[0] * GRID_H for _ in range(GRID_W)]
@@ -805,14 +805,14 @@ def rebuild_graph_from_save(seed: int, max_depth: int) -> dict:
     """Deterministically rebuild a chart graph from its seed + depth count.
 
     Used as a corruption fallback only - the normal path persists the full
-    (JSON-safe) nodes/edges graph in the delve snapshot. For determinism the
+    (JSON-safe) nodes/edges graph in the anima snapshot. For determinism the
     node-id counter is reset so ids regenerate identically.
     """
     global _NEXT_ID
     _saved_counter = _NEXT_ID
     _NEXT_ID = 0
     try:
-        graph = init_delve(seed)
+        graph = init_anima(seed)
         rng = random.Random(seed ^ 0x5EED)
         while graph['max_depth'] < max(1, max_depth):
             generate_next_depth(graph, rng)
@@ -871,7 +871,7 @@ def generate_hidden_wing(grid: list, node: dict, rng: random.Random,
                          wing_id: int):
     """Attach a rubble-sealed pocket room to a carved room.
 
-    The delve grid is an open arena, so the wing is built as a wall ring
+    The anima grid is an open arena, so the wing is built as a wall ring
     (tile value 1) enclosing a small pocket, with a single cracked cell
     facing the room. The cracked cell marks the seal (its old opener, the
     dynamite tool, was removed - the wing is currently unreachable content).

@@ -30,6 +30,8 @@ container -
 import unittest
 from pathlib import Path
 
+import pyray as rl
+
 import systems.itemgen as itemgen
 from systems.items import make_inventory
 
@@ -98,7 +100,7 @@ def _draw_bar(monkeypatch):
     return game
 
 
-def test_action_rects_are_exactly_qwer_t_attack_move(monkeypatch):
+def test_action_rects_are_exactly_qwert_reload_t(monkeypatch):
     game = _draw_bar(monkeypatch)
     assert set(game._hud_action_rects) == {
         'Q', 'W', 'E', 'R', 'T', 'attack', 'move'}
@@ -159,3 +161,50 @@ def test_source_dropped_the_decorative_and_belt_pieces():
     # (tests/test_run_toggle.py guards the stats side)
     for stale in ("stats['stamina'", 'stats.get(\'stamina\'', 'max_stamina'):
         assert stale not in HUD_SRC, f'stale stamina read: {stale}'
+
+
+def test_r_slot_click_reloads(monkeypatch):
+    """issue #45 follow-up: the R belt slot is a live reload button -
+    clicking it spins the cylinder when there is something to reload."""
+    game = _draw_bar(monkeypatch)
+    game._ammo = 2
+    game._ammo_max = 6
+    game._reload_t = 0.0
+    game._reload_total = 0.0
+    from core.render.hud_render import HudRenderMixin
+    game._use_gem_ability = lambda _key: None
+    game._use_flask = lambda: None
+    game._hud_click_attack = lambda *_a: None
+    game._hud_click_move = lambda *_a: None
+    game._start_reload = lambda: setattr(game, '_reload_t', 3.0)
+    rect = game._hud_action_rects['R']
+    cx, cy = rect.x + rect.width / 2, rect.y + rect.height / 2
+    monkeypatch.setattr(rl, 'get_mouse_x', lambda: int(cx))
+    monkeypatch.setattr(rl, 'get_mouse_y', lambda: int(cy))
+    monkeypatch.setattr(rl, 'is_mouse_button_pressed', lambda _b: True)
+    monkeypatch.setattr(rl, 'check_collision_point_rec',
+                        lambda _p, _r: True)
+    HudRenderMixin._draw_hud(game, 1280, 720)
+    assert game._reload_t > 0.0
+
+
+def test_r_slot_click_is_inert_when_full_or_already_reloading(monkeypatch):
+    game = _draw_bar(monkeypatch)
+    game._ammo = 6
+    game._ammo_max = 6
+    game._reload_t = 0.0
+    from core.render.hud_render import HudRenderMixin
+    game._use_gem_ability = lambda _key: None
+    game._use_flask = lambda: None
+    game._hud_click_attack = lambda *_a: None
+    game._hud_click_move = lambda *_a: None
+    game._start_reload = lambda: setattr(game, '_reload_t', 3.0)
+    rect = game._hud_action_rects['R']
+    cx, cy = rect.x + rect.width / 2, rect.y + rect.height / 2
+    monkeypatch.setattr(rl, 'get_mouse_x', lambda: int(cx))
+    monkeypatch.setattr(rl, 'get_mouse_y', lambda: int(cy))
+    monkeypatch.setattr(rl, 'is_mouse_button_pressed', lambda _b: True)
+    monkeypatch.setattr(rl, 'check_collision_point_rec',
+                        lambda _p, _r: True)
+    HudRenderMixin._draw_hud(game, 1280, 720)
+    assert game._reload_t == 0.0   # full cylinder: the guard must hold

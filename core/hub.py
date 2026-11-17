@@ -16,6 +16,7 @@
 import math
 import pyray as rl
 from systems import input as inp
+from systems import keybinds
 from core.game import *
 from core.game import (
     _HUB_LAYOUT,
@@ -74,7 +75,7 @@ class HubMixin:
 
         def _hub_trigger(self, obj):
             obj_type = obj['type']
-            if obj_type == 'delve':
+            if obj_type == 'anima':
                 self._open_anima_panel()
             elif obj_type == 'stash':
                 self._hub_popup = 'stash'
@@ -107,7 +108,7 @@ class HubMixin:
                     view=(content.width, content.height))
                 if isinstance(result, tuple) and result[0] == 'return_hub':
                     # RETURN TO HUB button: from the hub this just closes the
-                    # modal (the delve path routes through the same signal).
+                    # modal (the anima path routes through the same signal).
                     self._on_chart_return_hub()
                     return
                 if isinstance(result, tuple) and result[0] == 'select':
@@ -116,7 +117,7 @@ class HubMixin:
                 if result == 'close' or inp.key_pressed('hub.anima.close', rl.KEY_ESCAPE):
                     self._hub_popup = None
                     return
-                # Resume button (saved mid-delve snapshot) - panel bottom edge
+                # Resume button (saved mid-anima snapshot) - panel bottom edge
                 lmb = inp.mouse_pressed('hub.anima.resume', rl.MOUSE_BUTTON_LEFT)
                 if (self._chart_resume and self._chart_resume_rect and lmb
                         and rl.check_collision_point_rec(
@@ -124,7 +125,7 @@ class HubMixin:
                                        float(rl.get_mouse_y())),
                             self._chart_resume_rect)):
                     self._chart_resume = False
-                    self._handle_signal('enter_delve')
+                    self._handle_signal('enter_anima')
                 return
 
             if self._hub_popup:
@@ -149,20 +150,23 @@ class HubMixin:
                 return
 
             if inp.key_pressed('hub.anima.close', rl.KEY_ESCAPE):
-                if self.inv.open:
+                if self.inv.open and self.inv.search_focused:
+                    # Esc unfocuses the bank search (issue #12), keeps the panel
+                    self.inv.search_focused = False
+                elif self.inv.open:
                     self.inv.close()
                     self.audio.inv_close()
                 else:
                     self._go_to_pause()
                 return
 
-            if inp.key_pressed('hub.inventory', rl.KEY_I):
+            if inp.key_pressed('hub.inventory', keybinds.key('toggle_inventory')):
                 self.inv.toggle()
                 if self.inv.open:
                     self.audio.inv_open()
                 else:
                     self.audio.inv_close()
-            if inp.key_pressed('hub.char_stats', rl.KEY_C):
+            if inp.key_pressed('hub.char_stats', keybinds.key('char_stats')):
                 # The D.E.S.C.E.N.D. panel (issue #31) opens anywhere; the
                 # hub sim pauses while it is up.
                 from ui import descend_ui
@@ -177,7 +181,7 @@ class HubMixin:
                     descend_ui.handle_click(
                         self, rl.get_mouse_x(), rl.get_mouse_y(), cw, ch)
                     return
-            if inp.key_pressed('hub.combat_log', rl.KEY_L):
+            if inp.key_pressed('hub.combat_log', keybinds.key('combat_log')):
                 self._combat_log_open = not self._combat_log_open
                 self._combat_log_scroll = 0
             self.inv.update(self._get_char_inventory(), self.stats)
@@ -206,7 +210,7 @@ class HubMixin:
                     # the heart is hit-tested screen-space on its drawn art
                     # (tile-space bubbles can't cover tall iso art); the
                     # blacksmith/stash keep their HUB_CLICK_RADIUS diamonds
-                    if obj['type'] == 'delve':
+                    if obj['type'] == 'anima':
                         hit = self._heart_screen_hit(obj, mx, my, cw, ch)
                     else:
                         hit = math.hypot(obj['x'] - tile_col,
@@ -241,7 +245,7 @@ class HubMixin:
             self.iso.follow(self.px, self.py)
 
         def _update_hub_darkness(self, dt):
-            """Same ramp + DPS as the delve, anchored to the hub's torch lights."""
+            """Same ramp + DPS as the anima, anchored to the hub's torch lights."""
             if self._god_mode:
                 self._hub_dark_timer = 0.0
                 return
@@ -252,7 +256,7 @@ class HubMixin:
                 # `r` is the VISIBLE LIGHT EDGE (lighting.fs EDGE_SCALE
                 # semantics, hub radii are compensated in _HUB_LIGHTS) - the
                 # gameplay reach keeps its pre-compensation value
-                reach = light['r'] / SHADER_EDGE_SCALE + DELVE_PERSONAL_LIGHT
+                reach = light['r'] / SHADER_EDGE_SCALE + ANIMA_PERSONAL_LIGHT
                 if best is None or dist - reach < best[0] - best[1]:
                     best = (dist, reach)
             dist, reach = best
@@ -266,7 +270,7 @@ class HubMixin:
                 dps_mult += 0.15 * (self._hub_dark_timer - 5.0)
             if in_dim:
                 dps_mult = min(dps_mult, 0.5)
-            self.stats['health'] = max(0.0, self.stats['health'] - DELVE_DARKNESS_DPS * dps_mult * dt)
+            self.stats['health'] = max(0.0, self.stats['health'] - ANIMA_DARKNESS_DPS * dps_mult * dt)
             # the red flash rides the damage ramp - zero while the darkness
             # deals zero DPS, not the instant you step out
             self.hit_flash = max(self.hit_flash, 0.18 * min(1.0, dps_mult))

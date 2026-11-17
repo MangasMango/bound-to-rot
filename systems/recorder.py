@@ -208,18 +208,15 @@ class ClipRecorder:
         self._sink = None
         self.error = None
         if mode != MODE_GIF:
-            # The builder probes ffmpeg (needs no window); a missing binary
-            # comes back as the refusing stand-in with the actionable hint.
+            # probe ffmpeg first - it needs no window, and the missing-binary
+            # hint is the actionable one (gif still works)
+            if sink is None and not shutil.which('ffmpeg'):
+                self.error = "ffmpeg not found on PATH - use 'record gif'"
+                return False
             if sink is None:
                 target = self._video_dims()   # pyray seam: window dims
                 if target is None:
-                    # Prefer the missing-binary hint over the window error:
-                    # ffmpeg is the actionable problem and needs no window.
-                    if not shutil.which('ffmpeg'):
-                        self.error = ("ffmpeg not found on PATH - "
-                                      "use 'record gif'")
-                    else:
-                        self.error = 'No window to capture from'
+                    self.error = 'No window to capture from'
                     return False
                 self._size = target
                 sink = _build_video_sink(mode, target[0], target[1],

@@ -192,7 +192,7 @@ class ChaseClosesIntoAttackTests(unittest.TestCase):
             if zombie['state'] == 'attack':
                 break
         self.assertEqual(zombie['state'], 'attack',
-                         "enemy must close into MELEE_RANGE and attack — "
+                         "enemy must close into MELEE_RANGE and attack - "
                          "if it stalls, the chase stop distance >= MELEE_RANGE")
 
     def test_stop_distance_below_melee_range(self):

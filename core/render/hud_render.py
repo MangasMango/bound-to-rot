@@ -21,7 +21,7 @@ from core.game import (
     AMMO_MAX,
     ANGEL_STREAK_WINDOW,
     DARKNESS_AMBIENT,
-    DELVE_PERSONAL_LIGHT,
+    ANIMA_PERSONAL_LIGHT,
     DESCEND_ATTRIBUTES,
     EQUIP_SLOT_LABELS,
     ITEMS,
@@ -51,6 +51,7 @@ from ui import fonts, icons
 from ui.inventory_ui import _rot_col
 from ui.menus import _btn
 from systems.items import ITEMS, EQUIP_SLOT_LABELS
+from systems import keybinds
 
 # Ability id → ui.icons logical name for the HUD Q/W/E/R slots. The real
 # ability art (assets/ability-icons/) is not distributed, so these existing
@@ -91,13 +92,13 @@ class HudRenderMixin:
         in_light = False
         for light in lights:
             if light.get('kind') == 'pulse':
-                # delve pulse: the radius IS the full-safety edge (the
+                # anima pulse: the radius IS the full-safety edge (the
                 # personal-light grace is already baked into it)
                 reach = light['r']
             else:
                 # hub lights: `r` is the visible edge (EDGE_SCALE-compensated
                 # in _HUB_LIGHTS) - gameplay reach keeps its pre-swap value
-                reach = light['r'] / SHADER_EDGE_SCALE + DELVE_PERSONAL_LIGHT
+                reach = light['r'] / SHADER_EDGE_SCALE + ANIMA_PERSONAL_LIGHT
             if math.hypot(self.px - light['x'], self.py - light['y']) <= reach:
                 in_light = True
                 break
@@ -130,11 +131,11 @@ class HudRenderMixin:
     # the compact 'ILEVEL n' label lives on in the inventory header and
     # the D.E.S.C.E.N.D. panel's stat grid only.
 
-    def _draw_delve_hud(self, cw: int, ch: int, scale_font):
+    def _draw_anima_hud(self, cw: int, ch: int, scale_font):
         """Depth counter and darkness warning overlay."""
-        if self._delve is None:
+        if self._anima is None:
             return
-        d = self._delve
+        d = self._anima
 
         # Depth counter - under the minimap, right side (owner ruling:
         # top-center belongs to the kill streak now). Geometry mirrors the
@@ -636,11 +637,11 @@ class HudRenderMixin:
         def scale_font(n): return max(12, int(n * hud_scale))
         ui  = self._ui
 
-        self._draw_delve_hud(cw, ch, scale_font)
+        self._draw_anima_hud(cw, ch, scale_font)
 
         # Area name - top center
-        # if self._delve is not None:
-        #     area_name = f"The Anima  -  Depth {self._delve['depth']}"
+        # if self._anima is not None:
+        #     area_name = f"The Anima  -  Depth {self._anima['depth']}"
         # elif self.state == STATE_HUB:
         #     area_name = "The Hub"
         # else:
@@ -970,11 +971,14 @@ class HudRenderMixin:
                 rl.Rectangle(float(ax2), float(ang_y2), float(ang_w2), float(ang_h2)),
                 rl.Vector2(0, 0), 0.0, rl.WHITE)
         # revolver ammo readout - same size/placement family as the Life
-        # text; the ammo mechanic mutates self._ammo / self._reload_t
+        # text; the ammo mechanic mutates self._ammo / self._reload_t.
+        # issue #45: the reload state must READ - seconds left + a gold
+        # progress underline under the orb, not a bare 'Reloading...'.
         ammo_cur = int(getattr(self, '_ammo', AMMO_MAX))
         ammo_max = int(getattr(self, '_ammo_max', AMMO_MAX))
-        if float(getattr(self, '_reload_t', 0.0)) > 0:
-            ammo = 'Reloading...'
+        reload_t = float(getattr(self, '_reload_t', 0.0))
+        if reload_t > 0:
+            ammo = f'Reloading... {reload_t:.1f}s'
         else:
             ammo = f'Ammo : {ammo_cur} / {ammo_max}'
         ammo_fs = bfont(46)
@@ -983,6 +987,9 @@ class HudRenderMixin:
                    mag_x - ammo_w - bpx(16),
                    orb_top + int(ORB * 0.30) - 10, ammo_fs,
                    rl.Color(235, 235, 235, 240))
+        # reload progress lives in the R HUD slot now (see the slot belt
+        # below) - an under-panel bar anchored outside the panel edge was
+        # the issue-#45 follow-up bug.
 
         # 3) left cluster: bronze box with the organ-rot meter on top and the
         #    3 menu buttons underneath - the mockup's two-row rhythm
@@ -1085,7 +1092,7 @@ class HudRenderMixin:
         zone_r = rp_x - bpx(14)
         CSLOT = bpx(96)
         cgap = bpx(6)
-        slot_keys = ('Q', 'W', 'E', 'R', 'T')
+        slot_keys = ('Q', 'W', 'E', 'R', 'T')   # issue #45: R = reload slot
         slots_w = len(slot_keys) * CSLOT + (len(slot_keys) - 1) * cgap
         # centred on the CONTAINER (screen centre), clamped into the zone so
         # an asymmetric cluster pair can never push a slot into its neighbour
@@ -1096,12 +1103,12 @@ class HudRenderMixin:
                       slots_w + bpx(14), CSLOT + bpx(14))
         _section_box(*centre_box)
 
-        # Q/W/E/R gem ability slots - socketed ability icon, key label,
+        # Q/W/E gem ability slots - socketed ability icon, key label,
         # cooldown dim + seconds; click casts
         sk_t = _tex('skill_base')
         asz = CSLOT
         a_y = slots_y
-        for i, key in enumerate(('Q', 'W', 'E', 'R')):
+        for i, key in enumerate(('Q', 'W', 'E')):
             sx = slots_x + i * (asz + cgap)
             srect = rl.Rectangle(float(sx), float(a_y), float(asz), float(asz))
             if sk_t:
@@ -1141,7 +1148,10 @@ class HudRenderMixin:
                         rl.Rectangle(float(sx + bpx(12)), float(a_y + bpx(12)),
                                      float(asz - bpx(24)), float(asz - bpx(24))),
                         rl.Vector2(0, 0), 0.0, rl.Color(120, 120, 120, 160))
-            fonts.draw(key, sx + bpx(6), a_y + bpx(5), bfont(24),
+            # the slot letter mirrors the CURRENT binding (issue #14)
+            fonts.draw(keybinds.key_name_compact(
+                           keybinds.key(keybinds.GEM_SLOT_ACTIONS[key])),
+                       sx + bpx(6), a_y + bpx(5), bfont(24),
                        rl.Color(220, 220, 220, 230))
             cd = float(self._gem_cds.get(key, 0.0))
             if cd > 0:
@@ -1160,9 +1170,56 @@ class HudRenderMixin:
             act_rects[key] = srect
             self._draw_hud_flash(key, sx + asz / 2, a_y, float(asz))
 
+        # R - the reload slot (issue #45): a dedicated belt slot with the
+        # mini cylinder art, NOT a gem. Click or R spins the cylinder;
+        # while the reload runs it shades + counts the seconds like a
+        # cooldown, so the reload state lives where the eye already is.
+        r_x = slots_x + 3 * (asz + cgap)
+        rrect = rl.Rectangle(float(r_x), float(a_y), float(asz), float(asz))
+        if sk_t:
+            rl.draw_texture_pro(sk_t,
+                rl.Rectangle(0, 0, float(sk_t.width), float(sk_t.height)),
+                rrect, rl.Vector2(0, 0), 0.0, rl.WHITE)
+        else:
+            rl.draw_rectangle(int(r_x), int(a_y), asz, asz, rl.Color(30, 30, 30, 220))
+        reloading = float(getattr(self, '_reload_t', 0.0)) > 0
+        cyl_t = _tex('orb_mag_0' if reloading else 'orb_mag_6')
+        if cyl_t and cyl_t.id > 0:
+            ico = int(asz - bpx(24))
+            rl.draw_texture_pro(cyl_t,
+                rl.Rectangle(0, 0, float(cyl_t.width), float(cyl_t.height)),
+                rl.Rectangle(float(r_x + bpx(12)), float(a_y + bpx(12)),
+                             float(ico), float(ico)),
+                rl.Vector2(0, 0), 0.0, rl.WHITE)
+        else:
+            icons.draw('melee', int(r_x + bpx(12)), int(a_y + bpx(12)),
+                       max(1, asz - bpx(24)), rl.WHITE)
+        fonts.draw(keybinds.key_name_compact(keybinds.key('reload')),
+                   r_x + bpx(6), a_y + bpx(5), bfont(24),
+                   rl.Color(220, 220, 220, 230))
+        if reloading:
+            rt = float(getattr(self, '_reload_t', 0.0))
+            total = float(getattr(self, '_reload_total', 0.0)) or 1.0
+            shade = max(40, int(170 * min(1.0, rt / total)))
+            rl.draw_rectangle(int(r_x), int(a_y), asz, asz,
+                              rl.Color(0, 0, 0, shade))
+            rnum = f'{rt:.1f}'
+            rfs = bfont(13)
+            rw = fonts.measure(rnum, rfs)
+            fonts.draw(rnum, r_x + asz // 2 - rw // 2,
+                       a_y + asz // 2 - rfs // 2, rfs,
+                       rl.Color(255, 220, 120, 240))
+        if (rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT)
+                and rl.check_collision_point_rec(
+                    rl.Vector2(float(mxp), float(myp)), rrect)):
+            if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:
+                self._start_reload()
+        act_rects['R'] = rrect
+        self._draw_hud_flash('R', r_x + asz / 2, a_y, float(asz))
+
         # T - the equipped flask (health/mana abilities, click or T to drink);
         #    slot 5 of the centred row, drawn on the same skill_base frame
-        fl_x = slots_x + 4 * (asz + cgap)
+        fl_x = slots_x + 4 * (asz + cgap)   # right after Q/W/E/R
         fl_y = slots_y
         frect = rl.Rectangle(float(fl_x), float(fl_y), float(asz), float(asz))
         bst_t = sk_t                     # same skill_base frame as Q/W/E/R
@@ -1204,7 +1261,8 @@ class HudRenderMixin:
             fonts.draw('T', fl_x + asz // 2 - bfont(14) // 2,
                        fl_y + asz // 2 - bfont(14) // 2, bfont(14),
                        rl.Color(150, 150, 150, 200))
-        fonts.draw('T', fl_x + bpx(6), fl_y + bpx(5), bfont(24),
+        fonts.draw(keybinds.key_name_compact(keybinds.key('flask')),
+                   fl_x + bpx(6), fl_y + bpx(5), bfont(24),
                    rl.Color(220, 220, 220, 230))
         if (rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT)
                 and rl.check_collision_point_rec(
@@ -1356,7 +1414,7 @@ class HudRenderMixin:
             lost = int(results.get('xp_lost', 0))
             level = int(results.get('level', 0))
             if level >= MAX_LEVEL:
-                tail = 'Death at the cap — no XP was lost.'
+                tail = 'Death at the cap - no XP was lost.'
             elif lost > 0:
                 tail = f'Death cost {lost} XP. Your vessel dropped to Hub; the character survives.'
             else:
@@ -1404,8 +1462,8 @@ class HudRenderMixin:
         rl.draw_ellipse_lines(sx + half, sy + half, float(rx), float(ry), rl.Color(80, 200, 255, 200))
 
         # Darkness system info
-        if self._delve is not None:
-            d = self._delve
+        if self._anima is not None:
+            d = self._anima
             has_rt = bool(self._darkness_rt is not None and self._darkness_rt.id > 0)
             has_blob = bool(self._light_blob_tex is not None and self._light_blob_tex.id > 0)
             step_x, step_y = self.iso._steps()
