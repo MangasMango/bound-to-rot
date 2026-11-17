@@ -336,21 +336,31 @@ def grid_auto_place_instance(grid, slot, cols=None, rows=None):
 
 def grid_auto_place(grid, item_id, count, cols=None, rows=None):
     """Place count of item_id into the first available grid position(s).
-    Returns True if fully placed, False if the grid is full."""
+    Returns True if fully placed, False if the grid is full.
+
+    Atomic (issue #86): on False the grid is UNTOUCHED. The old version
+    merged stackables in place before discovering the remainder had no
+    cells, so a failed call leaked a partial merge - and the pickup path
+    would then duplicate the still-full ground slot."""
     idef = ITEMS.get(item_id, {})
     w, h = idef.get('size', (1, 1))
     cols = GRID_COLS if cols is None else cols
     rows = GRID_ROWS if rows is None else rows
 
+    # Trial placement on shallow copies, committed only on full success.
+    # Mutation never touches instance payloads (only the 'count' scalar).
+    trial = [dict(entry) for entry in grid]
+
     # Merge into an existing stack if stackable
     if idef.get('stackable'):
         max_st = idef.get('maxStack', 9999)
-        for entry in grid:
+        for entry in trial:
             if entry['item'] == item_id and entry['count'] < max_st:
                 add = min(max_st - entry['count'], count)
                 entry['count'] += add
                 count -= add
                 if count <= 0:
+                    grid[:] = trial
                     return True
 
     # Place remaining count into empty slots
@@ -362,14 +372,15 @@ def grid_auto_place(grid, item_id, count, cols=None, rows=None):
             if placed:
                 break
             for col in range(cols - w + 1):
-                if grid_can_place(grid, item_id, col, row, cols, rows):
-                    grid.append({'item': item_id, 'count': to_place,
-                                 'col': col, 'row': row})
+                if grid_can_place(trial, item_id, col, row, cols, rows):
+                    trial.append({'item': item_id, 'count': to_place,
+                                  'col': col, 'row': row})
                     count -= to_place
                     placed = True
                     break
         if not placed:
             return False
+    grid[:] = trial
     return True
 
 
