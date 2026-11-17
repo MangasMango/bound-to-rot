@@ -245,7 +245,8 @@ class ReloadSpeedStatTests(unittest.TestCase):
     def test_cunning_feeds_reload_speed(self):
         derived = prog.compute_derived_stats(
             {'cunning': 4}, {}, item_bonuses={}, looks='knight')
-        self.assertAlmostEqual(derived['reload_speed_pct'], 0.12)
+        # issue #83: small attribute identity (0.5%/pt)
+        self.assertAlmostEqual(derived['reload_speed_pct'], 0.02)
 
     def test_item_affix_still_feeds_the_bonus_bucket(self):
         # retired affix: the bucket still sums, but nothing rolls the id
@@ -257,7 +258,8 @@ class ReloadSpeedStatTests(unittest.TestCase):
         derived = prog.compute_derived_stats(
             {'cunning': 2}, {'reload_speed_pct': 8.0}, item_bonuses={},
             looks='knight')
-        self.assertAlmostEqual(derived['reload_speed_pct'], 0.14)
+        # issue #83: attributes keep a SMALL reload identity (0.5%/pt)
+        self.assertAlmostEqual(derived['reload_speed_pct'], 0.09)
 
     def test_reset_stats_exposes_the_key(self):
         from entities.player_stats import reset_stats

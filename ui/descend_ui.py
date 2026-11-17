@@ -287,37 +287,42 @@ def _rect_has(rect, pt) -> bool:
 # attribute, written as "what ONE more point buys". Icons come from
 # ICON_MAP (BLUEPRINT §42 - never bare stat text).
 ATTR_EFFECT_LINES = {
+    # Issues #83 + #70 (owner ruling: attributes give FLAT stats + one
+    # typed-damage identity; percent levers are item-owned)
     'dexterity': [
-        ('move_speed', 'Move Speed', '+3%'),
-        ('attack_speed', 'Attack Speed', '+3%'),
-        ('evasion', 'Evasion', '+3% of base'),
-        ('accuracy', 'Accuracy', '+4'),
-        ('defense', 'Block Chance', '+1.5%'),
+        ('accuracy', 'Accuracy', '+6'),
+        ('move_speed', 'Move Speed', '+0.25%'),
+        ('attack_speed', 'Attack Speed', '+0.25%'),
     ],
     'endurance': [
         ('hp', 'Max Health', '+6'),
-        ('energy_shield', 'Max Energy Shield', '+3'),
-        ('darkness_resist', 'Darkness Resistance', '+2%'),
+        ('energy_shield', 'Max Energy Shield', '+1.5'),
+        ('darkness_resist', 'Darkness Resistance', '+1%'),
     ],
     'strength': [
-        ('melee', 'Attack Damage', '+5%'),
-        ('hp', 'Max Health', '+8'),
+        ('hp', 'Max Health', '+6'),
+        ('defense', 'Armour', '+1'),
+        ('physical', 'Physical Damage', '+1.5'),
     ],
     'cunning': [
-        ('cooldown_reduction', 'Cooldown Recovery', '+3%'),
-        ('refresh', 'Reload Speed', '+3%'),
+        ('magic', 'Magic Damage', '+1'),
+        ('cooldown_reduction', 'Cooldown Recovery', '+0.5%'),
+        ('refresh', 'Reload Speed', '+0.5%'),
     ],
     'essence': [
-        ('ability_crit', 'Ability Crit Chance', '+1%'),
-        ('luck', 'Entropy Grace', '+1%'),
+        ('rot', 'Rot Damage', '+1'),
+        ('fire', 'Fire Damage', '+1'),
+        ('ability_crit', 'Ability Crit Chance', '+0.5%'),
     ],
     'nerve': [
-        ('crit_chance', 'Crit Chance', '+1%'),
-        ('light', 'Anima Light Radius', '+0.5 tiles'),
+        ('cold', 'Cold Damage', '+1'),
+        ('crit_chance', 'Crit Chance', '+0.5%'),
+        ('light', 'Anima Light Radius', '+0.25 tiles'),
     ],
     'destiny': [
-        ('luck', 'Entropy Grace', '+1.5%'),
-        ('loot', 'Loot Rarity', '+2%'),
+        ('lightning', 'Lightning Damage', '+1'),
+        ('luck', 'Entropy Grace', '+0.5%'),
+        ('loot', 'Loot Rarity', '+1'),
     ],
 }
 
@@ -394,6 +399,19 @@ def _stats_lines(game, derived):
         return pct(derived.get('resist_pct', {}).get(key, 0.0))
 
     dmg_pct = derived.get('damage_pct', {})
+    dflat = derived.get('damage_flat', {})
+
+    def typed_eff(dmg_type: str) -> int:
+        """Effective per-type damage of ONE standard attack, pre-mitigation
+        (owner ruling, issue #84 session): flat x (1 + %). Physical carries
+        the revolver base."""
+        from core.game import ATTACK_DAMAGE
+        base = (ATTACK_DAMAGE * derived.get('attack_damage_mult', 1.0)
+                + equip.get('attack_damage', 0)
+                + dflat.get('physical', 0.0)) if dmg_type == 'physical' \
+            else dflat.get(dmg_type, 0.0)
+        return int(round(base * (1.0 + dmg_pct.get(dmg_type, 0.0))))
+
     atk = int((stats.get('_attack_speed_pct', 0.0)
                + equip.get('attack_speed_pct', 0.0)) * 100)
     cdr = int((stats.get('_cooldown_recovery_pct', 0.0)
@@ -425,12 +443,14 @@ def _stats_lines(game, derived):
         ('Dmg Reduction', f'{dr}%'),
         ('Move Speed',   f'+{spd}%' if spd else '-'),
         ('---', ''),
-        ('Phys Dmg',     pct(dmg_pct.get('physical', 0.0))),
-        ('Magic Dmg',    pct(dmg_pct.get('magic', 0.0))),
-        ('Light. Dmg',   pct(dmg_pct.get('lightning', 0.0))),
-        ('Cold Dmg',     pct(dmg_pct.get('cold', 0.0))),
-        ('Fire Dmg',     pct(dmg_pct.get('fire', 0.0))),
-        ('Rot Dmg',      pct(dmg_pct.get('rot', 0.0))),
+        # Typed rows show the EFFECTIVE damage per standard attack
+        # (flat x (1+%)), pre-mitigation - owner request, issue #84 session
+        ('Phys Dmg',     str(typed_eff('physical'))),
+        ('Magic Dmg',    str(typed_eff('magic'))),
+        ('Light. Dmg',   str(typed_eff('lightning'))),
+        ('Cold Dmg',     str(typed_eff('cold'))),
+        ('Fire Dmg',     str(typed_eff('fire'))),
+        ('Rot Dmg',      str(typed_eff('rot'))),
         ('---', ''),
         ('Fire Res',     rpct('fire')),
         ('Cold Res',     rpct('cold')),

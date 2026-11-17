@@ -210,7 +210,8 @@ class AttributeSourceTests(unittest.TestCase):
         descend = {a: 0 for a in DESCEND_ATTRIBUTES}
         descend['destiny'] = 5
         d = self._derived(descend, {})
-        self.assertEqual(d['loot_rarity_mod'], 10)
+        # issue #83: loot mod is 1/pt (the old 2/pt halved)
+        self.assertEqual(d['loot_rarity_mod'], 5)
 
 
 class CharacterSerializationTests(unittest.TestCase):
