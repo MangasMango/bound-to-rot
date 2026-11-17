@@ -31,6 +31,21 @@ from core.game import *
 _CHAT_OPEN_STATES = (STATE_PLAYING, STATE_HUB)
 
 
+def _action_key(action_id):
+    """Key to sample for a rebindable action (issue #21 + #14).
+
+    An untouched default follows the letter it names on the active OS
+    layout, so Q/W/E/R/T work on AZERTY, Dvorak or Colemak without the
+    player switching to English. Once the player rebinds an action, the
+    stored key is used exactly as chosen - it is a physical key they picked,
+    and re-mapping it by layout would silently move their binding.
+    """
+    bound = keybinds.key(action_id)
+    if bound == keybinds.DEFAULTS.get(action_id):
+        return inp.layout_key(bound)
+    return bound
+
+
 class InputMixin:
     def poll_frame_input(self):
         """Drain raylib's char queue once per RENDER frame (call from main loop).
@@ -209,16 +224,16 @@ class InputMixin:
                 # T is the flask - see systems/flasks.py. Both are blocked
                 # while the Anima panel is open (modal decision UI).
                 for slot_id, action_id in keybinds.GEM_SLOT_ACTIONS.items():
-                    if inp.key_pressed(self, keybinds.key(action_id)):
+                    if inp.key_pressed(self, _action_key(action_id)):
                         self._use_gem_ability(slot_id)
-            if inp.key_pressed(self, keybinds.key('flask')) and not self.inv.open \
+            if inp.key_pressed(self, _action_key('flask')) and not self.inv.open \
                     and not self._anima_chart_is_open():
                 self._use_flask()
             # R: spin the cylinder early (ammo mechanic). Issue #45: the R
             # GEM SLOT IS GONE - R is a pure reload key, no socket consult.
             # Own per-consumer edge ('game.reload'); the HUD R slot flashes
             # so the keypress reads on the belt.
-            if inp.key_pressed('game.reload', keybinds.key('reload')) \
+            if inp.key_pressed('game.reload', _action_key('reload')) \
                     and not self._anima_chart_is_open() \
                     and not _typing_search:
                 if 0 < self._ammo < self._ammo_max and self._reload_t <= 0:

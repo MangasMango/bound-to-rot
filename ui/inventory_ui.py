@@ -1749,7 +1749,10 @@ class InventoryUI:
             self._draw_ghost_icon(GHOST_FLASK_ITEM, r)
         rl.draw_rectangle_lines_ex(r, 1, _c(120, 220, 140, 160) if not hov else C_SLOT_HV)
         kf = max(12, int(r.height * 0.30))
-        fonts.draw('T', int(r.x + r.width - kf - 3), int(r.y + 2), kf, rl.Color(*GEM_KEY_GRAY))
+        # mirror the CURRENT binding, same rule as the gem sockets (issue #14)
+        key_label = keybinds.key_name_compact(keybinds.key('flask'))
+        fonts.draw(key_label, int(r.x + r.width - fonts.measure(key_label, kf) - 3),
+                   int(r.y + 2), kf, rl.Color(*GEM_KEY_GRAY))
 
     def _draw_grid(self, inventory, px, s, mx, my):
         cell = max(8, int(round(GRID_ACELL * s)))
