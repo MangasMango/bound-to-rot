@@ -29,7 +29,6 @@ from core.game import (
     PULSE_OFFSET_X,
     PULSE_OFFSET_Y,
     SHADER_EDGE_SCALE,
-    STATE_DEAD,
     STREAK_BIG_POP_SECS,
     STREAK_LOST_FADE,
     STREAK_POP_SECS,
@@ -735,6 +734,28 @@ class HudRenderMixin:
             fonts.draw(if_msg, cw // 2 - if_tw // 2, ch // 2 - 20, if_fs,
                        rl.Color(255, 180, 60, if_alpha))
 
+        # Death notice (issue #48): the end screen is gone - the XP loss is
+        # announced here in the hub, with the delve banked for re-entry
+        death_notice = getattr(self, '_death_notice', None)
+        if death_notice:
+            dn_alpha = int(min(255, death_notice['timer'] * 85))
+            dn_fs = scale_font(20)
+            lost = int(death_notice.get('lost', 0))
+            dn_msg = (f'YOU DIED - lost {lost} XP' if lost > 0
+                      else 'YOU DIED - no XP was lost')
+            dn_tw = fonts.measure(dn_msg, dn_fs)
+            dn_x = cw // 2 - dn_tw // 2
+            icons.draw('skull', int(dn_x - 30),
+                       int(ch // 2 - 46 - dn_fs // 2), 22,
+                       rl.Color(200, 60, 60, dn_alpha))
+            fonts.draw(dn_msg, int(dn_x), int(ch // 2 - 46), dn_fs,
+                       rl.Color(220, 70, 60, dn_alpha))
+            sub = 'Your delve remains as it stood - re-enter to resume'
+            sub_fs = scale_font(14)
+            sub_tw = fonts.measure(sub, sub_fs)
+            fonts.draw(sub, cw // 2 - sub_tw // 2, int(ch // 2 - 46 + dn_fs + 6),
+                       sub_fs, rl.Color(200, 180, 140, dn_alpha))
+
         # Vessel-unlock banner
         if self._vessel_unlock_timer > 0 and self._vessel_unlock_msg:
             v_pulse = (math.sin(self.raid_time * 5.0) + 1.0) / 2.0
@@ -1379,10 +1400,12 @@ class HudRenderMixin:
                                   mm_size=mm_size, cell=mm_cell,
                                   mx=mm_x, my=mm_y)
     def _draw_end_screen(self, cw, ch):
+        """EXTRACTION end screen only - the death scene is retired (issue
+        #48): death goes straight to the hub with a HUD notice instead."""
         rl.clear_background(rl.BLACK)
         results      = self._raid_results or {}
-        msg          = "YOU DIED" if self.state == STATE_DEAD else "EXTRACTED"
-        header_color = rl.Color(200, 40, 40, 255) if self.state == STATE_DEAD else rl.Color(0xFF, 0xFF, 0xFF, 255)
+        msg          = "EXTRACTED"
+        header_color = rl.Color(0xFF, 0xFF, 0xFF, 255)
         fonts.draw(msg, cw // 2 - fonts.measure(msg, 93) // 2, 60, 93, header_color)
 
         PANEL_W, PANEL_H = 560, 340
@@ -1408,20 +1431,6 @@ class HudRenderMixin:
         row("ITEMS LOOTED", results.get('loot',  0))
         row("EXTRACTED",    "YES" if results.get('extracted') else "NO",
             GREEN_COLOR if results.get('extracted') else rl.Color(180, 60, 60, 255))
-
-        if self.state == STATE_DEAD:
-            from systems.xp import MAX_LEVEL
-            lost = int(results.get('xp_lost', 0))
-            level = int(results.get('level', 0))
-            if level >= MAX_LEVEL:
-                tail = 'Death at the cap - no XP was lost.'
-            elif lost > 0:
-                tail = f'Death cost {lost} XP. Your vessel dropped to Hub; the character survives.'
-            else:
-                tail = 'Your vessel dropped to Hub; the character survives.'
-            fonts.draw(tail,
-                       cw // 2 - fonts.measure(tail, 18) // 2,
-                       panel_y + PANEL_H + 8, 18, rl.Color(200, 100, 100, 200))
 
         hint = "PRESS ENTER TO CONTINUE"
         fonts.draw(hint, cw // 2 - fonts.measure(hint, 28) // 2,

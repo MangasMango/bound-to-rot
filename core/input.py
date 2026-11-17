@@ -73,6 +73,28 @@ class InputMixin:
         self.audio.set_sfx_volume(s.volume / 100.0)
         self.audio.set_music_volume(s.music_volume / 100.0)
         self.audio.tick(dt)
+        # Notification/effect timers tick in EVERY state - the hub runs
+        # _update_hub, not _update_game, so a death notice (or the frozen
+        # hit-flash shader from the killing blow) would never fade there
+        # (issue #48 follow-up).
+        self.hit_flash = max(0.0, self.hit_flash - dt * 2)
+        self._shake_timer = max(0.0, self._shake_timer - dt)
+        if self._shake_timer <= 0:
+            self._shake_intensity = 0.0
+        self._vessel_unlock_timer = max(0.0, self._vessel_unlock_timer - dt)
+        self._save_notice_timer = max(0.0, self._save_notice_timer - dt)
+        self._inv_full_timer = max(0.0, self._inv_full_timer - dt)
+        death_notice = getattr(self, '_death_notice', None)
+        if death_notice is not None:
+            death_notice['timer'] = max(0.0, death_notice['timer'] - dt)
+            if death_notice['timer'] <= 0.0:
+                self._death_notice = None
+        # Post-process decay: the killing blow leaves pp_wave/pp_dream/pp_gray
+        # raised - in the hub they must still unwind or the wave warp plays
+        # forever (issue #48 follow-up)
+        self._pp_wave  = max(0.0, self._pp_wave - dt * 3.0)
+        self._pp_dream = max(0.0, self._pp_dream - dt * 2.0)
+        self._pp_gray  = max(0.0, self._pp_gray - dt * 2.0)
         # Iso zoom is a 1080p-REFERENCE number (owner ruling 2026-11): the
         # effective world scale rides the window size every frame, so the
         # span of visible tiles stays identical at ANY resolution - and
@@ -147,7 +169,7 @@ class InputMixin:
                     self._go_to_menu('main')
             return
 
-        if self.state in (STATE_DEAD, STATE_EXTRACTED):
+        if self.state == STATE_EXTRACTED:
             if inp.key_pressed(self,rl.KEY_ENTER) or inp.key_pressed(self,rl.KEY_ESCAPE):
                 self._go_to_menu('main')
             return

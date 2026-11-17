@@ -104,6 +104,17 @@ def test_input_dispatch_turns_key_press_into_inventory_intent(monkeypatch):
     game._chat_enter_open = _KeyEdge()
     game._char_stats_open = False
     game._combat_log_open = False
+    # common-update timers (issue #48: they decay in every state now)
+    game.hit_flash = 0.0
+    game._shake_timer = 0.0
+    game._shake_intensity = 0.0
+    game._vessel_unlock_timer = 0.0
+    game._save_notice_timer = 0.0
+    game._inv_full_timer = 0.0
+    game._death_notice = None
+    game._pp_wave = 0.0
+    game._pp_dream = 0.0
+    game._pp_gray = 0.0
     # iso zoom rides _zoom_ref -> effective_scale (needs a game iso)
     from core.iso_engine import effective_scale
     game._zoom_ref = 3.0
