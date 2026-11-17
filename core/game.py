@@ -635,7 +635,6 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self._chat_bs            = _KeyEdge()
         self._chat_esc           = _KeyEdge()
         self._chat_enter         = _KeyEdge()
-        self._chat_enter_open    = _KeyEdge()   # open-on-Enter (closed path)
         self._chat_log           = []   # (prompt, output, birth) triples
         self._chat_history       = []
         self._chat_history_idx   = -1

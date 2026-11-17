@@ -165,6 +165,19 @@ def test_swapped_sites_sample_keys_through_the_registry():
         assert 'keybinds.key(' in src, f'{rel_path} does not use the registry'
 
 
+def test_chat_console_open_keys():
+    """Issue #13 follow-up: the chat console opens on `/` (+ the Y / `
+    alternates) and NEVER on Enter - Enter interacts with the item grids.
+    An explicit rebind silences the alternates."""
+    keybinds._bindings = dict(keybinds.DEFAULTS)
+    keybinds._loaded = True
+    keys = [keybinds.key_name(k) for k in keybinds.chat_open_keys()]
+    assert keys == ['SLASH', 'Y', 'GRAVE']
+    keybinds.set_key('chat_console', rl.KEY_K)
+    keys = [keybinds.key_name(k) for k in keybinds.chat_open_keys()]
+    assert keys == ['K']
+
+
 def test_menus_own_the_keybind_ui():
     src = Path('ui/menus.py').read_text()
     assert '_d_keybinds_tab' in src

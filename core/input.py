@@ -28,9 +28,6 @@ from core.game import *
 # States where Enter opens the chat when it is closed. PAUSED is excluded on
 # purpose: its Enter is the menu-confirm key, and menus keep their own
 # semantics regardless (open question #1 of .ai/CHAT_CONSOLE_PLAN.md).
-_CHAT_OPEN_STATES = (STATE_PLAYING, STATE_HUB)
-
-
 def _action_key(action_id):
     """Key to sample for a rebindable action (issue #21 + #14).
 
@@ -104,18 +101,16 @@ class InputMixin:
             float(getattr(self, '_zoom_ref', DEFAULT_SCALE)))
         self._update_mouse_transform()
 
-        if inp.key_pressed(self, keybinds.key('chat_console')) and self.state != STATE_EDITOR:
-            self._chat_open = not self._chat_open
-            self._chat_buf = ''
-
-        # PoE chat: Enter opens when closed in gameplay states. The submit
-        # latch is primed so the very press that opens the chat cannot also
-        # fire the (empty) submit on the same tick.
-        if (self._chat_enter_open.pressed(rl.KEY_ENTER)
-                and self.state in _CHAT_OPEN_STATES and not self._chat_open):
+        # Chat console (issue #13 follow-up): opens on `/` (the rebindable
+        # action, plus the Y / ` alternates while untouched) - Enter no
+        # longer opens it because Enter now interacts with the item grids.
+        # OPEN-ONLY: `/` and Y are characters typed INTO the chat, so the
+        # keys never toggle-close an open console (Esc / Enter submit close).
+        if not self._chat_open and self.state != STATE_EDITOR \
+                and any(inp.key_pressed(self, k)
+                        for k in keybinds.chat_open_keys()):
             self._chat_open = True
             self._chat_buf = ''
-            self._chat_enter.mark_down()
 
         if inp.key_pressed(self, keybinds.key('debug_overlay')):
             self.menu_sys.settings.debug_overlay = not self.menu_sys.settings.debug_overlay
@@ -200,7 +195,10 @@ class InputMixin:
                     self._minimap.update(dt)
                 return
             if inp.key_pressed(self,rl.KEY_ESCAPE):
-                if self.inv.open and self.inv.search_focused:
+                if self.inv.open and self.inv._ctx is not None:
+                    # Esc closes the context menu first (issue #13)
+                    self.inv._ctx = None
+                elif self.inv.open and self.inv.search_focused:
                     self.inv.search_focused = False   # Esc unfocuses the search, keeps the panel
                 elif self._char_stats_open:
                     self._char_stats_open = False   # ESC closes the panel first

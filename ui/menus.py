@@ -1777,7 +1777,11 @@ class MenuSystem:
 
     def _u_inventory(self, _dt):
         if _inp.key_pressed(self, rl.KEY_ESCAPE):
-            self.state = self._prev
+            if self.inv._ctx is not None:
+                # Esc closes the context menu first (issue #13)
+                self.inv._ctx = None
+            else:
+                self.state = self._prev
 
     def _d_inventory(self, cw: int, ch: int):
         _title('Inventory', 56, cw)
@@ -1808,7 +1812,11 @@ class MenuSystem:
 
     def _u_stash(self, _dt):
         if _inp.key_pressed(self, rl.KEY_ESCAPE):
-            self._hub_back()
+            if self.inv._ctx is not None:
+                # Esc closes the context menu first (issue #13)
+                self.inv._ctx = None
+            else:
+                self._hub_back()
 
     def _d_stash(self, cw: int, ch: int):
         """Menu-context bank view -- backdrop only; the interactive InventoryUI
