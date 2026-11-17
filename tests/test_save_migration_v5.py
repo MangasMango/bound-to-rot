@@ -80,7 +80,10 @@ class MigrateV4ToV5Tests(unittest.TestCase):
         inst = migrated['characters'][0]['inventory']['grid'][0]['instance_data']
         prefixes = inst['affixes']['prefixes']
         self.assertNotIn('flat_melee_damage', prefixes)
-        self.assertEqual(prefixes.get('flat_attack_damage'), 8)
+        # v5 renamed it to flat_attack_damage; the v7 stat split then
+        # retired it (attributes own flat stats now) with compensation
+        self.assertNotIn('flat_attack_damage', prefixes)
+        self.assertIn('migration_note', migrated)
 
     def test_retired_affixes_stripped_and_compensated(self):
         import systems.itemgen as itemgen
@@ -119,8 +122,12 @@ class MigrateV4ToV5Tests(unittest.TestCase):
                         * itemgen.M_RARITY[inst['rarity']])
                 total_fair += fair
         self.assertGreater(total_fair, 0)
-        # the two prefix slots survive (attack damage + one compensation)
-        self.assertIn('flat_attack_damage', aff['prefixes'])
+        # the retired flat_attack_damage (v7 stat split) is gone; the
+        # compensation is a whole Queen of Diamonds per affected item
+        self.assertNotIn('flat_attack_damage', aff['prefixes'])
+        grid = migrated['characters'][0]['inventory']['grid']
+        comp = [e for e in grid if e.get('item') == 'poker_queen_diamonds']
+        self.assertGreaterEqual(sum(e.get('count', 0) for e in comp), 1)
 
     def test_note_is_attached_and_idempotent(self):
         save = _v4_save()

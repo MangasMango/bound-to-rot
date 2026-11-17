@@ -1267,6 +1267,19 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         derived = compute_derived_stats(
             self.char.descend, bonuses,
             item_bonuses=item_attr, looks=self.char.looks)
+        # Typed implicit damage from organ bases (issue #83 follow-up):
+        # read straight from the ITEMS table (fractions) so the rolled
+        # affix points - already folded through compute_derived_stats -
+        # can never double-count here.
+        for entry in (self.inventory.get('equipped') or {}).values():
+            if not isinstance(entry, dict):
+                continue
+            idef = ITEMS.get(entry.get('item', ''), {})
+            for t in ('physical', 'magic', 'lightning', 'cold', 'fire', 'rot'):
+                pct = (idef.get('equip') or {}).get(f'{t}_damage_pct', 0.0)
+                if pct:
+                    derived['damage_pct'][t] = (derived['damage_pct'].get(t, 0.0)
+                                                + pct)
         reset_stats(self.stats, **derived)
 
     def _on_gear_changed(self):
@@ -1771,7 +1784,9 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
             s['max_health'] = new_max_hp
             s['health'] = min(s['max_health'], s['max_health'] * pct)
         base_ev = s.get('_base_evasion', s['evasion'])
-        s['evasion'] = base_ev + equip_effects['evasion']
+        ev_pct = equip_effects.get('evasion_pct', 0.0)
+        s['evasion'] = int((base_ev + equip_effects['evasion']) * (1.0 + ev_pct)) \
+            if ev_pct else base_ev + equip_effects['evasion']
 
         # ── mouse dispatch: move / attack / interact / pickup ──────────
         if self._dispatch_game_mouse_input(cw, ch):
@@ -1902,7 +1917,10 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
 
         # ── enemy updates ─────────────────────────────────────────────
         damage_reduction     = equip_effects['damage_reduction']
-        flat_damage_reduction = equip_effects['flat_damage_reduction']
+        # Flat armor = the flat_armor affix total + the STR identity
+        # (attributes give flat stats, issue #83/#70)
+        flat_damage_reduction = (equip_effects['flat_damage_reduction']
+                                 + self.stats.get('armor_flat', 0.0))
         block_chance = min(0.75, self.stats.get('block_chance', 0.0)
                            + equip_effects['block_chance'])
         player_ref = {'x': self.px, 'y': self.py,
@@ -2443,11 +2461,27 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
             result = {'damage': 0, 'evaded': False, 'crit': False,
                       'crushing': False, 'strikes': None, 'immune': True}
         else:
-            flat_dmg = equip_effects['attack_damage']
+            flat_dmg = (equip_effects['attack_damage']
+                        + self.stats.get('damage_flat', {}).get('physical', 0.0))
             if self._angel_timer > 0:
                 flat_dmg = int(flat_dmg * 1.5) + 1
-            ranged_dmg = int((ATTACK_DAMAGE * self.stats.get('attack_damage_mult', 1.0)
-                              + flat_dmg) * self._outgoing_dmg_mult('physical'))
+            # every shot carries the FULL typed breakdown (owner ruling):
+            # the revolver's physical base + every other typed flat, each
+            # scaled by its own percent axis; components stay (base, flat)
+            # pairs so mitigation can spare the attribute flats from armour
+            dmg_flat = self.stats.get('damage_flat', {})
+            dmg_pct = self.stats.get('damage_pct', {})
+            breakdown = {}
+            for t in ('physical', 'magic', 'rot', 'cold', 'lightning', 'fire'):
+                base_part = ((ATTACK_DAMAGE * self.stats.get('attack_damage_mult', 1.0)
+                              + flat_dmg) if t == 'physical' else 0.0)
+                flat_part = dmg_flat.get(t, 0.0)
+                scale = 1.0 + dmg_pct.get(t, 0.0)
+                if base_part > 0 or flat_part > 0:
+                    breakdown[t] = {'base': base_part * scale,
+                                    'flat': flat_part * scale}
+            ranged_dmg = int(sum(c['base'] + c['flat']
+                                 for c in breakdown.values()))
             crit_chance = min(0.75, self.stats.get('_crit_chance', 0.0)
                               + equip_effects['crit_chance'])
             crushing_chance = min(0.75, self.stats.get('crushing_blow_pct', 0.0)
@@ -2457,12 +2491,19 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                 crit_chance=crit_chance,
                 crushing_blow_chance=crushing_chance,
                 double_strike='bang_bang' in itemgen.equipped_uniques(self.inventory))
+            # the resolved hit scales every typed component (crit/crush/double)
+            if ranged_dmg > 0:
+                scale = result['damage'] / ranged_dmg
+                for comp in breakdown.values():
+                    comp['base'] *= scale
+                    comp['flat'] *= scale
         self._bullets.append({
             'sx': sx, 'sy': sy,           # muzzle (world pos)
             'x': sx,  'y': sy,            # current flight position
             'tx': tx, 'ty': ty,           # impact point (homing updates it)
             'target': target,             # living enemy ref (may die mid-flight)
             'result': result,             # pre-rolled hit
+            'breakdown': breakdown,       # typed components (owner ruling: all damage adds up)
             'timer': 0.0,                 # flight time (tracer rendering)
             # knockback impulse (tiles/sec along the shot line); crits
             # shove 1.6× harder, item affixes add via 'knockback'
@@ -2534,11 +2575,12 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                                    -1, color=rl.Color(150, 150, 220, 255))
             self._log_combat(f"Immune  → {etype}", 'miss')
         elif not result['evaded']:
-            pen = self.stats.get('penetration_pct', {}).get('physical', 0.0)
-            strike_damages = result.get('strikes') or [result['damage']]
-            dealt = sum(self._apply_damage_to_enemy(
-                target, strike_damage, 'physical', pen)
-                for strike_damage in strike_damages)
+            # the FULL typed breakdown lands (owner ruling: all damage adds
+            # up; per-type mitigation + per-type coloured numbers)
+            pen = self.stats.get('penetration_pct', {})
+            dealt = self._apply_typed_attack(
+                target, bullet.get('breakdown') or {'physical': result['damage']},
+                pen)
             self._apply_lifesteal(dealt)
             self._vampiric_heal(dealt)
             tag = 'crit' if result.get('crit') else 'hit'
@@ -2546,15 +2588,9 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                              f"{'  CRIT' if result.get('crit') else ''}"
                              f"{'  CRUSH' if result.get('crushing') else ''}", tag)
             if result.get('crit'):
-                dmg_color = rl.Color(255, 220, 40, 255)
                 self._spawn_swoosh(target['x'], target['y'],
                                    0, 0, color=rl.Color(255, 200, 50, 160))
                 self._spawn_crit_sparkles(target['x'], target['y'])
-            else:
-                dmg_color = rl.Color(255, 220, 200, 255)
-            self._spawn_dmg_number(target['x'], target['y'],
-                                   dealt, color=dmg_color,
-                                   crit=bool(result.get('crit')))
             self.audio.bullet_impact()
             # gunslinger knockback: shove the enemy back along the shot line
             kb = bullet.get('kb', 0.0)
@@ -2593,7 +2629,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         out = {
             'damage_reduction': 0.0, 'move_speed': 0.0,
             'max_health': 0, 'max_health_pct': 0.0,
-            'evasion': 0,
+            'evasion': 0, 'evasion_pct': 0.0,
             'attack_damage': 0,
             'attack_speed_pct': 0.0, 'cooldown_recovery_pct': 0.0,
             'crit_chance': 0.0, 'ability_crit_chance': 0.0,
@@ -2783,9 +2819,10 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
 
 
 
-    def _spawn_dmg_number(self, wx, wy, value, color=None, crit: bool = False):
+    def _spawn_dmg_number(self, wx, wy, value, color=None, crit: bool = False,
+                          dy: float = 0.0):
         self._dmg_numbers.append({
-            'x': wx, 'y': wy, 'timer': 0.0,
+            'x': wx, 'y': wy - dy, 'timer': 0.0,
             'value': int(value),
             'color': color if color is not None else rl.WHITE,
             'crit': crit,   # crits: bigger, longer life, pop-in + fast rise
@@ -2945,7 +2982,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
             self._spawn_swoosh(self.px, self.py, dir_x, dir_y, color=swoosh_color)
             ability_crit = min(0.75, self.stats.get('_ability_crit_chance', 0.0)
                                + self._equipped_bonuses()['ability_crit_chance'])
-            pen = self.stats.get('penetration_pct', {}).get(dmg_type, 0.0)
+            pen = self.stats.get('penetration_pct', {})
             lightning_chain_targets = []
             for z in hit_z:
                 if _is_enemy_immune(z, dmg_type):
@@ -2953,11 +2990,20 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                     continue
                 # Lightning has high variance: random in [1, base_dmg * 2]
                 actual_dmg = _rnd.randint(1, dmg * 2) if dmg_type == 'lightning' else dmg
-                actual_dmg = int(actual_dmg * self._outgoing_dmg_mult(dmg_type))
+                # EVERY attack carries the full typed breakdown (owner
+                # ruling): the cone's own type takes the base, every other
+                # type rides in with its flat scaled by its percent axis
+                breakdown = self._typed_attack_breakdown(dmg_type, actual_dmg)
+                for t, comp in breakdown.items():
+                    scale = 1.0 + self.stats.get('damage_pct', {}).get(t, 0.0)
+                    comp['base'] *= scale
+                    comp['flat'] *= scale
                 crit = _rnd.random() < ability_crit
                 if crit:
-                    actual_dmg = int(actual_dmg * combat.CRIT_MULT)
-                dealt = self._apply_damage_to_enemy(z, actual_dmg, dmg_type, pen)
+                    for comp in breakdown.values():
+                        comp['base'] *= combat.CRIT_MULT
+                        comp['flat'] *= combat.CRIT_MULT
+                dealt = self._apply_typed_attack(z, breakdown, pen)
                 if dealt <= 0:
                     continue
                 combat.apply_status_to_enemy(z, dmg_type, dealt)
@@ -2965,9 +3011,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                                  f"{'  CRIT' if crit else ''}", 'crit' if crit else 'hit')
                 if crit:
                     self._spawn_crit_sparkles(z['x'], z['y'])
-                self._spawn_dmg_number(z['x'], z['y'], dealt,
-                                       color=rl.Color(255, 220, 40, 255) if crit else swoosh_color,
-                                       crit=bool(crit))
+                # per-type coloured numbers are spawned by _apply_typed_attack
                 if dmg_type == 'lightning':
                     lightning_chain_targets.append(z)
                 if z['health'] <= 0:
@@ -2990,6 +3034,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                                       candidate['y'] - source['y']) > 2.5:
                             continue
                         varied_chain_dmg = _rnd.randint(1, chain_dmg * 2)
+                        varied_chain_dmg += self.stats.get('damage_flat', {}).get('lightning', 0.0)
                         varied_chain_dmg = int(varied_chain_dmg * self._outgoing_dmg_mult('lightning'))
                         crit = _rnd.random() < ability_crit
                         if crit:
@@ -3127,36 +3172,99 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         dmg_pct = self.stats.get('damage_pct', {})
         return 1.0 + dmg_pct.get(dmg_type, 0.0)
 
-    def _apply_damage_to_enemy(self, z: dict, raw_dmg: float, dmg_type: str, pen: float = 0.0) -> int:
-        """Apply player damage to an enemy through its armor (damage_reduction)
-        and per-type resist_pct (reduced by the attacker's penetration).
+    # Per-type damage-number colours (owner ruling: every attack adds up
+    # all typed sources and the hit shows each component in ITS colour)
+    _DMG_NUMBER_COLORS = {
+        'physical':  rl.Color(240, 240, 240, 255),
+        'magic':     rl.Color(180,  80, 255, 255),
+        'fire':      rl.Color(255, 130,  40, 255),
+        'cold':      rl.Color(120, 180, 255, 255),
+        'lightning': rl.Color(255, 230,  60, 255),
+        'rot':       rl.Color(110, 200,  90, 255),
+    }
 
-        Returns the damage actually dealt (0 if immune). Callers remain
-        responsible for kill bookkeeping via z['health']."""
-        if _is_enemy_immune(z, dmg_type):
-            self._spawn_dmg_number(z['x'], z['y'], -1, color=rl.Color(150, 150, 220, 255))
-            self._log_combat(f"Immune  → {enemy_display_name(z.get('enemy_type'))}", 'miss')
-            return 0
+    def _typed_attack_breakdown(self, base_type: str, base_amount: float) -> dict:
+        """Every attack carries ALL typed damage sources added up (owner
+        ruling): the attack's own type gets the base amount, and every
+        other type contributes its flat. Each component is a
+        (base, attribute_flat) pair so mitigation can treat them
+        differently: attribute flats bypass the armour layer (issue #84
+        session: 'I should do 11 cold damage BEFORE resists' - the flat
+        value must not be double-shrunk by stacked DR x resist)."""
+        dmg_flat = self.stats.get('damage_flat', {})
+        breakdown = {}
+        for t in ('physical', 'magic', 'rot', 'cold', 'lightning', 'fire'):
+            base = base_amount if t == base_type else 0.0
+            flat = dmg_flat.get(t, 0.0)
+            if base > 0 or flat > 0:
+                breakdown[t] = {'base': base, 'flat': flat}
+        return breakdown
+
+    def _apply_typed_attack(self, z: dict, breakdown: dict,
+                            pen_pct: dict = None) -> int:
+        """Apply a multi-type attack (owner ruling): every component is
+        mitigated by ITS OWN type's rules and the damage ADDS UP; each
+        component shows its own coloured damage number.
+
+        Type rules: physical full DR + resist; magic/fire/cold/lightning
+        half DR + resist; ROT ignores armour AND resistances entirely -
+        the anti-armour type.
+
+        Returns the total damage dealt. Callers remain responsible for
+        kill bookkeeping."""
+        pen_pct = pen_pct or {}
+        total = 0
+        primary_shown = False
+        idx = 0
         dr = z.get('damage_reduction', 0.0)
-        if dmg_type == 'physical':
-            eff_dr = dr
-        elif dmg_type == 'magic':
-            eff_dr = 0.0
-        else:
-            eff_dr = dr * 0.5
-        dmg = raw_dmg * (1.0 - min(0.75, max(0.0, eff_dr)))
-        resist = max(0.0, z.get('resist_pct', {}).get(dmg_type, 0.0) - pen)
-        resist = min(0.75, resist)
-        dmg = int(dmg * (1.0 - resist))
-        z['health'] = max(0.0, z['health'] - dmg)
-        z['hit_count'] = z.get('hit_count', 0) + 1
-        if dmg > 0 and z['health'] <= 0:
-            # Death cue in ONE place so every damage source (bullets, cone
-            # abilities, lightning chains, fire aura ticks) carries it; the
-            # bullet path previously owned the only call and every skill
-            # kill was silent.
-            self.audio.enemy_dead()
-        return dmg
+        for dmg_type, comp in breakdown.items():
+            if not isinstance(comp, dict):
+                comp = {'base': comp, 'flat': 0.0}   # scalar single-type path
+            if comp.get('base', 0.0) <= 0 and comp.get('flat', 0.0) <= 0:
+                continue
+            if _is_enemy_immune(z, dmg_type):
+                continue
+            base_part = comp.get('base', 0.0)
+            flat_part = comp.get('flat', 0.0)
+            if dmg_type == 'rot':
+                # anti-armour: no DR, no resist - for BOTH parts
+                dealt = int(base_part + flat_part)
+            else:
+                if dmg_type == 'physical':
+                    dr_factor = 1.0 - min(0.75, max(0.0, dr))
+                else:
+                    dr_factor = 1.0 - min(0.75, max(0.0, dr * 0.5))
+                eff_resist = max(
+                    0.0, z.get('resist_pct', {}).get(dmg_type, 0.0)
+                    - pen_pct.get(dmg_type, 0.0))
+                # attribute flats are innate power: they bypass the armour
+                # layer; the type's resist (after penetration) still bites
+                dealt = int((base_part * dr_factor + flat_part)
+                            * (1.0 - min(0.75, eff_resist)))
+            if dealt <= 0:
+                continue
+            total += dealt
+            self._spawn_dmg_number(
+                z['x'], z['y'] - idx * 0.35, dealt,
+                color=self._DMG_NUMBER_COLORS.get(dmg_type, rl.WHITE))
+            idx += 1
+            primary_shown = True
+        z['health'] = max(0.0, z['health'] - total)
+        if total > 0:
+            z['hit_count'] = z.get('hit_count', 0) + 1
+            if z['health'] <= 0:
+                self.audio.enemy_dead()
+        if not primary_shown and breakdown:
+            # fully immune to everything in the breakdown
+            self._spawn_dmg_number(z['x'], z['y'], -1,
+                                   color=rl.Color(150, 150, 220, 255))
+        return total
+
+    def _apply_damage_to_enemy(self, z: dict, raw_dmg: float, dmg_type: str, pen: float = 0.0) -> int:
+        """Single-type damage application (DoT ticks, chain echoes): the
+        per-type mitigation rules live in _apply_typed_attack."""
+        return self._apply_typed_attack(
+            z, {dmg_type: raw_dmg}, {dmg_type: pen})
 
     def _apply_lifesteal(self, damage):
         """Timed Lifesteal buff (E-gem active): heal a pct of dealt melee
@@ -3342,6 +3450,28 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                 ref = float(getattr(self, '_zoom_ref', DEFAULT_SCALE))
                 output = (f'Zoom {ref:.2f} (1080p reference) → world scale '
                           f'{self.iso.scale:.2f}')
+        elif command == 'dmg':
+            # QA diagnostic (rule 44 backdoor, read-only): prints exactly
+            # what the stat pipeline computes per damage type, plus the
+            # next shot's breakdown - settles any 'is my % applying' doubt
+            flat = self.stats.get('damage_flat', {})
+            pct = self.stats.get('damage_pct', {})
+            armor = self.stats.get('armor_flat', 0.0)
+            breakdown = self._typed_attack_breakdown('physical', 0.0)
+            lines = ['damage_flat: ' + ', '.join(
+                f'{t}={flat.get(t, 0.0):g}' for t in
+                ('physical', 'magic', 'fire', 'cold', 'lightning', 'rot')),
+                'damage_pct:  ' + ', '.join(
+                f'{t}={pct.get(t, 0.0) * 100:g}%' for t in
+                ('physical', 'magic', 'fire', 'cold', 'lightning', 'rot')),
+                f'armor_flat: {armor:g}']
+            shot = []
+            for t in ('physical', 'magic', 'fire', 'cold', 'lightning', 'rot'):
+                comp = breakdown.get(t)
+                if comp:
+                    shot.append(f"{t}={comp.get('base', 0) + comp.get('flat', 0):.0f}")
+            lines.append('next shot: ' + (', '.join(shot) if shot else 'no flat damage'))
+            output = '\n'.join(lines)
         elif command == 'horde':
             # Horde QA lever (rule 44 backdoor): scales every anima wave
             # for the rest of the anima by pushing _horde_mult in the anima
@@ -3423,7 +3553,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                           f"· rain: {'yes' if self.weather.get('raining') else 'no'} "
                           f"(intensity {self.weather.get('intensity', 0.0):.2f})")
         elif command == 'help':
-            output = '/god  /heal  /kill  /give <item> [n|rarity]  /zoom <n>  /horde <1..10>'
+            output = '/god  /heal  /kill  /give <item> [n|rarity]  /zoom <n>  /horde <1..10>  /dmg'
             output += '\n/descend <attr> <0..10>   /perk <id> <0..max>   /pp [color|bloom|wave|dream|gray|pixel|swirl] [on|off|<val>]'
             output += '\n/pp contrast|sat|bright <v>   /pp_bloom samples|quality|threshold|intensity <v>'
             output += '\n/weather [on|off] - toggle wet FX · /clear - wipe chat history'

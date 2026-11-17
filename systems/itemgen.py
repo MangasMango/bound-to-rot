@@ -76,9 +76,6 @@ def _v_rand(rng=None):
 # label : tooltip line, {v} substituted
 _AFFIXES = [
     # ── prefixes ──
-    {'id': 'flat_max_health',             'kind': 'prefix', 'slots': None,
-     'base': 30,   'round': 'int', 'pct': False, 'word': 'Stalwart',
-     'label': '+{v} Maximum Life'},
     {'id': 'local_damage_reduction',      'kind': 'prefix', 'slots': {'liver', 'lungs'},
      'base': 0.06, 'round': 2, 'pct': True,  'word': 'Plated',
      'label': '+{v}% Damage Reduction'},
@@ -88,28 +85,18 @@ _AFFIXES = [
     {'id': 'percent_max_health',          'kind': 'prefix', 'slots': {'liver', 'heart'},
      'base': 0.05, 'round': 2, 'pct': True,  'word': 'Vigorous',
      'label': '+{v}% Maximum Life'},
-    # Attack damage (renamed from flat_melee_damage, leveling rework):
-    # feeds the same `_fire_bullet` flat slot; the %-multiplier line is
-    # STR-owned and never rolls on items (plan §2.4).
-    {'id': 'flat_attack_damage',          'kind': 'prefix', 'slots': {'intestine', 'kidney', 'heart'},
-     'base': 5,    'round': 'int', 'pct': False, 'word': 'Savage',
-     'label': '+{v} Attack Damage'},
-    {'id': 'percent_attack_speed',        'kind': 'prefix', 'slots': {'lungs', 'heart'},
+
+    # ── suffixes (utility/defense - owner ruling #83/#70: attack speed
+    #    and crit rolls are suffixes, PoE-style) ──
+    {'id': 'percent_attack_speed',        'kind': 'suffix', 'slots': {'lungs', 'heart'},
      'base': 0.08, 'round': 2, 'pct': True,  'word': 'Frenzied',
      'label': '+{v}% Attack Speed'},
-    {'id': 'ability_crit_chance',         'kind': 'prefix', 'slots': {'heart', 'intestine', 'kidney'},
+    {'id': 'ability_crit_chance',         'kind': 'suffix', 'slots': {'heart', 'intestine', 'kidney'},
      'base': 0.03, 'round': 2, 'pct': True,  'word': 'Arcane',
      'label': '+{v}% Ability Critical Strike'},
-
-    # ── suffixes ──
-    # Movement speed is DEX-owned (leveling rework §2.1 ruling) - no '-%'
-    # Movement Speed' line; attack speed stays rollable as a prefix.
     {'id': 'crit_chance',                 'kind': 'suffix', 'slots': {'lungs', 'liver', 'intestine'},
      'base': 0.03, 'round': 2, 'pct': True,  'word': 'of Precision',
      'label': '+{v}% Critical Strike'},
-    {'id': 'flat_evasion',                'kind': 'suffix', 'slots': {'lungs', 'liver'},
-     'base': 25,   'round': 'int', 'pct': False, 'word': 'of Evasion',
-     'label': '+{v} Evasion Rating'},
 
     # ── attribute suffixes RETIRED (leveling rework §2.3 owner ruling:
     #    items give STATS only; attribute points come from level-ups and
@@ -123,13 +110,6 @@ _AFFIXES = [
 # Classic LIVE_EFFECT ids (flat_*) map through LIVE_EFFECT_MAP; resist
 # lines mirror the pk_* perk-style shape (percentage-point values).
 _STAT_REPLACEMENT_SUFFIXES = [
-    # flat vitality / shield lines (not attribute-unique domains)
-    {'id': 'flat_vitality',               'kind': 'suffix', 'slots': None,
-     'base': 12,   'round': 'int', 'pct': False, 'word': 'of Vitality',
-     'label': '+{v} Maximum Life'},
-    {'id': 'flat_aegis',                  'kind': 'suffix', 'slots': {'lungs', 'intestine'},
-     'base': 8,    'round': 'int', 'pct': False, 'word': 'of Aegis',
-     'label': '+{v} Maximum Energy Shield'},
     # resistances - rolled stats, distinct from END's darkness resist
     {'id': 'pk_rot_resist',               'kind': 'suffix', 'slots': {'heart', 'liver'},
      'base': 5, 'round': 'int', 'pct': True,  'word': 'of Rot Warding',
@@ -169,7 +149,7 @@ _PERK_AFFIXES = [
     {'id': 'pk_max_es',          'kind': 'prefix', 'slots': {'liver', 'heart', 'intestine'},
      'base': 4, 'round': 'int', 'pct': False, 'word': 'Shielded',
      'label': '+{v} Maximum Energy Shield', 'perk': 'max_energy_shield'},
-    {'id': 'pk_dark_resist',     'kind': 'prefix', 'slots': {'liver', 'heart'},
+    {'id': 'pk_dark_resist',     'kind': 'suffix', 'slots': {'liver', 'heart'},
      'base': 5, 'round': 'int', 'pct': True,  'word': 'Umbral',
      'label': '+{v}% Darkness Resistance', 'perk': 'darkness_resist_pct'},
 
@@ -279,16 +259,11 @@ ROT_MYTHIC_DEPTH_MAX = 10
 LIVE_EFFECT_MAP = {
     'local_damage_reduction': 'damage_reduction',
     'percent_move_speed':     'move_speed',
-    'flat_max_health':         'max_health',
     'percent_max_health':      'max_health_pct',
-    'flat_evasion':            'evasion',
     'flat_armor':              'flat_damage_reduction',
-    'flat_attack_damage':      'attack_damage',
     'percent_attack_speed':    'attack_speed_pct',
     'crit_chance':             'crit_chance',
     'ability_crit_chance':     'ability_crit_chance',
-    'flat_vitality':           'max_health',
-    'flat_aegis':              'max_energy_shield',
     # rot drawback suffixes - stored NEGATIVE, so the summed effect subtracts
     'rot_drawback_max_life':      'max_health',
     'rot_drawback_move_speed':    'move_speed',
@@ -694,7 +669,17 @@ def affix_lines(instance_data):
             a = _AFFIX_BY_ID.get(aid)
             if not a:
                 continue
-            v = f"{abs(val) * 100:.0f}" if a['pct'] else f"{abs(val):g}"
+            # Two value conventions live side by side (issue #95 session):
+            #   * classic live-effect affixes store FRACTIONS (0.05 = 5%)
+            #     and are displayed x100;
+            #   * perk-keyed affixes (the pk_* families) store PERCENTAGE
+            #     POINTS (10 = 10% - compute_derived_stats divides by 100
+            #     when folding them) and must be displayed raw. The old
+            #     x100-everything rule showed +1000% for a +10% roll.
+            if a['pct'] and not a.get('perk'):
+                v = f"{abs(val) * 100:.0f}"
+            else:
+                v = f"{abs(val):g}"
             lines.append(a['label'].format(v=v))
     return lines
 
@@ -725,7 +710,7 @@ STAT_META = {
     'damage_reduction':       ('Damage Reduction', True),
     'move_speed':             ('Move Speed', True),
     'max_health':             ('Max Health', False),
-    'max_health_pct':         ('Max Health %', True),
+    'max_health_pct':         ('Max Health', True),   # percent implicit/affix
     'evasion':                ('Evasion', False),
     'attack_damage':          ('Attack Damage', False),
     'attack_speed_pct':       ('Attack Speed', True),

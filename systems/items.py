@@ -53,11 +53,14 @@ ITEMS = {
     'flask_health':  {'name': 'Health Flask',  'img': 'items/health.png', 'rarity': 'common', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isFlask': 'health',  'charges': 1},
     'flask_utility': {'name': 'Haste Flask',   'img': 'items/mana.png',   'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'isFlask': 'utility', 'charges': 1},
     # ── organs ────────────────────────────────────────────────────────
+    # Organ base implicits are PERCENT (owner ruling, issues #83/#70:
+    # items give % - the implicits ride the same gear-multiplier axis as
+    # affixes; the flat foundation belongs to the attributes).
     'lungs':     {'name': 'Lungs',            'img': 'items/organ_lungs.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'lungs',     'equip': {'move_speed': 0.04}},
-    'heart':     {'name': 'Heart',            'img': 'items/organ_heart.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'heart',     'equip': {'max_health': 10}},
-    'liver':     {'name': 'Liver',            'img': 'items/organ_liver.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'liver',     'equip': {'damage_reduction': 0.15}},
-    'intestine': {'name': 'Intestine',           'img': 'items/organ_intestines.png', 'rarity': 'rare', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'intestine', 'equip': {'max_health': 8}},
-    'kidney':    {'name': 'Kidney',           'img': 'items/organ_kidney.png', 'rarity': 'rare',    'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'kidney',    'equip': {'evasion': 8}},
+    'heart':     {'name': 'Heart',            'img': 'items/organ_heart.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'heart',     'equip': {'max_health_pct': 0.08}},
+    'liver':     {'name': 'Liver',            'img': 'items/organ_liver.png',  'rarity': 'uncommon', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'liver',     'equip': {'damage_reduction': 0.10}},
+    'intestine': {'name': 'Intestine',           'img': 'items/organ_intestines.png', 'rarity': 'rare', 'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'intestine', 'equip': {'magic_damage_pct': 0.06}},
+    'kidney':    {'name': 'Kidney',           'img': 'items/organ_kidney.png', 'rarity': 'rare',    'stackable': False, 'maxStack': 1, 'size': (1, 1), 'equipSlot': 'kidney',    'equip': {'physical_damage_pct': 0.05}},
 }
 
 def item_size(item_id):
@@ -124,8 +127,12 @@ _EQUIP_LABELS = {
     'damage_reduction': 'Damage Reduction',
     'move_speed':       'Move Speed',
     'max_health':       'Max Health',
+    'max_health_pct':   'Max Health',
     'evasion':          'Evasion',
+    'evasion_pct':      'Evasion',
     'attack_damage':    'Attack Damage',
+    'magic_damage_pct':    'Magic Damage',
+    'physical_damage_pct': 'Physical Damage',
 }
 
 

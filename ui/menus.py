@@ -88,22 +88,24 @@ C_DARK_RED   = _c(0x5A, 0x0A, 0x0A)
 
 # ── Attribute blurbs & descriptions (D.E.S.C.E.N.D. sheet) ──────────────
 _ATTR_BLURBS = {
-    'dexterity': 'Move speed, evasion, attack speed',
+    # Issues #83 + #70: attributes give FLAT stats + one typed-damage
+    # identity; percent levers are item-owned.
+    'dexterity': 'Accuracy, move speed, attack speed',
     'endurance': 'Max HP, energy shield, darkness resist',
-    'strength': 'Melee damage, max HP, physical damage',
-    'cunning': 'Cooldown recovery, magic damage, fire damage',
-    'essence': 'Entropy grace, ability crit',
-    'nerve': 'Accuracy, light radius, critical strike',
-    'destiny': 'Entropy grace, luck, loot quality',
+    'strength': 'Max HP, armour, physical damage',
+    'cunning': 'Magic damage, cooldown recovery, reload speed',
+    'essence': 'Rot damage, fire damage, ability crit',
+    'nerve': 'Cold damage, crit chance, light radius',
+    'destiny': 'Lightning damage, entropy grace, loot quality',
 }
 _ATTR_DESC = {
-    'dexterity': 'Dexterity governs agility and reflexes. Each point raises move speed, evasion, and attack speed.',
-    'endurance': 'Endurance is raw resilience. Each point increases max HP, energy shield, and resistance to the darkness.',
-    'strength': 'Strength is raw physical power. Each point increases melee damage, max HP, and physical damage.',
-    'cunning': 'Cunning is sharp intellect and wit. Each point raises cooldown recovery, magic damage, and fire damage.',
-    'essence': 'Essence is soul-presence. Each point improves entropy grace and ability critical strikes.',
-    'nerve': 'Nerve is composure under fire. Each point sharpens accuracy, light radius, and critical strikes.',
-    'destiny': 'Destiny is the hand of fate. Each point improves entropy grace, luck, and loot quality.',
+    'dexterity': 'Dexterity governs agility and reflexes. Each point adds flat accuracy and a little move and attack speed.',
+    'endurance': 'Endurance is raw resilience. Each point adds flat max HP, energy shield, and darkness resistance.',
+    'strength': 'Strength is raw physical power. Each point adds flat max HP, armour, and physical damage.',
+    'cunning': 'Cunning is sharp intellect and wit. Each point adds flat magic damage and a little cooldown recovery and reload speed.',
+    'essence': 'Essence is soul-presence. Each point adds flat rot and fire damage (entropy = decay and heat) and a little ability crit.',
+    'nerve': 'Nerve is composure under fire. Each point adds flat cold damage, light radius, and a little crit.',
+    'destiny': 'Destiny is the hand of fate. Each point adds flat lightning damage, entropy grace, and loot quality.',
 }
 
 

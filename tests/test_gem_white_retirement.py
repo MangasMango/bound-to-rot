@@ -86,7 +86,7 @@ def _v5_payload(**extra):
 
 def test_migration_converts_socketed_and_loose_whites():
     migrated = prog.migrate_save(_v5_payload())
-    assert migrated['save_schema_version'] == 6
+    assert migrated['save_schema_version'] == 7   # chain runs to current
     inv = migrated['characters'][0]['inventory']
     # R socket gone entirely
     assert 'R' not in inv['gem_sockets']
@@ -110,7 +110,7 @@ def test_migration_converts_socketed_and_loose_whites():
 def test_migration_is_idempotent():
     once = prog.migrate_save(_v5_payload())
     twice = prog.migrate_save(dict(once))
-    assert twice['save_schema_version'] == 6
+    assert twice['save_schema_version'] == 7
     sockets = twice['characters'][0]['inventory']['gem_sockets']
     assert set(sockets) == {'Q', 'W', 'E'}      # nothing re-converted
 

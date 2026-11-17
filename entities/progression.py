@@ -75,7 +75,7 @@ CHARS_PATH = os.path.join(_SAVE_DIR, 'characters.json')
 # ── Save schema versioning (issue #126) ────────────────────────────────────
 # The one constant to bump when the save format changes. Bump it, add a
 # _migrate_<n>_to_<n+1> step and register it in _MIGRATIONS below.
-SAVE_SCHEMA_VERSION = 6
+SAVE_SCHEMA_VERSION = 7
 SAVE_FORMAT_VERSION = SAVE_SCHEMA_VERSION   # legacy alias kept for call sites
 
 # Save files written before the framework existed carry no explicit key; the
@@ -487,6 +487,81 @@ def _migrate_5_to_6(data: dict) -> dict:
     return data
 
 
+
+def _migrate_6_to_7(data: dict) -> dict:
+    """v6 -> v7: the flat/pct stat split (issues #83 + #70, owner ruling
+    2026-11-17). Attributes now grant flat stats and typed damage; the flat
+    item affixes that duplicated those identities are retired:
+
+        flat_max_health, flat_attack_damage, flat_evasion,
+        flat_vitality, flat_aegis
+
+    Affixes are stripped from every item (grid, equipped, stash, sockets)
+    and each affected item grants one whole Queen of Diamonds card
+    (re-roll currency) as compensation - ruling 49: never silently retire,
+    always compensate through the migration. `flat_armor` and the rot
+    drawbacks stay (armor has no percent affix; drawbacks are penalties).
+    Idempotent."""
+    if not isinstance(data, dict):
+        raise SaveMigrationError('the save file is not valid save data.')
+    import systems.itemgen as _itemgen
+    import systems.currency as _currency
+
+    RETIRED = {'flat_max_health', 'flat_attack_damage', 'flat_evasion',
+               'flat_vitality', 'flat_aegis'}
+    notes = []
+
+    def _strip(slot_dict):
+        inst = slot_dict.get('instance_data')
+        if not isinstance(inst, dict):
+            return False
+        aff = inst.get('affixes')
+        if not isinstance(aff, dict):
+            return False
+        stripped = False
+        for group in ('prefixes', 'suffixes'):
+            rolled = aff.get(group)
+            if not isinstance(rolled, dict):
+                continue
+            for aid in [a for a in rolled if a in RETIRED]:
+                rolled.pop(aid)
+                stripped = True
+        if stripped:
+            name = inst.get('display_name') or slot_dict.get('item', 'item')
+            notes.append(f'{name}: retired flat affixes removed - '
+                         f'compensated with a Queen of Diamonds.')
+        return stripped
+
+    def _walk(obj):
+        if isinstance(obj, dict):
+            for key in list(obj.keys()):
+                if key in ('grid', 'stash', 'forge_grid', 'forge_out'):
+                    bucket = obj[key]
+                    if isinstance(bucket, list):
+                        for entry in list(bucket):
+                            if isinstance(entry, dict) and _strip(entry):
+                                _currency.add_card_to_grid(bucket, 10, 1)
+                    continue    # buckets hold slot dicts, not nested saves
+                if key == 'equipped' and isinstance(obj[key], dict):
+                    for slot_key, entry in list(obj[key].items()):
+                        if isinstance(entry, dict) and _strip(entry):
+                            grid = obj.setdefault('grid', [])
+                            _currency.add_card_to_grid(grid, 10, 1)
+                    continue
+                _walk(obj[key])
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
+
+    _walk(data)
+    if notes:
+        header = ('The stat split (attributes flat / items percent) retired '
+                  'the flat item affixes; affected items were compensated:')
+        data['migration_note'] = '\n'.join(
+            [header] + notes + [str(data.get('migration_note', ''))])
+    return data
+
+
 # ── MIGRATION REGISTRY ─────────────────────────────────────────────────────
 # Single place to update for any future schema change: bump
 # SAVE_SCHEMA_VERSION and add the matching step here. Keys are *from* versions.
@@ -496,6 +571,7 @@ _MIGRATIONS: dict[int, callable] = {
     3: _migrate_3_to_4,
     4: _migrate_4_to_5,
     5: _migrate_5_to_6,
+    6: _migrate_6_to_7,
 }
 
 
@@ -704,39 +780,51 @@ def compute_derived_stats(descend: dict, perk_bonuses: dict = None,
         return pb.get(key, 0) + ib.get(key, 0) + vessel_effects.get(key, 0)
 
     return {
-        # Attribute per-point identities (leveling rework, plan §2.1 - one
-        # distinct lever per attribute; lines no item affix can roll):
-        #   STR  raw attack damage % (+ hp floor)
-        #   END  HP + energy shield + darkness resist
-        #   DEX  move/attack speed, evasion, accuracy, block
-        #   CUN  cooldown recovery + reload speed (x3 amplitudes)
-        #   ESS  ability crit (+ entropy-grace share)
-        #   NRV  crit chance + anima light radius
-        #   DST  entropy grace + loot rarity
-        'max_health':            50 + str_ * 8 + end * 6 + bonus('maxHealth'),
-        'evasion':               int(300 * (1.0 + 0.03 * dex) + bonus('evasion_flat')),
-        'accuracy':              300 + dex * 4 + bonus('accuracy_flat'),
-        'attack_damage_mult':    1.0 + 0.05 * str_ + bonus('attack_damage_mult_pct') / 100.0,
-        'max_energy_shield':     end * 3 + bonus('max_energy_shield'),
-        'anima_light_radius':    nrv * 0.5 + bonus('anima_light_radius'),
-        'darkness_resist_pct':   (end * 2 + bonus('darkness_resist_pct')) / 100.0,
-        'move_speed_pct':        (bonus('move_speed_pct') + dex * 3.0) / 100.0,
-        'attack_speed_pct':      (bonus('attack_speed_pct') + dex * 3.0) / 100.0,
-        'cooldown_recovery_pct': (cun * 3.0 + bonus('cooldown_recovery_pct')) / 100.0,
-        # Reload speed (ammo mechanic): Cunning and the '+X% Reload Speed'
-        # affix family lower the 3.0 s base cylinder reload.
-        'reload_speed_pct':      (cun * 3.0 + bonus('reload_speed_pct')) / 100.0,
-        'crit_chance':           min(0.75, (bonus('crit_chance') + nrv * 1.0) / 100.0),
-        'ability_crit_chance':   min(0.75, (bonus('ability_crit_chance') + ess * 1.0) / 100.0),
-        'block_chance':          min(0.75, (bonus('block_chance') + dex * 1.5) / 100.0),
+        # Attribute per-point identities (issues #83 + #70, owner ruling
+        # 2026-11-17: ATTRIBUTES GIVE FLAT STATS, ITEMS GIVE PERCENT).
+        # Every %-lever the attributes used to carry is now item/perk-owned;
+        # attributes grant flat stats plus one typed-damage identity each:
+        #   STR  flat health + armor + FLAT physical damage   (melee axis)
+        #   END  flat health + energy shield + darkness resist (defense axis)
+        #   DEX  flat accuracy + small move/attack speed       (precision axis)
+        #   CUN  cooldown/reload % (item-only) + FLAT magic damage
+        #   ESS  ability-crit % (item-only) + FLAT rot damage
+        #   NRV  crit % (item-only) + light radius + FLAT cold damage
+        #   DST  entropy % (item-only) + FLAT lightning damage + loot mod
+        # Fire has NO attribute (items/perks own it).
+        'max_health':            50 + (str_ + end) * 6 + bonus('maxHealth'),
+        'evasion':               int(300 + bonus('evasion_flat')),
+        'accuracy':              300 + dex * 6 + bonus('accuracy_flat'),
+        'attack_damage_mult':    1.0 + bonus('attack_damage_mult_pct') / 100.0,
+        'max_energy_shield':     end * 1.5 + bonus('max_energy_shield'),
+        'anima_light_radius':    nrv * 0.25 + bonus('anima_light_radius'),
+        'darkness_resist_pct':   (end * 1.0 + bonus('darkness_resist_pct')) / 100.0,
+        'move_speed_pct':        (bonus('move_speed_pct') + dex * 0.25) / 100.0,
+        'attack_speed_pct':      (bonus('attack_speed_pct') + dex * 0.25) / 100.0,
+        'cooldown_recovery_pct': (cun * 0.5 + bonus('cooldown_recovery_pct')) / 100.0,
+        # Reload speed (ammo mechanic): '+X% Reload Speed' affixes lower the
+        # 3.0 s base cylinder reload (item axis - attributes give flat).
+        'reload_speed_pct':      (cun * 0.5 + bonus('reload_speed_pct')) / 100.0,
+        'crit_chance':           min(0.75, (nrv * 0.5 + bonus('crit_chance')) / 100.0),
+        'ability_crit_chance':   min(0.75, (ess * 0.5 + bonus('ability_crit_chance')) / 100.0),
+        'block_chance':          min(0.75, bonus('block_chance') / 100.0),
         'crushing_blow_pct':     min(0.75, bonus('crushing_blow_pct') / 100.0),
-        'entropy_grace_pct':     (dst * 1.5 + ess * 1.0 + bonus('entropy_grace_pct')) / 100.0,
+        'entropy_grace_pct':     (dst * 0.5 + bonus('entropy_grace_pct')) / 100.0,
         # Loot rarity is DST-owned (plan §2.1 ruling): Destiny raises the
         # rarity weights of enemy drops; no item affix ever rolls it.
-        'loot_rarity_mod':       dst * 2 + bonus('loot_rarity_mod'),
+        'loot_rarity_mod':       dst * 1 + bonus('loot_rarity_mod'),
+        # Percent axis - ITEM/PERK-ONLY (issue #83): attributes never touch it.
         'damage_pct':            {t: bonus(f'{t}_damage_pct') / 100.0 for t in ('physical', 'magic', 'lightning', 'cold', 'fire', 'rot')},
         'penetration_pct':       {t: bonus(f'{t}_penetration_pct') / 100.0 for t in ('physical', 'magic', 'lightning', 'cold', 'fire', 'rot')},
         'resist_pct':            {t: bonus(f'{t}_resist_pct') / 100.0 for t in ('fire', 'cold', 'lightning', 'physical', 'magic', 'rot', 'darkness')},
+        # FLAT typed damage - the #70 attribute identities. Essence is the
+        # dual-type attribute (entropy = rot AND fire); every type is covered.
+        'damage_flat':           {'physical': str_ * 1.5, 'magic': cun * 1.0,
+                                  'rot': ess * 1.0, 'cold': nrv * 1.0,
+                                  'lightning': dst * 1.0, 'fire': ess * 1.0},
+        # Flat armor: STR identity + the flat_armor affix total (folded at
+        # the call site in core.game - see _equipped_bonuses / mitigation).
+        'armor_flat':            str_ * 1.0,
         'dexterity': dex, 'endurance': end, 'strength': str_,
         'cunning': cun, 'essence': ess, 'nerve': nrv, 'destiny': dst,
         # backward compat

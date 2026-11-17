@@ -683,34 +683,39 @@ class TestComparisonArrowFormat(unittest.TestCase):
     @staticmethod
     def _hp_heart(value, ilvl=10):
         # comparison totals only cover LIVE_EFFECT affixes - pk_* affixes
-        # ride the perk bucket and never appear in comparison rows
+        # ride the perk bucket and never appear in comparison rows.
+        # Issue #83/#70: the flat HP affixes are retired (attribute
+        # identities own flat stats) - the surviving % live-effect carrier
+        # is the Plated damage-reduction affix.
         return {
             'item': 'heart', 'count': 1, 'col': 0, 'row': 0,
             'instance_data': {
                 'rarity': 'common', 'display_name': 'Heart', 'ilvl': ilvl,
                 'identified': True,
-                'affixes': {'prefixes': {'flat_max_health': value},
+                'affixes': {'prefixes': {'local_damage_reduction': value},
                             'suffixes': {}}}}
 
     def test_rows_are_pure_stat_lines_with_sign(self):
-        hover = self._hp_heart(5)
-        equipped = self._hp_heart(2)
+        hover = self._hp_heart(0.05)
+        equipped = self._hp_heart(0.02)
         rows = itemgen.comparison_rows(hover, equipped)
         for text, _sign in rows:
             self.assertNotIn('(eq', text)
             self.assertNotIn('(up)', text)
             self.assertNotIn('(down)', text)
             self.assertNotIn('(same)', text)
-        # flat HP merges the implicit 10 + affix into ONE 'max_health' key:
-        # a single row with the hover total (10+5) and an up arrow
-        self.assertEqual(rows, [('+15 Max Health', 1)])
+        # the damage-reduction row (up); the heart implicit is the +8% Max
+        # Health percent now - a percent row, unchanged between the two
+        self.assertEqual(rows, [('+5% Damage Reduction', 1),
+                                ('+8% Max Health', 0)])
 
     def test_downgrade_row_is_negative_sign(self):
-        hover = self._hp_heart(2)
-        equipped = self._hp_heart(5)
+        hover = self._hp_heart(0.02)
+        equipped = self._hp_heart(0.05)
         rows = dict(itemgen.comparison_rows(hover, equipped))
-        self.assertEqual(rows.get('+12 Max Health'), -1)   # 10+2, arrow down
-        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows.get('+2% Damage Reduction'), -1)   # 5-3, down
+        self.assertEqual(rows.get('+8% Max Health'), 0)          # implicit, same
+        self.assertEqual(len(rows), 2)
 
     def test_arrow_icons_exist_and_are_drawn(self):
         from ui import icons as icons_mod

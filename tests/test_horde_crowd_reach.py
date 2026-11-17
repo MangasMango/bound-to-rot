@@ -156,7 +156,7 @@ class HordeDamageScalingTests(unittest.TestCase):
         horde = [_body('a', 5.6, 5.0)]
         player = _players()[0]
         first_hit_dist = None
-        for _ in range(60):
+        for _ in range(180):   # slow roll + speed variance can take a while
             before = math.hypot(horde[0]['x'] - player['x'],
                                 horde[0]['y'] - player['y'])
             dmg = zombies.update_zombies(1 / 30, horde, [player], _grid(),
