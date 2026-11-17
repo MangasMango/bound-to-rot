@@ -163,6 +163,10 @@ class KillXpFunnelTests(unittest.TestCase):
         game._log_combat = mock.Mock()
         game._add_angel_meter = mock.Mock()
         game._recalc_derived_stats = mock.Mock()
+        game.audio = mock.Mock()          # level-up sting (issue #90)
+        game._glow_effects = []
+        game._glint_effects = []
+        game.px = game.py = 0.0
         return game
 
     def test_kill_awards_depth_scaled_xp_and_levels_up(self):

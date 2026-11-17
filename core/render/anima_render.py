@@ -684,10 +684,10 @@ class AnimaRenderMixin:
                            e.get('color', rl.WHITE),
                            progress=progress, seed=seed)
     def _draw_glow_effects(self, cw, ch):
-        _GLOW_DUR = 0.35
         tile_size = int(ISO_W * self.iso.scale)
         for e in self._glow_effects:
-            progress  = e['timer'] / _GLOW_DUR
+            glow_dur  = e.get('dur', 0.35)
+            progress  = e['timer'] / glow_dur
             alpha     = int(e.get('alpha', 220) * (1.0 - progress))
             base_col  = e.get('color', rl.WHITE)
             tint      = rl.Color(base_col.r, base_col.g, base_col.b, alpha)

@@ -196,6 +196,10 @@ class AudioSystem:
         # Item landing on ground (staggered drops from crate)
         self._load_pool_a('item_land', [f'ingame-sfx/impactSoft_heavy_{i:03d}.ogg' for i in range(5)])
 
+        # Level-up sting (issue #90): the western guitar stab doubles as the
+        # one-shot level-up cue - a two-second flourish, not a full track.
+        self._load_a('levelup', 'ost/westernguitarstab.ogg')
+
     # ── helpers ──────────────────────────────────────────────────────
 
     def _load_music(self, rel):
@@ -427,6 +431,10 @@ class AudioSystem:
             return
         self._last_enemy_dead = now
         self._play_random('enemy_dead', 0.8)
+
+    def level_up(self):
+        """Level-up sting: the guitar stab flourish (issue #90)."""
+        self._play('levelup', 0.85)
 
     def enemy_attack_sound(self):
         self._play('enemy_hit', 0.8)
