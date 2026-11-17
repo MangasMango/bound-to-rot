@@ -61,7 +61,7 @@ CURRENCY_CARDS = {
     0:  {'name': 'The Joker',         'target': 'item',  'depth_min': 1,
          'description': 'Press right click on an item to identify it'},
     1:  {'name': 'Ace of Hearts',     'target': 'item',  'depth_min': 1,
-         'description': 'Upgrades a common item to uncommon.'},
+         'description': 'Upgrades a common item to uncommon and rerolls its stats.'},
     4:  {'name': 'King of Pikes',     'target': 'item',  'depth_min': 3,
          'description': 'Ascends an item to MYTHIC rarity.'},
     10: {'name': 'Queen of Diamonds', 'target': 'item',  'depth_min': 2,
@@ -305,12 +305,13 @@ def apply_card(game, arcana, src, idx):
     if arc == 0:      # The Joker
         itemgen.identify(target)
         result = 'Identified.'
-    elif arc == 1:    # Ace of Hearts
+    elif arc == 1:    # Ace of Hearts - upgrade AND reroll (owner ruling #95)
         inst = target['instance_data']
         if inst.get('rarity') != 'common':
             return None
         inst['rarity'] = 'uncommon'
-        result = 'Upgraded to uncommon.'
+        _reroll(target, seed=random.getrandbits(24), keep_rarity=True)
+        result = 'Upgraded to uncommon - stats rerolled.'
     elif arc == 4:    # King of Pikes
         inst = target['instance_data']
         inst['rarity'] = 'mythic'
