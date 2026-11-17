@@ -346,9 +346,10 @@ class TestRotTooltip(unittest.TestCase):
         inst['rot'] = 100.0
         inst['rotten'] = True
         lines = self._texts(entry)
-        # unidentified exposes no stats - but the ROTTEN condition shows
+        # unidentified exposes no rolled stats - but the ROTTEN condition
+        # shows, and the item level is base metadata (issue #84 ruling)
         self.assertTrue(any(l.startswith('ROTTEN ') for l in lines))
-        self.assertFalse(any('Item Level' in l for l in lines))
+        self.assertTrue(any('Item Level' in l for l in lines))
 
     def test_non_organs_have_no_meter(self):
         gem = itemgen.roll_for('gem_blue', 1, 5, seed=49)

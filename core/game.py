@@ -1657,6 +1657,10 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         if inst:
             if unid:
                 lines.append(("Unidentified", rl.Color(190, 160, 90, 220)))
+                # item level is base metadata - shows while unidentified
+                # (issue #84, owner ruling)
+                lines.append((f"iLvl {inst.get('ilvl', 0)}",
+                              rl.Color(130, 140, 160, 200)))
             else:
                 ilvl = inst.get('ilvl', 0)
                 lines.append((f"iLvl {ilvl}", rl.Color(130, 140, 160, 200)))

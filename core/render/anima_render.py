@@ -816,12 +816,13 @@ class AnimaRenderMixin:
         title = (idef.get('name', slot['item']) if unid else
                  (inst['display_name'] if inst else idef.get('name', slot['item'])))
         lines = [(title, rarity_col)]
-        if inst and not unid:
+        if unid:
+            # Unidentified items expose no ROLLED stat text: no implicits, no
+            # affixes. Item level is base metadata and shows (issue #84).
+            lines.append(("Unidentified", rl.Color(190, 160, 90, 220)))
+        if inst:
             ilvl = inst.get('ilvl', 0)
             lines.append((f"Item Level: {ilvl}", rl.Color(0xCC, 0xCC, 0xCC, 255)))
-        if unid:
-            # Unidentified items expose no stat text: no implicits, no affixes.
-            lines.append(("Unidentified", rl.Color(190, 160, 90, 220)))
         if idef.get('equipSlot') and not unid:
             for k, v in (idef.get('equip') or {}).items():
                 lines.append((format_equip_stat(k, v), rl.Color(150, 170, 200, 255)))
