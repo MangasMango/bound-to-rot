@@ -532,6 +532,10 @@ class MenuSystem:
             # Don't let chars typed on one screen leak into another field
             # (e.g. keys tapped on the character list before opening create).
             self.char_name_input.clear(buf=False)
+            if self.state == 'characters':
+                # issue #69: the cursor must never sit stale when (re)entering
+                # the list - after a create it lands on the new character
+                self._sync_char_cursor()
         fn = getattr(self, f'_u_{self.state}', None)
         if fn:
             fn(dt)
@@ -799,11 +803,29 @@ class MenuSystem:
     def _u_play(self, _dt):
         self._prev = 'main'
         self.state = 'characters'
+        # mid-handler transitions never trip update()'s entry hook (it
+        # compares before the handler runs and _last_state catches up at
+        # the end of the same tick) - sync the cursor here (issue #69)
+        self._sync_char_cursor()
 
     def _d_play(self, cw: int, ch: int):
         pass  # handled in _u_play, no drawing needed
 
     # ── CHARACTERS ────────────────────────────────────────────────────
+
+    def _sync_char_cursor(self):
+        """Point the characters-screen cursor at the active character.
+
+        Issue #69: the cursor moved only via Up/Down and stayed where it
+        was across a create - so Play/Enter (which select the CURSOR, not
+        ``active_idx``) always relaunched the first roster entry. The
+        manager is already correct; only the cursor goes stale."""
+        chars = self.char_mgr.characters
+        if not chars:
+            self._char_sel_idx = 0
+            return
+        self._char_sel_idx = max(0, min(self.char_mgr.active_idx,
+                                        len(chars) - 1))
 
     def _u_characters(self, _dt):
         if _inp.key_pressed(self, rl.KEY_ESCAPE):
@@ -894,6 +916,9 @@ class MenuSystem:
 
             if hv and rl.is_mouse_button_pressed(rl.MOUSE_BUTTON_LEFT):
                 self.char_mgr.select(i)
+                # the cursor drives the details panel and the Play button -
+                # a click must move it too, or Play ignores the click (issue #69)
+                self._char_sel_idx = i
 
         # Delete button per character
         for i, c in enumerate(chars):
@@ -1007,6 +1032,8 @@ class MenuSystem:
         _btn(no_r, 'Cancel', 15)
         if _click(yes_r):
             self.char_mgr.delete(self._confirm_delete_idx)
+            # same-screen mutation: the state-entry hook will not fire
+            self._sync_char_cursor()
             self._confirm_delete_idx = -1
         elif _click(no_r):
             self._confirm_delete_idx = -1
@@ -1098,6 +1125,7 @@ class MenuSystem:
         if self._ck_esc.pressed(rl.KEY_ESCAPE):
             self._unload_preview_sprites()
             self.state = 'characters'
+            self._sync_char_cursor()
 
     def _load_preview_sprites(self):
         if self._preview_loaded:
@@ -1256,6 +1284,7 @@ class MenuSystem:
             self._do_create()
         if _btn(cx_r, 'Cancel', 20, wood=True):
             self.state = 'characters'
+            self._sync_char_cursor()
 
     def _u_codex(self, _dt):
         if _inp.key_pressed(self, rl.KEY_ESCAPE):
@@ -1447,6 +1476,10 @@ class MenuSystem:
         self._char_name = ''
         self.char_name_input.clear()
         self.state = 'characters'
+        # the swallowed-transition case: _last_state catches up to
+        # 'characters' inside this very tick, so the state-entry hook in
+        # update() never fires - sync here or Play relaunches the old char
+        self._sync_char_cursor()
 
     def _u_settings(self, _dt):
         if self._kb_notice_t > 0:
