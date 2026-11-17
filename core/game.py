@@ -240,7 +240,6 @@ STATE_LOADING   = 'loading'
 STATE_HUB       = 'hub'
 STATE_PLAYING   = 'playing'
 STATE_PAUSED    = 'paused'
-STATE_DEAD      = 'dead'
 STATE_EXTRACTED = 'extracted'
 STATE_EDITOR    = 'editor'
 
@@ -622,6 +621,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self.char_mgr      = CharacterManager()
         self.tracker       = RaidTracker()
         self._raid_results = None
+        self._death_notice = None   # {'lost': int, 'timer': float} hub banner (issue #48)
 
         # clip recorder (dev console `record ...`) - issue #58
         self.recorder = ClipRecorder()
@@ -1210,28 +1210,31 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
     def _on_death(self):
         """Death costs XP, not the character (issue #31, supersedes permadeath).
 
-        The anima is lost (snapshot cleared, waves reset); the character
-        survives with a PoE-style XP penalty and returns through the end
-        screen to the menu."""
+        Issue #48 (owner rulings 2026-11-17): no death screen - the player
+        goes straight to the hub, and the ANIMA SURVIVES death: the delve
+        is banked exactly like a 'return to hub' (enemies, ground loot,
+        decor and node state persist) so re-entering resumes the delve
+        where it stood. The XP penalty (ADR-006) is announced by a hub
+        banner instead of an end screen."""
         import systems.xp as xp
         lost = xp.death_penalty(self.char)
-        self.char_mgr.save()
-        self.state = STATE_DEAD
-        self.audio.set_music_state('death')
-        self._saved_anima = None
-        self._anima = None
-        if getattr(self, '_ambient', None) is not None:
-            self._ambient.clear()
-        import entities.progression as _prog
-        _prog.clear_anima_data(self.char.id)
-        self._raid_results = {
-            'kills':       self.tracker.kills,
-            'time':        self.tracker.time,
-            'loot':        self.tracker.loot,
-            'extracted':   False,
-            'xp_lost':     lost,
-            'level':       self.char.level,
-        }
+        # Bank the delve via the same path as 'return to hub' - this saves
+        # the snapshot, clears live anima state + ambient particles, saves
+        # the character and calls _enter_hub() (which sets hub music).
+        self._exit_anima('hub')
+        # DEATH IS A FULL REFILL POINT (owner ruling 2026-11-17, issue #48
+        # follow-up): reset_stats preserves pools by design, so without an
+        # explicit refill the player would stand in the hub - and resume
+        # the delve - at 0 HP and insta-die again. The revolver is also
+        # spun back to a full cylinder: death reloads you.
+        self.stats['health'] = self.stats['max_health']
+        self.stats['energy_shield'] = self.stats.get('max_energy_shield', 0.0)
+        self._ammo = self._ammo_max
+        self._reload_t = 0.0
+        self._reload_total = 0.0
+        self._orb_spin = 0.0
+        self.hit_flash = 0.0
+        self._death_notice = {'lost': int(lost), 'timer': 6.0}
 
 
 
@@ -2019,18 +2022,11 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self.zombies = [z for z in self.zombies
                         if z.get('death_timer', 0.0) < DEATH_DURATION]
 
-        # Post-process effect decay
-        self._pp_wave  = max(0.0, self._pp_wave - dt * 3.0)
-        self._pp_dream = max(0.0, self._pp_dream - dt * 2.0)
-        self._pp_gray  = max(0.0, self._pp_gray - dt * 2.0)
-
-        self.hit_flash = max(0.0, self.hit_flash - dt * 2)
-        self._shake_timer = max(0.0, self._shake_timer - dt)
-        if self._shake_timer <= 0:
-            self._shake_intensity = 0.0
-        self._vessel_unlock_timer = max(0.0, self._vessel_unlock_timer - dt)
-        self._save_notice_timer = max(0.0, self._save_notice_timer - dt)
-        self._inv_full_timer = max(0.0, self._inv_full_timer - dt)
+        # NOTE: notification/effect timers AND the post-process decays
+        # (pp_wave/pp_dream/pp_gray) tick in the common update
+        # (core/input.py) - they must tick in the hub too or the death
+        # notice, the hit-flash shader and the damage-wave warp would stay
+        # frozen forever after dying (issue #48 follow-up).
 
         # Sync post-process effects to game state
         self._pp_wave = max(self._pp_wave, self._shake_intensity * 0.3)

@@ -21,7 +21,6 @@ from core.game import (
     DEATH_DURATION,
     ANIMA_CLICK_RADIUS,
     ANIMA_PERSONAL_LIGHT,
-    STATE_DEAD,
     STATE_EDITOR,
     STATE_EXTRACTED,
     STATE_HUB,
@@ -122,7 +121,7 @@ class FrameRenderMixin:
             if settings.perf_overlay: self._draw_perf(cw, ch)
         elif self.state == STATE_EDITOR:
             if self._editor: self._editor.draw(cw, ch)
-        elif self.state in (STATE_DEAD, STATE_EXTRACTED):
+        elif self.state == STATE_EXTRACTED:
             self._draw_end_screen(cw, ch)
 
         if self.state in _CHAT_DRAW_STATES:
