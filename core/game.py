@@ -1967,12 +1967,11 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
                 live.append(n)
         self._dmg_numbers = live
 
-        # Advance and cull glow effects
-        _GLOW_DUR = 0.35
+        # Advance and cull glow effects (per-effect dur; default 0.35)
         live = []
         for e in self._glow_effects:
             e['timer'] += dt
-            if e['timer'] < _GLOW_DUR:
+            if e['timer'] < e.get('dur', 0.35):
                 live.append(e)
         self._glow_effects = live
 
@@ -2405,9 +2404,9 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         })
 
     def _spawn_glow(self, wx: float, wy: float, color=None, scale: float = 1.0,
-                    alpha: int = 220, lift: float = 0.0):
+                    alpha: int = 220, lift: float = 0.0, dur: float = 0.35):
         self._glow_effects.append({
-            'x': wx, 'y': wy, 'timer': 0.0,
+            'x': wx, 'y': wy, 'timer': 0.0, 'dur': dur,
             'color': color if color is not None else rl.WHITE,
             'scale': scale, 'alpha': alpha, 'lift': lift,
         })
@@ -2856,7 +2855,9 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
     def _on_level_up(self, gained: int):
         """Level-up juice + recalc: +1 attribute point per level (issue #31).
 
-        Pools are preserved by the reset_stats pipeline (BLUEPRINT §5.42)."""
+        Pools are preserved by the reset_stats pipeline (BLUEPRINT §5.42).
+        Issue #90: a guitar-stab sting plus a gold burst over the player -
+        a radial glow pulse and a rising ring of glints."""
         now = rl.get_time()
         self._log_combat(f'LEVEL UP -> {self.char.level}', 'kill')
         self._streak_milestone   = f'LEVEL {self.char.level}'
@@ -2864,6 +2865,20 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self._shake_timer        = max(self._shake_timer, STREAK_MILESTONE_SHAKE)
         self._shake_intensity    = max(self._shake_intensity, 6.0)
         self._recalc_derived_stats()
+        # ── level-up VFX + SFX (issue #90) ────────────────────────────
+        self.audio.level_up()
+        gold = rl.Color(255, 220, 120, 255)
+        self._spawn_glow(self.px, self.py, color=gold, scale=2.6,
+                         alpha=235, dur=0.9)
+        for _glint_i in range(12):
+            ang = _rnd.uniform(0.0, math.tau)
+            spd = _rnd.uniform(1.2, 2.6)
+            self._spawn_glint(self.px, self.py,
+                              color=gold if _glint_i % 2 == 0
+                              else rl.Color(255, 245, 190, 255),
+                              scale=_rnd.uniform(0.5, 0.8),
+                              vel_x=math.cos(ang) * spd,
+                              vel_y=math.sin(ang) * spd - 1.2)
 
     def _add_angel_meter(self, amount):
         # no-op: Angel Form was removed from the combat rework.
