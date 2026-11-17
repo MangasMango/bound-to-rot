@@ -90,6 +90,52 @@ SEPARATION_STRENGTH = 0.55   # how strongly repulsion blends into pursuit
 SPEED_RAMP_TIME     = 0.35   # seconds to accelerate from standstill to full speed
 MOVE_SPEED_VARIANCE = 0.15   # per-enemy speed variance (± this fraction)
 
+# ── engagement compression + crowd reach (issue #91) ─────────────────
+# The stock body spacing (PUSH_MIN_SEP 0.42 + SEPARATION_RADIUS 0.45) is
+# wider than the melee reach (MELEE_RANGE 0.22): around the player that
+# fits roughly THREE bodies on the attack ring - a 400-body horde jostled
+# outside and could barely connect. When bodies engage (near their target)
+# they compress: separation and body push relax so the ring packs tighter,
+# and a PACKED body (jostling with neighbours) attacks with a wider crowd
+# reach. The ring capacity then scales with the horde instead of the ring
+# geometry, so a huge horde actually hits.
+ENGAGE_COMPRESS_RADIUS = 1.4   # tiles to the target inside which bodies compress
+ENGAGE_SEP_MULT        = 0.55  # steering separation radius/strength while engaging
+ENGAGE_PUSH_MULT       = 0.6   # body-push resting distance while engaging
+CROWD_NEIGHBOURS       = 2     # alive neighbours within SEPARATION_RADIUS = packed
+CROWD_REACH_MULT       = 1.8   # packed melee reach = MELEE_RANGE * this
+
+
+def _engaging(z, target):
+    """Whether this enemy is close enough to its target to compress."""
+    if target is None:
+        return False
+    return math.hypot(target['x'] - z['x'], target['y'] - z['y']) \
+        <= ENGAGE_COMPRESS_RADIUS
+
+
+def _is_packed(z, body_grid):
+    """True when at least CROWD_NEIGHBOURS alive bodies jostle within
+    SEPARATION_RADIUS - the crowd-reach precondition."""
+    neighbours = 0
+    for other in _nearby_bodies(body_grid, z):
+        if other is z or other['health'] <= 0:
+            continue
+        if math.hypot(other['x'] - z['x'], other['y'] - z['y']) \
+                <= SEPARATION_RADIUS:
+            neighbours += 1
+            if neighbours >= CROWD_NEIGHBOURS:
+                return True
+    return False
+
+
+def _crowd_reach(z, body_grid):
+    """Effective melee reach this frame (issue #91): the stock range, or
+    the packed crowd reach when the body is jostling with neighbours."""
+    if _is_packed(z, body_grid):
+        return MELEE_RANGE * CROWD_REACH_MULT
+    return MELEE_RANGE
+
 # ── Range invariant (QoL #111 / issue #15) ──────────────────────────────
 # An enemy may only deal damage while inside MELEE_RANGE, and MELEE_RANGE must
 # never exceed the range at which it acquires the chase (DETECT_RANGE). If this
@@ -193,13 +239,19 @@ def _step_enemy(z, dir_x, dir_y, move_dist, map_data):
     return False
 
 
-def _separation_vector(z, body_grid):
+def _separation_vector(z, body_grid, radius=None):
     """Repulsion away from nearby enemies. Blended into pursuit so groups fan
     out and surround the player instead of stacking into a single pile.
+
+    ``radius`` defaults to the stock constant; the engagement compression
+    (issue #91) passes a reduced radius so bodies near the target pack
+    tighter instead of holding the wide resting spacing. The caller scales
+    the returned vector by its own strength factor.
 
     Queries run through the frame's shared spatial hash (issue #53): the
     old enemy-vs-everything scan was O(n²) and at a 400-body horde that
     meant 160k pair checks per frame."""
+    radius = SEPARATION_RADIUS if radius is None else radius
     sep_x = 0.0
     sep_y = 0.0
     for other in _nearby_bodies(body_grid, z):
@@ -208,10 +260,10 @@ def _separation_vector(z, body_grid):
         off_x = z['x'] - other['x']
         off_y = z['y'] - other['y']
         dist_sq = off_x * off_x + off_y * off_y
-        if dist_sq <= 1e-9 or dist_sq >= SEPARATION_RADIUS * SEPARATION_RADIUS:
+        if dist_sq <= 1e-9 or dist_sq >= radius * radius:
             continue
         dist = math.sqrt(dist_sq)
-        push = (SEPARATION_RADIUS - dist) / SEPARATION_RADIUS
+        push = (radius - dist) / radius
         sep_x += (off_x / dist) * push
         sep_y += (off_y / dist) * push
     return sep_x, sep_y
@@ -252,7 +304,7 @@ def _nearby_bodies(grid, body):
     return out
 
 
-def _resolve_body_push(alive, grid, dt):
+def _resolve_body_push(alive, grid, dt, compress_centers=()):
     """Positional overlap resolution (issue #53).
 
     Each overlapping pair is evaluated once (canonical hash offsets) and
@@ -263,6 +315,18 @@ def _resolve_body_push(alive, grid, dt):
     if len(alive) < 2 or dt <= 0.0:
         return
     max_step = PUSH_SEPARATION_TPS * dt
+
+    def _min_sep(body_a, body_b):
+        """Resting distance for this pair: the stock spacing, or the
+        compressed one when either body is engaging a compress center
+        (the player) - issue #91."""
+        for center in compress_centers:
+            if math.hypot(body_a['x'] - center[0], body_a['y'] - center[1]) \
+                    <= ENGAGE_COMPRESS_RADIUS \
+                    or math.hypot(body_b['x'] - center[0], body_b['y'] - center[1]) \
+                    <= ENGAGE_COMPRESS_RADIUS:
+                return PUSH_MIN_SEP * ENGAGE_PUSH_MULT
+        return PUSH_MIN_SEP
     for (col, row), members in grid.items():
         for dc, dr in ((0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
             if dc == 0 and dr == 0:
@@ -280,20 +344,28 @@ def _resolve_body_push(alive, grid, dt):
                     dx = b['x'] - a['x']
                     dy = b['y'] - a['y']
                     dist_sq = dx * dx + dy * dy
-                    if dist_sq >= PUSH_MIN_SEP * PUSH_MIN_SEP or dist_sq <= 1e-9:
+                    min_sep = _min_sep(a, b)
+                    if dist_sq >= min_sep * min_sep or dist_sq <= 1e-9:
                         continue
                     frozen_a = a.get('frozen_timer', 0.0) > 0.0
                     frozen_b = b.get('frozen_timer', 0.0) > 0.0
                     if frozen_a and frozen_b:
                         continue
+                    # Attacking bodies brace: a swing committed at the ring
+                    # must not be shoved out of reach before its hit frame
+                    # (issue #91 - mid-swing shoves made crowded swings whiff).
+                    braced_a = frozen_a or a.get('state') == 'attack'
+                    braced_b = frozen_b or b.get('state') == 'attack'
+                    if braced_a and braced_b:
+                        continue
                     dist = math.sqrt(dist_sq)
-                    step = min((PUSH_MIN_SEP - dist) * 0.5, max_step)
+                    step = min((min_sep - dist) * 0.5, max_step)
                     nx = dx / dist
                     ny = dy / dist
-                    if frozen_a:
+                    if braced_a:
                         b['x'] += nx * step
                         b['y'] += ny * step
-                    elif frozen_b:
+                    elif braced_b:
                         a['x'] -= nx * step
                         a['y'] -= ny * step
                     else:
@@ -447,12 +519,12 @@ def update_zombies(dt, zombies, players, map_data,
                 if z['attack_cd'] <= 0:
                     z['attack_cd'] = SLIME_ATTACK_CD_S
                     p = players[0]
-                    if math.hypot(p['x'] - z['x'], p['y'] - z['y']) <= MELEE_RANGE:
+                    if math.hypot(p['x'] - z['x'], p['y'] - z['y']) <= _crowd_reach(z, body_grid):
                         if evaluate_hit(p, z.get('accuracy', 80)):
                             lvl = z.get('level', 1)
                             incoming_damage[enemy_dmg_type] = (
                                 incoming_damage.get(enemy_dmg_type, 0.0) + SLIME_DAMAGE * _anima_damage_mult(lvl))
-                if math.hypot(players[0]['x'] - z['x'], players[0]['y'] - z['y']) > MELEE_RANGE:
+                if math.hypot(players[0]['x'] - z['x'], players[0]['y'] - z['y']) > _crowd_reach(z, body_grid):
                     z['state'] = 'chase'
                     z['attack_anim_timer'] = 0.0
             else:
@@ -462,7 +534,9 @@ def update_zombies(dt, zombies, players, map_data,
                 if z.get('hit_pending') and z['attack_anim_timer'] >= hit_register_time:
                     p = players[0]
                     hit_dist = math.hypot(p['x'] - z['x'], p['y'] - z['y'])
-                    if hit_dist <= MELEE_RANGE and evaluate_hit(p, z.get('accuracy', 100)):
+                    # the reach is re-read at impact: a packed body's swing
+                    # connects from the crowd-reach distance (issue #91)
+                    if hit_dist <= _crowd_reach(z, body_grid) and evaluate_hit(p, z.get('accuracy', 100)):
                         lvl = z.get('level', 1)
                         incoming_damage[enemy_dmg_type] = (
                             incoming_damage.get(enemy_dmg_type, 0.0) + MELEE_DAMAGE * _anima_damage_mult(lvl))
@@ -494,14 +568,20 @@ def update_zombies(dt, zombies, players, map_data,
             # Keep closing until well inside attack reach - the stop distance
             # must stay strictly below MELEE_RANGE or the enemy halts just
             # outside it and never enters 'attack' (regression guard).
+            # Engagement compression (issue #91): bodies near the target
+            # relax the crowd spacing so the attack ring packs tighter and
+            # a huge horde can actually connect.
+            engaging = _engaging(z, target)
+            sep_radius = SEPARATION_RADIUS * (ENGAGE_SEP_MULT if engaging else 1.0)
+            sep_strength = SEPARATION_STRENGTH * (ENGAGE_SEP_MULT if engaging else 1.0)
             if nearest_dist > MELEE_RANGE * 0.6:
                 # Blend pursuit with separation so enemies fan out and
                 # surround the player instead of stacking into one pile.
                 pursuit_x = (target['x'] - z['x']) / nearest_dist
                 pursuit_y = (target['y'] - z['y']) / nearest_dist
-                sep_x, sep_y = _separation_vector(z, body_grid)
-                move_x = pursuit_x + sep_x * SEPARATION_STRENGTH
-                move_y = pursuit_y + sep_y * SEPARATION_STRENGTH
+                sep_x, sep_y = _separation_vector(z, body_grid, radius=sep_radius)
+                move_x = pursuit_x + sep_x * sep_strength
+                move_y = pursuit_y + sep_y * sep_strength
                 norm = math.hypot(move_x, move_y)
                 if norm > 1e-6:
                     move_x /= norm
@@ -522,7 +602,11 @@ def update_zombies(dt, zombies, players, map_data,
                         z['facing_x'] = move_x
                         z['facing_y'] = move_y
 
-            if target is players[0] and nearest_dist < MELEE_RANGE:
+            # Packed bodies (jostling with neighbours inside the crowd) get
+            # the wider crowd reach - the second ring of a huge horde must
+            # connect too (issue #91).
+            reach = _crowd_reach(z, body_grid) if target is players[0] else MELEE_RANGE
+            if target is players[0] and nearest_dist < reach:
                 z['attack_cd'] = z.get('attack_cd', 0.0) - dt
                 if z['attack_cd'] <= 0:
                     z['attack_cd'] = ZOMBIE_ATTACK_CD_S
@@ -561,7 +645,11 @@ def update_zombies(dt, zombies, players, map_data,
 
     # Body push: resolve residual overlaps positionally so a wave closes as
     # a front and bodies can't share one tile (issue #53).
-    _resolve_body_push(alive_zombies, body_grid, dt)
+    # Engagement compression (issue #91): the player's position is the
+    # compress centre - bodies near the target rest tighter so the attack
+    # ring scales with the horde.
+    _resolve_body_push(alive_zombies, body_grid, dt,
+                       compress_centers=tuple((p['x'], p['y']) for p in players))
 
     return incoming_damage
 
