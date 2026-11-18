@@ -15,7 +15,7 @@
 
 """Card APPLY wiring (issue #95).
 
-The bug: InventoryUI.on_apply_card was never wired to Game._apply_tarot_card,
+The bug: InventoryUI.on_apply_card was never wired to Game._apply_currency_card,
 so EVERY currency card application silently did nothing - the pending apply
 was discarded and the card was never consumed ("the card that unrots doesn't
 work at all").
@@ -41,7 +41,7 @@ class CardApplyWiringTests(unittest.TestCase):
 
     def test_callback_is_wired_on_a_real_game(self):
         game = Game()
-        self.assertEqual(game.inv.on_apply_card, game._apply_tarot_card)
+        self.assertEqual(game.inv.on_apply_card, game._apply_currency_card)
 
     def test_ui_apply_flow_reaches_the_game_and_consumes_the_card(self):
         """Drive the UI exactly like the mouse does: _exec 'apply' sets the
@@ -90,7 +90,7 @@ class CardApplyWiringTests(unittest.TestCase):
         game.inventory['grid'].append(
             currency.make_card_slot(1, quarters=1))
 
-        game._apply_tarot_card(game.inventory['grid'][1], 'grid', 1,
+        game._apply_currency_card(game.inventory['grid'][1], 'grid', 1,
                                'grid', 0)
 
         inst = organ['instance_data']
@@ -111,7 +111,7 @@ class CardApplyWiringTests(unittest.TestCase):
         game.inventory['grid'].append(
             currency.make_card_slot(1, quarters=1))
 
-        game._apply_tarot_card(game.inventory['grid'][1], 'grid', 1,
+        game._apply_currency_card(game.inventory['grid'][1], 'grid', 1,
                                'grid', 0)
 
         self.assertIs(organ['instance_data'], old_inst)   # untouched
@@ -133,7 +133,7 @@ class CardApplyWiringTests(unittest.TestCase):
         game.inventory['grid'].append(
             currency.make_card_slot(14, quarters=1))
 
-        game._apply_tarot_card(game.inventory['grid'][1], 'grid', 1,
+        game._apply_currency_card(game.inventory['grid'][1], 'grid', 1,
                                'grid', 0)
 
         inst = organ['instance_data']

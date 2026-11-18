@@ -17,7 +17,7 @@ from config import ASSETS
 """
 PoE-style inventory panel - right-side overlay, toggle with I.
 Rendered on the itsmars_Inventory art: organ slots left of the torso,
-tarot card slots + flask right, 8x4 backpack grid centre, 7 DESCEND
+currency card slots + flask right, 8x4 backpack grid centre, 7 DESCEND
 attribute tiles below the grid, gems in the base.
 Right-click any filled slot for context actions.
 """
@@ -318,7 +318,7 @@ class InventoryUI:
         self._ui_header      = None   # header banner
         self._pickup_flashes = {}     # id(entry) → timer for new-item glow
         self._grid_id_set    = set()  # last frame's grid item identities
-        self._apply_pending  = None   # tarot card awaiting a target item
+        self._apply_pending  = None   # currency card awaiting a target item
         self.on_apply_card   = None   # (card_entry, src, idx, t_src, t_idx)
         self._bg             = None   # itsmars_Inventory panel art
         self._stash_bg       = None   # BankStash panel art (left side)
@@ -2149,7 +2149,7 @@ class InventoryUI:
             label  = f"Rot: {int(round(pct))}%" + (" (ROTTEN)" if rotten else "")
             lines.append((label, _rot_col(pct)))
 
-        # tarot currency card info (issue #73 phase B)
+        # currency card info (issue #73 phase B)
         card_arc = currency_mod.arcana_of(item_id)
         if card_arc is not None:
             cinfo = currency_mod.CURRENCY_CARDS.get(card_arc, {})

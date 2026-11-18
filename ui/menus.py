@@ -810,9 +810,6 @@ class MenuSystem:
         # the end of the same tick) - sync the cursor here (issue #69)
         self._sync_char_cursor()
 
-    def _d_play(self, cw: int, ch: int):
-        pass  # handled in _u_play, no drawing needed
-
     # ── CHARACTERS ────────────────────────────────────────────────────
 
     def _sync_char_cursor(self):
@@ -1287,97 +1284,6 @@ class MenuSystem:
         if _btn(cx_r, 'Cancel', 20, wood=True):
             self.state = 'characters'
             self._sync_char_cursor()
-
-    def _u_codex(self, _dt):
-        if _inp.key_pressed(self, rl.KEY_ESCAPE):
-            self._unload_preview_sprites()
-            self._hub_back()
-
-    def _d_codex(self, cw: int, ch: int):
-        self._preview_anim_time += rl.get_frame_time()
-        self._load_preview_sprites()
-        if not self.popup_mode:
-            self._draw_menu_background(cw, ch)
-        left, right = gui_kit.board_page(cw, ch)
-
-        # ── Left page: title ─────────────────────────────────────────────
-        title = 'Codex'
-        tw = fonts.measure(title, 30)
-        fonts.draw(title, int(left.x + (left.width - tw) / 2),
-                   int(left.y + 40), 30, rl.WHITE)
-        sub = 'Vessels of the Anima'
-        sw = fonts.measure(sub, 16)
-        fonts.draw(sub, int(left.x + (left.width - sw) / 2),
-                   int(left.y + 80), 16, gui_kit.MUTED)
-        best = self.char_mgr.best_depth
-        prog = f'Best Descent: Depth {best}'
-        pw2 = fonts.measure(prog, 14)
-        fonts.draw(prog, int(left.x + (left.width - pw2) / 2),
-                   int(left.y + 110), 14, gui_kit.GOLD)
-
-        # ── Right page: one row per vessel ───────────────────────────────
-        pad = 16
-        vx = right.x + pad
-        vw_ = right.width - 2 * pad
-        vy = right.y + 14
-        row_h = (right.height - 28 - 2 * 10) / 3
-        for lk in LOOKS_OPTIONS:
-            vdef  = VESSEL_DEFS.get(lk, {})
-            vun   = VESSEL_UNLOCKS.get(lk, {})
-            wip = lk in WIP_VESSELS
-            unlocked = self.char_mgr.is_vessel_unlocked(lk) and not wip
-
-            gui_kit.paper_panel(vx, vy, vw_, row_h)
-
-            pic = rl.Rectangle(vx + 10, vy + 10, row_h - 20, row_h - 20)
-            rl.draw_rectangle_rec(pic, _c(0x1A, 0x17, 0x14, 200))
-            self._draw_preview_frame(self._preview_sprites.get(lk), pic,
-                                     self._preview_anim_time)
-            if not unlocked:
-                rl.draw_rectangle_rec(pic, rl.Color(0, 0, 0, 0x99))
-                lock_txt = 'WIP' if wip else 'LOCKED'
-                lk_w = fonts.measure(lock_txt, 12)
-                fonts.draw(lock_txt, int(pic.x + (pic.width - lk_w) / 2),
-                           int(pic.y + pic.height / 2 - 8), 12, rl.WHITE)
-
-            tx = vx + row_h + 6
-            tw_ = vw_ - row_h - 22
-            name = vdef.get('name', LOOKS_LABELS[lk])
-            fonts.draw(name, int(tx), int(vy + 10), 16,
-                       rl.WHITE if unlocked else gui_kit.MUTED)
-            passive = vdef.get('passive', '')
-            fonts.draw(passive, int(tx), int(vy + 30), 11, gui_kit.MUTED)
-
-            flavor = vun.get('flavor', '')
-            fy = vy + 50
-            for line in _wrap_text(flavor, 11, int(tw_)):
-                fonts.draw(line, int(tx), int(fy), 11, gui_kit.MUTED)
-                fy += 14
-
-            if unlocked:
-                st = 'AVAILABLE'
-                fonts.draw(st, int(tx), int(vy + row_h - 22), 12, C_GREEN)
-            elif wip:
-                st = 'WIP - COMING LATER'
-                fonts.draw(st, int(tx), int(vy + row_h - 22), 12,
-                           gui_kit.MUTED)
-            else:
-                veil = vun.get('veil') or ''
-                fonts.draw(veil, int(tx), int(vy + row_h - 40), 11,
-                           rl.WHITE)
-                req  = vun.get('depth', 0)
-                pct  = min(1.0, best / req) if req else 0.0
-                bar_x = tx
-                bar_w = tw_ * 0.7
-                bar_y = vy + row_h - 20
-                rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w), 4,
-                                  _c(0x40, 0x40, 0x40, 160))
-                rl.draw_rectangle(int(bar_x), int(bar_y), int(bar_w * pct), 4,
-                                  gui_kit.GOLD)
-                prog = f'Best Depth {best} / {req}'
-                fonts.draw(prog, int(bar_x + bar_w + 10), int(bar_y - 2), 10,
-                           gui_kit.MUTED)
-            vy += row_h + 10
 
     # ── CREDITS (licences & attribution) ──────────────────────────────
 

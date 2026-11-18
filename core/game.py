@@ -616,7 +616,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self.inv.on_grid_change   = self._on_stash_change   # backpack sorts persist too (issue #12)
         # Card APPLY callback (issue #95): without this wiring the currency
         # cards did literally nothing - _apply_pending was silently discarded
-        self.inv.on_apply_card    = self._apply_tarot_card
+        self.inv.on_apply_card    = self._apply_currency_card
         self.ground_items = []
         self._loot_sparkles = []
 
@@ -896,7 +896,7 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         self.menu_sys.signal()
         self.menu_sys.set_state('paused')
 
-    def _apply_tarot_card(self, card_entry, card_src, card_idx, t_src, t_idx):
+    def _apply_currency_card(self, card_entry, card_src, card_idx, t_src, t_idx):
         """InventoryUI callback: apply a complete (4/4) tarot currency card
         to the clicked target slot (issue #73 phase B)."""
         arc = currency.arcana_of(card_entry.get('item', ''))
@@ -2210,90 +2210,6 @@ class Game(InputMixin, HubMixin, AnimaFlowMixin, HubRenderMixin, HudRenderMixin,
         return self._enemy_max_health(etype, self._get_enemy_level())
 
 
-
-    def _spawn_enemies(self, center_col, center_row, count=6, min_r=4, max_r=10):
-        enemy_level = self._get_enemy_level()
-        acc         = combat.skeleton_accuracy(int(enemy_level))
-        base_hp     = self._enemy_hp(100.0)
-        mit         = self._enemy_mitigation(enemy_level)
-        _map        = self.map
-        enemies     = []
-        for i in range(count):
-            for _ in range(120):
-                angle = random.uniform(0, math.tau)
-                dist  = random.uniform(min_r, max_r)
-                x = center_col + math.cos(angle) * dist
-                y = center_row + math.sin(angle) * dist
-                tile_col, tile_row = int(x), int(y)
-                if 0 <= tile_col < MAP_SIZE and 0 <= tile_row < MAP_SIZE and _map[tile_col][tile_row] == 0:
-                    enemies.append({
-                        'id':               f'sk{i}',
-                        'enemy_type':       'skeleton',
-                        'level':            int(enemy_level),
-                        'x':                x,
-                        'y':                y,
-                        'health':           base_hp,
-                        'max_health':       base_hp,
-                        'state':            'idle',
-                        'anim_timer':       0.0,
-                        'frame':            0,
-                        'facing_x':         1.0,
-                        'facing_y':         0.0,
-                        'accuracy':         acc,
-                        'evasion':          enemy_evasion('skeleton', enemy_level),
-                        'spawn_x':          x,
-                        'spawn_y':          y,
-                        'move_speed':       make_move_speed('skeleton'),
-                        'speed_ramp':       0.0,
-                        'dmg_type':         _pick_enemy_dmg_type(enemy_level),
-                        'damage_reduction': mit['damage_reduction'],
-                        'resist_pct':       dict(mit['resist_pct']),
-                        **default_status_fields(),
-                    })
-                    break
-        return enemies
-
-    def _spawn_slimes(self, center_col, center_row, count=4, min_r=6, max_r=14):
-        enemy_level = self._get_enemy_level()
-        _map        = self.map
-        slime_hp    = self._enemy_hp(150.0)
-        mit         = self._enemy_mitigation(enemy_level)
-        slime_acc   = int(combat.skeleton_accuracy(int(enemy_level)) * 0.8)
-        slimes      = []
-        for i in range(count):
-            for _ in range(120):
-                angle = random.uniform(0, math.tau)
-                dist  = random.uniform(min_r, max_r)
-                x = center_col + math.cos(angle) * dist
-                y = center_row + math.sin(angle) * dist
-                tile_col, tile_row = int(x), int(y)
-                if 0 <= tile_col < MAP_SIZE and 0 <= tile_row < MAP_SIZE and _map[tile_col][tile_row] == 0:
-                    slimes.append({
-                        'id':               f'sl{i}',
-                        'enemy_type':       'slime',
-                        'level':            int(enemy_level),
-                        'x':                x,
-                        'y':                y,
-                        'health':           slime_hp,
-                        'max_health':       slime_hp,
-                        'state':            'idle',
-                        'anim_timer':       0.0,
-                        'frame':            0,
-                        'facing_x':         1.0,
-                        'facing_y':         0.0,
-                        'accuracy':         slime_acc,
-                        'evasion':          enemy_evasion('slime', enemy_level),
-                        'spawn_x':          x,
-                        'spawn_y':          y,
-                        'move_speed':       make_move_speed('slime'),
-                        'speed_ramp':       0.0,
-                        'dmg_type':         _pick_enemy_dmg_type(enemy_level),
-                        'damage_reduction': mit['damage_reduction'],
-                        'resist_pct':       dict(mit['resist_pct']),
-                        **default_status_fields(),
-                    })
-                    break
-        return slimes
 
     def _spawn_anima_objects(self):
         _m = self.map

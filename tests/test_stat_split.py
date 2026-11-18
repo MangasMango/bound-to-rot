@@ -163,9 +163,13 @@ class PipelineTests(unittest.TestCase):
         and include OFFENSE - the intestine's +6% Magic Damage implicit
         rides the same damage_pct axis as rolled affixes."""
         game = self._harness(strength=0)
+        # rolled affixes pinned empty: the test measures the IMPLICIT only
+        # (generate_instance can roll pk_*_dmg affixes that would pollute
+        # the percent axis)
         intestine = {'item': 'intestine', 'count': 1, 'col': 0, 'row': 0,
                      'instance_data': itemgen.generate_instance('intestine', 10)}
         intestine['instance_data']['identified'] = True
+        intestine['instance_data']['affixes'] = {'prefixes': {}, 'suffixes': {}}
         game.inventory['equipped']['intestine'] = intestine
         game._recalc_derived_stats()
         self.assertAlmostEqual(game.stats['damage_pct']['magic'], 0.06)
@@ -173,6 +177,7 @@ class PipelineTests(unittest.TestCase):
         kidney = {'item': 'kidney', 'count': 1, 'col': 1, 'row': 0,
                   'instance_data': itemgen.generate_instance('kidney', 10)}
         kidney['instance_data']['identified'] = True
+        kidney['instance_data']['affixes'] = {'prefixes': {}, 'suffixes': {}}
         game.inventory['equipped']['kidney'] = kidney
         game._recalc_derived_stats()
         self.assertAlmostEqual(game.stats['damage_pct']['physical'], 0.05)
