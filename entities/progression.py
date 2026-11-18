@@ -864,9 +864,6 @@ class Character:
         if self._save_cb:
             self._save_cb()
 
-    def load(self):
-        pass  # loading handled by CharacterManager
-
     def to_dict(self) -> dict:
         return {
             'id':             self.id,
@@ -944,14 +941,6 @@ class CharacterManager:
 
     def is_vessel_unlocked(self, looks: str) -> bool:
         return looks in self.unlocked_vessels
-
-    def unlock_vessel(self, looks: str) -> bool:
-        """Record an account-wide vessel unlock. Returns True if newly unlocked."""
-        if looks in self.unlocked_vessels:
-            return False
-        self.unlocked_vessels.append(looks)
-        self.save()
-        return True
 
     def note_depth(self, depth: int) -> list[str]:
         """Record the deepest point reached on any descent and auto-unlock any

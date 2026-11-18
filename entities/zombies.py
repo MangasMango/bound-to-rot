@@ -149,7 +149,6 @@ assert MELEE_RANGE <= DETECT_RANGE, "attack range must not exceed chase-acquire 
 _ROT_SPREAD_INTERVAL = 2.0
 _ROT_SPREAD_RADIUS   = 1.5
 
-_next_id = 0
 _rot_spread_timer = 0.0
 
 
@@ -373,38 +372,6 @@ def _resolve_body_push(alive, grid, dt, compress_centers=()):
                         a['y'] -= ny * step
                         b['x'] += nx * step
                         b['y'] += ny * step
-
-
-def init_zombies(map_data):
-    """Scan map for tile 9, replace with floor 0, return zombie list."""
-    global _next_id
-    zombies = []
-    for x in range(len(map_data)):
-        for y in range(len(map_data[x])):
-            if map_data[x][y] == 9:
-                map_data[x][y] = 0
-                zombies.append({
-                    'id':               f'z{_next_id}',
-                    'x':                x + 0.5,
-                    'y':                y + 0.5,
-                    'health':           MAX_HEALTH,
-                    'max_health':       MAX_HEALTH,
-                    'state':            'idle',
-                    'anim_timer':       0.0,
-                    'frame':            0,
-                    'facing_x':         1.0,
-                    'facing_y':         0.0,
-                    'accuracy':         100,
-                    'evasion':          enemy_evasion('skeleton', 1),
-                    'spawn_x':          x + 0.5,
-                    'spawn_y':          y + 0.5,
-                    'move_speed':       make_move_speed('skeleton'),
-                    'speed_ramp':       0.0,
-                    'dmg_type':         'physical',
-                    **default_status_fields(),
-                })
-                _next_id += 1
-    return zombies
 
 
 def _has_los(map_data, x0, y0, x1, y1):
